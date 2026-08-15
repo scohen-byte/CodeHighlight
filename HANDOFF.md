@@ -21,21 +21,34 @@ addin/
                               dropdown, which is real
     modLangRegistry.bas       LangDef type, the registry, word-set helpers
     modLangPython.bas         the Python table. Data only
+    modTheme.bas              token classes and colours. Language-neutral
+    modLexer.bas              the scanner. Names no language      <- the hard part
+    modSelfTest.bas           runs the corpus, dumps masks for diffing
   ribbon/
     customUI14.xml            Code tab: 3 groups, 7 controls, 1 dropdown
   tools/
     lab.py                    visual lab AND the reference implementation of
                               the locked spec (derive / fit_size / split_advice)
+    lexref.py                 reference classification as per-character masks
+    run-lexer-tests.sh        the lexer test loop. Start here after a change
+    lexer-test.ps1            its COM driver, called by the above
     pack-ribbon.sh            injects the ribbon into a .ppam
+    check-imagemso.ps1        verifies ribbon icon ids against PowerPoint
     ppt.ps1                   PowerPoint COM helpers, called via powershell.exe
     check-env.ps1             read-only readiness check, safe to send to others
   tests/samples/python/
     lab_snippet.py            12 lines, the variant-comparison snippet
     long_snippet.py           27 lines, exercises auto-fit and splitting
+    basic.py strings.py triple.py prefixes.py numbers.py
+    comments.py decorators.py long.py       one failure mode each
   dist/                       generated, gitignored
     lab.pptx                  26 font/size/spacing variants
     ladder.pptx               locked spec at every ladder size, 10-32pt
+    lexer/                    expected vs actual masks from the last test run
 ```
+
+Also installed, on the Windows side:
+`%APPDATA%\Microsoft\Addins\CodeHighlight.ppam` — the working add-in.
 
 Now a git repo, as of 2026-08-15.
 
@@ -90,22 +103,33 @@ file is the spec.** When the VBA disagrees with it, the VBA is wrong.
 - `lab.py` still regenerates both decks after the samples moved into
   `tests/samples/python/`.
 
+Also 2026-08-15, the big one:
+
+- **The scanner matches the reference on all ten samples, character for
+  character.** `tools/run-lexer-tests.sh`. That includes the triple-quote,
+  string-escape and prefix cases the plan calls out as where scanners break.
+- Tokenizing the whole corpus takes 312 ms for 15,848 characters and 2,547
+  spans, so the performance worry is settled.
+- The Code tab loads, all seven controls fire, the Language dropdown is fed by
+  the registry, and every `imageMso` renders.
+
 ## 4. NOT yet verified — check these early
 
-These are the assumptions that could still invalidate part of the design.
-
-1. **That PowerPoint accepts the packed `.ppam` and shows the tab.** The packer
-   is proven to produce a structurally correct package. Whether Office agrees is
-   the actual Phase 0 question and is still open.
-2. **`imageMso` ids.** `SizeToControlHeight` on the Fit button is the least
-   certain. A bad id renders blank rather than failing, so just look.
-3. **Font embedding from VBA.** Whether `SaveAs ... EmbedTrueTypeFonts` is
+1. **Per-character colouring speed.** Tokenizing is fast, but the renderer's
+   COM round trips are the part that was never the lexer's problem. 2,547 spans
+   across ten files, so a single realistic block is roughly 100–300. Measure
+   before reaching for `LockWindowUpdate`.
+2. **Font embedding from VBA.** Whether `SaveAs ... EmbedTrueTypeFonts` is
    usable. Lower stakes than it was, because Consolas is on every Windows
    machine — embedding is now belt-and-braces rather than load-bearing.
-4. **Shape tag persistence** across save, close and reopen. There is already a
+3. **Shape tag persistence** across save, close and reopen. There is already a
    fallback if tags do not survive (treat any selected text box as code), so
    this is a convenience risk, not a design risk.
-5. **Per-character coloring speed** in VBA at ~300 spans.
+4. **Repeated `Application.Run` calls from PowerShell.** After two or three
+   calls against a freshly imported project, further ones fail with "Sub or
+   function not defined" for procedures that are demonstrably present. Never
+   root-caused. The harness works around it by doing the whole corpus in one
+   call. Anything new driven over COM should keep the call count low.
 
 ---
 
@@ -114,6 +138,14 @@ These are the assumptions that could still invalidate part of the design.
 Everything runs from `/home/sara/projects/work/addin` in WSL.
 
 ```bash
+# THE MAIN LOOP: run the scanner over the corpus and diff it against the
+# reference. No human step. Add sample names to run only those.
+tools/run-lexer-tests.sh
+tools/run-lexer-tests.sh triple strings
+
+# see what the reference says a file should look like
+python3 tools/lexref.py --pretty tests/samples/python/triple.py
+
 # regenerate the variant deck (26 slides)
 python3 tools/lab.py
 
