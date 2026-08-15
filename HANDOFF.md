@@ -1,11 +1,13 @@
-# Handoff — updated 2026-08-15 (Sat)
+# Handoff — paused 2026-08-15 (Sat), resuming Sunday 2026-08-16
 
 `PLAN.md` holds the design and the full build order. This file holds only the
 things `PLAN.md` does not: what physically exists right now, what has been
 proven versus merely assumed, and the exact commands to pick the work back up.
 
 **Phases −1 and 0 are complete. The lexer is done and passes its whole corpus.
-Next: the renderer and block creation, which finish the Phase 1 MVP.**
+Sunday starts with a THIN SLICE of the renderer — see section 6 — rather than
+the full Phase 1, because the three things that could still go wrong only show
+up in a real shape on a real slide.**
 
 ---
 
@@ -172,26 +174,66 @@ gets tested from a script once the `.ppam` exists.
 
 ---
 
-## 6. Next move — finish the Phase 1 MVP
+## 6. Sunday's first move — the thin slice
 
-The lexer is done. `tools/run-lexer-tests.sh` runs the VBA scanner over all ten
-samples and diffs it against `tools/lexref.py` character by character, and all
-ten match. It needs no human step: it imports the modules into a scratch deck
-over COM, runs them, and diffs. Use it after every scanner change.
+**Goal: one code block on one slide, highlighted, exported to PNG. Nothing
+else.** No gutter, no resizing, no error handling, no Highlight-all. About 45
+minutes, and it exists to fail fast in the same spirit as Phase 0.
 
-Remaining for the MVP:
+Why this shape rather than building all of Phase 1 first: the lexer is proven
+against files, but three things are unverified and every one of them only
+appears once real text is in a real shape. Each is cheap to find now and
+expensive to find after three more modules are stacked on top.
 
-1. `modBlock.bas` — `New block` inserts a rounded rectangle against the locked
-   spec in `PLAN.md` §5a. Left-align every paragraph explicitly, wrap off,
-   autofit off, exact point line spacing.
-2. `modRender.bas` — apply spans to the shape. Reset to the default colour
-   first, then colour, which is what makes re-highlighting idempotent. Skip
-   default-coloured spans; they were handled by the reset.
-3. Wire both into the ribbon callbacks, replacing the stubs.
-4. Verify shape tags survive save, close and reopen.
+1. **The off-by-one.** The scanner has only ever seen file text with LF endings.
+   PowerPoint uses **CR** for paragraph marks, a soft line break is **VT**, and
+   `TextRange.Characters(start, length)` is **1-based**. Get it wrong and every
+   colour shifts one character across the whole block — bizarre-looking and easy
+   to misdiagnose. `PLAN.md` §13 calls this out. The mask harness CANNOT catch
+   it: it tests the scanner, not the bridge from scanner to shape.
+   Test with a block whose first character is a keyword and whose last is a
+   comment.
+2. **Per-character colouring speed.** Tokenizing is settled at 312 ms for the
+   whole corpus, but that was never the risk. Each
+   `.Characters(...).Font.Color` assignment is a COM round trip, and a realistic
+   block is 100–300 spans. Measure before reaching for `LockWindowUpdate`.
+3. **The COM call-count hazard in section 4.** Driving render tests means more
+   `Application.Run` calls, which is exactly where it bit. Keep the count low.
 
-Performance is already settled: the whole corpus tokenizes in 312 ms for 15,848
-characters and 2,547 spans, so `LockWindowUpdate` is not needed.
+### What the slice needs
+
+- `modBlock.bas`, minimal: insert a `msoShapeRoundedRectangle`, fill `1F1F1F`,
+  no line, wrap off, autofit off, all four margins from the `derive()` formulas
+  in `tools/lab.py`, Consolas 22pt, **every paragraph explicitly left-aligned**,
+  exact-point line spacing. Alignment is not optional — autoshapes default to
+  centred and it is invisible until you look at a render.
+- `modRender.bas`, minimal: reset the whole range to the default colour, then
+  apply the spans, skipping default-coloured ones. Reset-then-colour is what
+  makes re-highlighting idempotent.
+- One driver macro that does insert + highlight in a single call, for the
+  reason in section 4.
+- Export the slide to PNG with `tools/ppt.ps1 -Action export` and look at it.
+
+### The checkpoint
+
+The PNG is the deliverable, not the code. It gets compared against
+`dist/ladder.pptx` slide 5 — the signed-off look. If it matches, the rest of
+Phase 1 is padding out modules along a proven path and becomes predictable.
+If it does not, better to know before the gutter and the size ladder exist.
+
+### Then, and only then, the rest of Phase 1
+
+1. Gutter, resizing, Highlight-all, error handling for the obvious wrong
+   selections — nothing selected, a picture, a group, an empty block.
+2. Wire everything into the ribbon callbacks, replacing the stubs.
+3. Verify shape tags survive save, close and reopen.
+
+### On estimates
+
+Phase 0 was estimated at 30 minutes and took about two hours. Both overruns
+came from silent failures — Office reporting nothing at all rather than
+reporting a problem. The render path has the same character, so treat "one hour
+of code" as the floor and 2–3 hours as the realistic figure for a working MVP.
 
 ## 6a. Superseded — how Phase 0 finished
 
