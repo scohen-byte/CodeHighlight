@@ -47,12 +47,17 @@ Private mTypes    As Collection
 Private mSelfWords As Collection
 Private mFuncDef  As Collection
 Private mTypeDef  As Collection
+Private mSoft     As Collection
 Private mPrefixes As Collection
 
 ' The word before the current one, used for the "identifier after def" rule.
 ' Whitespace does not clear it. Anything else does.
 Private mPrevWord    As String
 Private mAtLineStart As Boolean
+' Whether the word now being classified is the first one on its line. Needed
+' for soft keywords, and distinct from mAtLineStart, which is cleared before
+' the identifier is scanned.
+Private mWasLineStart As Boolean
 
 '==============================================================================
 ' Public API
@@ -125,10 +130,12 @@ Private Sub InitRun(ByVal text As String, ByRef lang As LangDef)
     Set mSelfWords = WordSet(lang.SelfWords, cs)
     Set mFuncDef = WordSet(lang.FuncDefKeywords, cs)
     Set mTypeDef = WordSet(lang.TypeDefKeywords, cs)
+    Set mSoft = WordSet(lang.SoftKeywords, cs)
     Set mPrefixes = WordSet(lang.StringPrefixes, False)   ' always case-insensitive
 
     mPrevWord = ""
     mAtLineStart = True
+    mWasLineStart = True
 End Sub
 
 '==============================================================================
@@ -175,6 +182,7 @@ Private Sub ScanOneToken()
         End If
     End If
 
+    mWasLineStart = mAtLineStart
     mAtLineStart = False
 
     If InStr(mLang.QuoteChars, ch) > 0 Then
@@ -240,17 +248,17 @@ End Sub
 '==============================================================================
 
 Private Sub ScanDecorator()
-    Dim startPos As Long, ch As String
+    Dim startPos As Long
     startPos = mPos
     mPos = mPos + Len(mLang.DecoratorChar)
-    ' The dotted name that follows: @functools.wraps, @name.setter
+    ' The sigil and the FIRST name only. Anything after a dot is an ordinary
+    ' attribute reference and follows the normal identifier rules, so
+    ' @functools.wraps(fn) colours wraps as a call while @name.setter colours
+    ' setter as an attribute. Swallowing the whole dotted name would colour
+    ' both the same and neither correctly.
     Do While mPos <= mLen
-        ch = Mid$(mText, mPos, 1)
-        If IsIdentChar(ch) Or ch = "." Then
-            mPos = mPos + 1
-        Else
-            Exit Do
-        End If
+        If Not IsIdentChar(Mid$(mText, mPos, 1)) Then Exit Do
+        mPos = mPos + 1
     Loop
     Emit startPos, mPos - startPos, tkFunction
     mAtLineStart = False
@@ -450,8 +458,15 @@ Private Function ClassifyWord(ByVal word As String) As TokenClass
     cs = mLang.CaseSensitive
 
     If InSet(mCtrl, word, cs) Then ClassifyWord = tkKeywordCtrl: Exit Function
+
+    ' Soft keywords are keywords only where a statement can start. Python's
+    ' match and case are ordinary names everywhere else, and re.match is far
+    ' more common in teaching code than a match statement is.
+    If mWasLineStart Then
+        If InSet(mSoft, word, cs) Then ClassifyWord = tkKeywordCtrl: Exit Function
+    End If
+
     If InSet(mDecl, word, cs) Then ClassifyWord = tkKeywordDecl: Exit Function
-    If InSet(mSelfWords, word, cs) Then ClassifyWord = tkKeywordDecl: Exit Function
 
     If Len(mPrevWord) > 0 Then
         If InSet(mFuncDef, mPrevWord, cs) Then ClassifyWord = tkFunction: Exit Function
@@ -460,10 +475,12 @@ Private Function ClassifyWord(ByVal word As String) As TokenClass
 
     If InSet(mTypes, word, cs) Then ClassifyWord = tkClass: Exit Function
 
-    ' A name followed by "(" is being called, which outranks being a builtin -
-    ' that is why len(x) is yellow and a bare int annotation is blue.
+    ' Being called outranks being a builtin or a self word - that is why len(x)
+    ' is yellow while a bare int annotation is blue, and why cls(**kwargs) is
+    ' yellow while self.balance is blue.
     If NextNonBlankIsCall() Then ClassifyWord = tkFunction: Exit Function
     If InSet(mBuiltins, word, cs) Then ClassifyWord = tkKeywordDecl: Exit Function
+    If InSet(mSelfWords, word, cs) Then ClassifyWord = tkKeywordDecl: Exit Function
 
     ClassifyWord = tkVariable
 End Function

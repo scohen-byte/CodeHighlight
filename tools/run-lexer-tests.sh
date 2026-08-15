@@ -70,11 +70,11 @@ for n in "${NAMES[@]}"; do
         printf '  %-14s DIFFERS\n' "$n"
         # Show the first few differing lines with their source, which is the
         # only form of this output anyone can actually act on.
-        awk -v src="$SAMPLES/$n.py" -v exp="$EXPECTED/$n.mask" -v act="$ACTUAL/$n.mask" '
+        awk -v src="$SAMPLES/$n.py" -v want="$EXPECTED/$n.mask" -v got="$ACTUAL/$n.mask" '
             BEGIN {
                 while ((getline line < src) > 0) s[++ns] = line
-                while ((getline line < exp) > 0) e[++ne] = line
-                while ((getline line < act) > 0) a[++na] = line
+                while ((getline line < want) > 0) e[++ne] = line
+                while ((getline line < got) > 0) a[++na] = line
                 shown = 0
                 n = (ne > na ? ne : na)
                 for (i = 1; i <= n && shown < 4; i++) {

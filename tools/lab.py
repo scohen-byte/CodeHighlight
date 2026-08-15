@@ -153,6 +153,9 @@ GUTTER_W = Inches(0.55)
 def classify(tokens: list[tuple]) -> list[tuple[str, str]]:
     """Map pygments tokens onto our palette keys, VS Code style."""
     out: list[tuple[str, str]] = []
+    # A decorator is only a decorator at the start of a line. Whitespace keeps
+    # the flag, so an indented @property still counts.
+    at_line_start = True
     for i, (ttype, value) in enumerate(tokens):
         # look ahead past whitespace for a '(' to detect call sites
         nxt = ""
@@ -167,6 +170,22 @@ def classify(tokens: list[tuple]) -> list[tuple[str, str]]:
             key = "string"
         elif ttype in Number:
             key = "number"
+        elif ttype in Name and value in ("j", "J") and out and out[-1][0] == "number":
+            # pygments splits a complex literal: 3j lexes as Number "3" plus
+            # Name "j". VS Code colours the whole literal as a number, so glue
+            # the suffix back on.
+            key = "number"
+        elif ttype in Name.Decorator and not at_line_start:
+            # pygments matches @ as a decorator anywhere, so the matrix-multiply
+            # operator in "a @ b" comes out coloured like @decorator. Only a @
+            # that starts a line is a decorator. Split the token: the operator
+            # is punctuation, the name after it is an ordinary name.
+            out.append(("default", value[:1]))
+            rest = value[1:]
+            if rest:
+                out.append(("func" if nxt.startswith("(") else "var", rest))
+            at_line_start = False
+            continue
         elif ttype in Keyword:
             key = "kw_ctrl" if value in CONTROL_KW else "kw_decl"
         elif ttype in Name.Class:
@@ -187,6 +206,10 @@ def classify(tokens: list[tuple]) -> list[tuple[str, str]]:
         else:
             key = "default"
         out.append((key, value))
+        if value.strip():
+            at_line_start = value.endswith("\n")
+        elif "\n" in value:
+            at_line_start = True
     return out
 
 

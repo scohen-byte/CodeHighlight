@@ -53,6 +53,7 @@ Public Type LangDef
     CaseSensitive     As Boolean
     DecoratorChar     As String   ' "@" at line start, "" if the language has none
     ControlKeywords   As String   ' purple - flow control
+    SoftKeywords      As String   ' purple, but only where a statement can start
     DeclKeywords      As String   ' blue   - declarations, literals, word operators
     Builtins          As String   ' yellow when called
     TypeNames         As String   ' teal   - known types

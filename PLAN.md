@@ -765,10 +765,34 @@ the design: embed the chosen font in a test deck, open it on a machine without
 that font installed, and confirm the block both renders and edits correctly.
 Check whether `SaveAs ... EmbedTrueTypeFonts` is usable from VBA.
 
-**Phase 1 — MVP (~2 h).**
+**Phase 1 — MVP. Lexer DONE 2026-08-15, renderer and block creation still to do.**
 `New code block` plus a lexer covering comments, strings, numbers and keywords,
 plus the renderer. At the end of this phase the add-in is genuinely usable.
 Also: verify tag persistence across save and reopen.
+
+The lexer is finished and verified: `tools/run-lexer-tests.sh` runs the scanner
+over all ten samples and diffs it against `tools/lexref.py` character by
+character. **All ten match.** The whole corpus tokenizes in 312 ms for 15,848
+characters and 2,547 spans, so the performance worry in section 7 is settled -
+no `LockWindowUpdate` needed.
+
+Three real bugs the corpus caught, all now fixed, none of which would have been
+obvious by eye:
+
+- A decorator swallowed its dotted attribute, so `@name.setter` coloured
+  `setter` as part of the decorator. Only the sigil and the first name belong
+  to it.
+- `cls(**kwargs)` came out blue. Being called outranks being a self word, the
+  same way it outranks being a builtin.
+- `match` was a hard keyword, so `re.match(...)` and any variable named `match`
+  turned purple. It is a *soft* keyword - see `SoftKeywords` in the LangDef,
+  which only fires where a statement can start.
+
+Two defects in the reference classifier were also fixed, in `tools/lab.py`, so
+the reference decks get them too. Both were cases where the VBA was right:
+pygments splits `3j` into a number and a name, and it reads the `@` in `a @ b`
+as a decorator. `tests/samples/python/decorators.py` was written specifically to
+catch that second one.
 
 **Phase 2 — identifier classification (~1 h).**
 def / class / call site / builtins / self / decorators. This is what makes it

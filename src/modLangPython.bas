@@ -44,7 +44,12 @@ Public Function PythonLang() As LangDef
     L.ControlKeywords = "if elif else for while return break continue " & _
                         "try except finally raise with as yield pass " & _
                         "assert del import from global nonlocal async " & _
-                        "await match case"
+                        "await"
+
+    ' Soft keywords: real keywords only at the start of a statement. Elsewhere
+    ' they are ordinary names, and re.match(...) or a variable called match is
+    ' far more common in teaching code than a match statement.
+    L.SoftKeywords = "match case"
 
     ' Blue. Declarations, literals, and the word operators - pygments files
     ' and/or/not/in/is under Operator, but VS Code renders them blue like these.
