@@ -1,0 +1,7 @@
+__pycache__/
+*.pyc
+dist/*.pptx
+
+# add-in build artifacts and packer backups
+dist/*.ppam
+*.ppam.bak

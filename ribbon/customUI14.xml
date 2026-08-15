@@ -1,0 +1,87 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Ribbon definition for CodeHighlight.
+
+  This file is injected into the .ppam by tools/pack-ribbon.sh. The packed copy
+  inside the add-in is the live one - PowerPoint never reads this path at
+  runtime, so editing here has no effect until you re-run the packer.
+
+  Every onAction / getX name below must exist as a Public Sub in modRibbon.bas.
+  A missing callback produces a "Cannot run the macro" dialog on click, not a
+  load failure, so the tab still appears.
+-->
+<customUI xmlns="http://schemas.microsoft.com/office/2009/07/customui"
+          onLoad="RibbonOnLoad">
+  <ribbon>
+    <tabs>
+      <tab id="tabCode" label="Code" insertAfterMso="TabHome">
+
+        <group id="grpBlock" label="Code block">
+          <button id="btnNew"
+                  label="New block"
+                  size="large"
+                  imageMso="TextBoxInsert"
+                  onAction="RibbonNewBlock"
+                  screentip="Insert a code block"
+                  supertip="Adds an empty dark code block at the default size, ready to type into."/>
+          <!--
+            The language list is driven by modLangRegistry, not hardcoded here.
+            Adding a language means registering it there - this XML never changes.
+          -->
+          <dropDown id="ddLang"
+                    label="Language"
+                    sizeString="Python XXXX"
+                    getItemCount="RibbonLangCount"
+                    getItemLabel="RibbonLangLabel"
+                    getSelectedItemIndex="RibbonLangSelected"
+                    onAction="RibbonLangChanged"
+                    screentip="Language for the selected block"
+                    supertip="Sets which lexer the Highlight button uses. Stored on the shape, so each block remembers its own language."/>
+        </group>
+
+        <group id="grpHighlight" label="Highlight">
+          <button id="btnHighlight"
+                  label="Highlight"
+                  size="large"
+                  imageMso="Repaint"
+                  onAction="RibbonHighlight"
+                  screentip="Highlight the selected block"
+                  supertip="Re-colors the selected code block from scratch. Safe to press as often as you like."/>
+          <button id="btnHighlightAll"
+                  label="Highlight all"
+                  imageMso="RefreshAll"
+                  onAction="RibbonHighlightAll"
+                  screentip="Highlight every block on this slide"/>
+          <toggleButton id="tglGutter"
+                        label="Line numbers"
+                        imageMso="ListNumbering"
+                        getPressed="RibbonGutterPressed"
+                        onAction="RibbonToggleGutter"
+                        screentip="Show or hide line numbers"/>
+        </group>
+
+        <group id="grpSize" label="Size">
+          <button id="btnBigger"
+                  label="Larger"
+                  imageMso="FontSizeIncrease"
+                  onAction="RibbonSizeUp"
+                  screentip="Step up the size ladder"
+                  supertip="Stops growing where the code would stop fitting the slide."/>
+          <button id="btnSmaller"
+                  label="Smaller"
+                  imageMso="FontSizeDecrease"
+                  onAction="RibbonSizeDown"
+                  screentip="Step down the size ladder"/>
+          <button id="btnFit"
+                  label="Fit"
+                  size="large"
+                  imageMso="SizeToControlHeight"
+                  onAction="RibbonFit"
+                  screentip="Pick the largest size that fits"
+                  supertip="Warns instead of shrinking silently when the code will not read from the back of the room."/>
+        </group>
+
+      </tab>
+    </tabs>
+  </ribbon>
+</customUI>
