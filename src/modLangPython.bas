@@ -27,6 +27,12 @@ Public Function PythonLang() As LangDef
     L.RawPrefixChars = "r"
     L.EscapeChar = "\"
 
+    L.InterpPrefixChars = "f"
+    L.InterpOpen = "{"
+    L.InterpClose = "}"
+    L.InterpDoubling = True        ' "{{" is a literal brace, not a field
+    L.InterpSpecChars = "!:"       ' conversion and format spec end the code part
+
     L.NumberPrefixes = "0x 0o 0b"
     L.NumberSuffixes = "j J"
     L.DigitSep = "_"
@@ -51,11 +57,16 @@ Public Function PythonLang() As LangDef
                  "any all next iter format hash id dir vars getattr setattr " & _
                  "hasattr delattr callable divmod pow bin hex oct chr ord"
 
-    ' Teal.
-    L.TypeNames = "object Exception BaseException ValueError TypeError " & _
-                  "KeyError IndexError AttributeError RuntimeError " & _
-                  "StopIteration NotImplementedError ZeroDivisionError " & _
-                  "FileNotFoundError OSError IOError"
+    ' Teal. DELIBERATELY EMPTY for Python.
+    '
+    ' Tempting to put the builtin exceptions here, but the signed-off look
+    ' reserves teal for the name in a class DEFINITION. `ValueError(...)` is
+    ' yellow, because it is being called. Filling this in would diverge from
+    ' tools/lab.py, which is the spec.
+    '
+    ' The field stays because it earns its place in other languages - Java's
+    ' String and int genuinely are types worth colouring as types.
+    L.TypeNames = ""
 
     L.SelfWords = "self cls"
 

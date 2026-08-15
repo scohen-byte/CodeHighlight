@@ -5,3 +5,4 @@ dist/*.pptx
 # add-in build artifacts and packer backups
 dist/*.ppam
 *.ppam.bak
+dist/lexer/

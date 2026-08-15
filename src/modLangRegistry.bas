@@ -34,6 +34,16 @@ Public Type LangDef
     RawPrefixChars    As String   ' prefix letters that disable escapes, e.g. "r"
     EscapeChar        As String   ' "\" - empty disables escape handling
 
+    ' --- interpolation ------------------------------------------------------
+    ' Python f-strings, and the same shape covers JS template literals. Empty
+    ' InterpOpen disables the whole thing, so a language without interpolation
+    ' costs nothing.
+    InterpPrefixChars As String   ' prefix letters that enable it, "f"
+    InterpOpen        As String   ' "{"   (JS would be "${")
+    InterpClose       As String   ' "}"
+    InterpDoubling    As Boolean  ' is "{{" an escaped literal brace
+    InterpSpecChars   As String   ' at depth 0 these end the code part: "!:"
+
     ' --- numbers ------------------------------------------------------------
     NumberPrefixes    As String   ' "0x 0o 0b"
     NumberSuffixes    As String   ' "j J" - trailing type markers
