@@ -7,8 +7,9 @@ Python is the only language shipped in v1 and the only one being built for now.
 The architecture is language-neutral throughout, so a second language is a data
 table rather than a rewrite. See section 5b.
 
-Status: Phase −1 signed off, Phase 0 in progress. Written 2026-08-14, renamed
-from PyCodeHighlight on 2026-08-15.
+Status: Phases −1 and 0 complete. Phase 1 part done — the lexer is finished and
+passes its whole corpus; the renderer and block creation are next. Written
+2026-08-14, renamed from PyCodeHighlight on 2026-08-15.
 
 ---
 

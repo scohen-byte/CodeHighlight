@@ -4,9 +4,8 @@
 things `PLAN.md` does not: what physically exists right now, what has been
 proven versus merely assumed, and the exact commands to pick the work back up.
 
-**Phase −1 is complete and signed off. Phase 0 is half done — everything that
-can be built from WSL exists and is tested. The remaining half needs PowerPoint
-on Windows, and is the next thing to do.**
+**Phases −1 and 0 are complete. The lexer is done and passes its whole corpus.
+Next: the renderer and block creation, which finish the Phase 1 MVP.**
 
 ---
 
@@ -141,7 +140,28 @@ gets tested from a script once the `.ppam` exists.
 
 ---
 
-## 6. Next move — finish Phase 0
+## 6. Next move — finish the Phase 1 MVP
+
+The lexer is done. `tools/run-lexer-tests.sh` runs the VBA scanner over all ten
+samples and diffs it against `tools/lexref.py` character by character, and all
+ten match. It needs no human step: it imports the modules into a scratch deck
+over COM, runs them, and diffs. Use it after every scanner change.
+
+Remaining for the MVP:
+
+1. `modBlock.bas` — `New block` inserts a rounded rectangle against the locked
+   spec in `PLAN.md` §5a. Left-align every paragraph explicitly, wrap off,
+   autofit off, exact point line spacing.
+2. `modRender.bas` — apply spans to the shape. Reset to the default colour
+   first, then colour, which is what makes re-highlighting idempotent. Skip
+   default-coloured spans; they were handled by the reset.
+3. Wire both into the ribbon callbacks, replacing the stubs.
+4. Verify shape tags survive save, close and reopen.
+
+Performance is already settled: the whole corpus tokenizes in 312 ms for 15,848
+characters and 2,547 spans, so `LockWindowUpdate` is not needed.
+
+## 6a. Superseded — how Phase 0 finished
 
 The WSL half is done. The rest is the part that cannot be scripted, because the
 VBA project binary cannot be authored from WSL.
