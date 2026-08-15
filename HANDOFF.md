@@ -235,10 +235,11 @@ came from silent failures — Office reporting nothing at all rather than
 reporting a problem. The render path has the same character, so treat "one hour
 of code" as the floor and 2–3 hours as the realistic figure for a working MVP.
 
-## 6a. Superseded — how Phase 0 finished
+## 6a. Reference — how the `.ppam` was created
 
-The WSL half is done. The rest is the part that cannot be scripted, because the
-VBA project binary cannot be authored from WSL.
+Done, and kept only because it is the recipe if the add-in ever has to be
+rebuilt from scratch. This is the one part that cannot be scripted: the VBA
+project binary cannot be authored from WSL.
 
 1. In PowerPoint on Windows: new blank presentation, Alt+F11, import
    `src/modLangRegistry.bas`, `src/modLangPython.bas`, `src/modRibbon.bas`.
