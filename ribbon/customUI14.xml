@@ -40,10 +40,12 @@
         </group>
 
         <group id="grpHighlight" label="Highlight">
+          <!-- imageMso ids verified with tools/check-imagemso.ps1. "Repaint" and
+               "ListNumbering" look plausible and do not exist in PowerPoint. -->
           <button id="btnHighlight"
                   label="Highlight"
                   size="large"
-                  imageMso="Repaint"
+                  imageMso="FormatPainter"
                   onAction="RibbonHighlight"
                   screentip="Highlight the selected block"
                   supertip="Re-colors the selected code block from scratch. Safe to press as often as you like."/>
@@ -54,7 +56,7 @@
                   screentip="Highlight every block on this slide"/>
           <toggleButton id="tglGutter"
                         label="Line numbers"
-                        imageMso="ListNumbering"
+                        imageMso="NumberingGallery"
                         getPressed="RibbonGutterPressed"
                         onAction="RibbonToggleGutter"
                         screentip="Show or hide line numbers"/>

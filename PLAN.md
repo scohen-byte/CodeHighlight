@@ -734,21 +734,31 @@ starts until this is signed off**, because every later phase hardcodes these
 numbers and changing them afterwards means touching the renderer, the block
 creator and the gutter together.
 
-**Phase 0 — packaging spike (~30 min). IN PROGRESS.**
-Empty `.ppam`, the real ribbon, every callback a `MsgBox`. Prove the customUI
-injection and the install flow *before* writing any real code. If the ribbon does
-not appear, nothing else matters, and finding that out early is worth the half
-hour.
+**Phase 0 — packaging spike. DONE 2026-08-15.**
+Empty `.ppam`, the real ribbon, every callback a `MsgBox`. Proved the customUI
+injection and the install flow *before* writing any real code.
 
-Done already, in WSL: `ribbon/customUI14.xml`, `tools/pack-ribbon.sh` (tested
-against a synthetic package — idempotent, preserves `vbaProject.bin`, refuses a
-file with no VBA project in it), `src/modRibbon.bas`, `src/modLangRegistry.bas`,
-`src/modLangPython.bas`.
+Result: Code tab loads, all seven controls fire, the Language dropdown populates
+from `modLangRegistry`, every `imageMso` renders. Took about two hours rather
+than thirty minutes, entirely because of the two silent-failure modes below.
 
-Outstanding, and it needs PowerPoint on Windows: create and save the empty
-`.ppam`, import the three modules, run the packer, install, confirm the tab
-appears and that every button and the language dropdown fire. Check each
-`imageMso` renders — a bad id shows blank rather than failing.
+**Both Phase 0 failures were silent, and that is the lesson.** Office does not
+report a bad ribbon. It loads the add-in, loads the VBA, and shows no tab.
+
+1. **Wrong relationship type.** `customUI14.xml` needs
+   `.../office/2007/relationships/ui/extensibility`. The `2006` type belongs to
+   the older `customUI.xml` part. The years in the namespace and the relationship
+   type are offset by one, which is the entire trap. Diagnosed by checking
+   `Application.AddIns` over COM: `registered` and `loaded` were both true, which
+   ruled out the install and pointed straight at the part.
+2. **Two `imageMso` ids that do not exist.** `Repaint` and `ListNumbering` both
+   sound right and are not PowerPoint ids. A bad id renders blank and loads
+   normally. `tools/check-imagemso.ps1` now tests ids against PowerPoint itself,
+   and every id in the ribbon has been through it.
+
+Font embedding was *not* settled here. It moves to Phase 4 — Consolas ships with
+Windows, so it is belt-and-braces rather than load-bearing, and it was not worth
+holding the MVP for.
 
 Also settle font embedding here, since it is the other thing that can invalidate
 the design: embed the chosen font in a test deck, open it on a machine without
