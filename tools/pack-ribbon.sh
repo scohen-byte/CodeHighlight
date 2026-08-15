@@ -19,7 +19,16 @@ REPO="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 RIBBON_DEFAULT="$REPO/ribbon/customUI14.xml"
 
 REL_ID="rIdCodeHighlightUI"
-REL_TYPE="http://schemas.microsoft.com/office/2006/relationships/ui/extensibility"
+# The relationship type must match the PART version, and the years in the two
+# do not line up - which is the trap:
+#
+#   customUI/customUI.xml    ns .../2006/01/customui   rel .../office/2006/...
+#   customUI/customUI14.xml  ns .../2009/07/customui   rel .../office/2007/...
+#
+# Pairing a customUI14.xml part with the 2006 relationship makes Office ignore
+# the customization in silence. The add-in still loads, the VBA still loads, and
+# no tab appears. Cost half an hour of Phase 0 on 2026-08-15.
+REL_TYPE="http://schemas.microsoft.com/office/2007/relationships/ui/extensibility"
 REL_TARGET="customUI/customUI14.xml"
 
 die() { printf 'pack-ribbon: %s\n' "$*" >&2; exit 1; }
@@ -77,9 +86,26 @@ if ! grep -q 'Extension="xml"' "$CT"; then
 fi
 
 # --- repack -------------------------------------------------------------------
+# Two rules, both learned the hard way, both about matching how Office itself
+# writes a package rather than what the zip format merely permits:
+#
+#   [Content_Types].xml must be the FIRST entry. Office's OPC reader looks for
+#   it there, and a package with it at the end can be accepted for some purposes
+#   while its parts are quietly ignored.
+#
+#   No directory entries (-D). Office writes none, and their presence is the
+#   other difference between a repacked package and a native one.
+#
+# The brackets in [Content_Types].xml are zip wildcard syntax, so -nw turns
+# wildcard matching off and the name is taken literally. Backslash-escaping the
+# brackets instead does not work - zip still fails to match.
 cp -f "$TARGET" "$TARGET.bak"
 OUT="$WORK/out.ppam"
-( cd "$WORK/pkg" && zip -q -r -X "$OUT" . )
+(
+    cd "$WORK/pkg"
+    zip -q -X -D -nw "$OUT" '[Content_Types].xml'
+    zip -q -r -X -D -nw "$OUT" . -x '[Content_Types].xml'
+)
 cp -f "$OUT" "$TARGET"
 
 # --- verify -------------------------------------------------------------------
@@ -87,6 +113,8 @@ cp -f "$OUT" "$TARGET"
 # VBA project would produce an add-in that loads a ribbon wired to nothing.
 unzip -tqq "$TARGET" >/dev/null || die "repacked file is not a valid zip"
 unzip -l "$TARGET" | grep -q 'customUI/customUI14.xml' || die "ribbon part missing after repack"
+FIRST=$(unzip -l "$TARGET" | awk 'NR==4 {print $NF}')
+[[ "$FIRST" == "[Content_Types].xml" ]] || die "[Content_Types].xml is not the first entry (got: $FIRST)"
 VBA_AFTER=$(unzip -l "$TARGET" | awk '/vbaProject.bin/ {print $1}')
 [[ "$VBA_BEFORE" == "$VBA_AFTER" ]] || die "vbaProject.bin changed size ($VBA_BEFORE -> $VBA_AFTER) - aborting, restore from $TARGET.bak"
 
