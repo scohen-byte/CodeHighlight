@@ -883,6 +883,20 @@ Public Function OptionsTest(ByVal srcPath As String, ByVal pngPath As String) As
         r = r & "note_font=" & s2.TextFrame.TextRange.Font.Name & vbLf
     End If
 
+    ' --- the shipped default -----------------------------------------------
+    ' A fresh deck has no tag, so this is what a note gets before anyone
+    ' chooses anything.
+    Dim freshPres As Presentation
+    Set freshPres = pres
+    freshPres.Tags.Delete modOptions.TAG_NOTE_SIZE
+    r = r & "default_note_size=" & modOptions.NoteSize() & vbLf
+    r = r & "auto_is_distinct=" & _
+            Abs(CLng(modOptions.NoteSize() <> modOptions.NOTE_SIZE_AUTO)) & vbLf
+    modOptions.SetNoteSize modOptions.NOTE_SIZE_AUTO
+    r = r & "auto_survives=" & _
+            Abs(CLng(modOptions.NoteSize() = modOptions.NOTE_SIZE_AUTO)) & vbLf
+    freshPres.Tags.Delete modOptions.TAG_NOTE_SIZE
+
     ' --- a swatch for the ribbon -------------------------------------------
     Set pic = modSwatch.Swatch(ThemeNotePreset(1))
     r = r & "swatch_made=" & Abs(CLng(Not pic Is Nothing)) & vbLf

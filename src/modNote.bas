@@ -461,7 +461,11 @@ Public Function NoteFontSize(ByVal blockSize As Single) As Single
     ' size, because an aside nobody can read is worse than no aside.
     s = Round(blockSize * 0.8, 0)
     If s < modSpec.MIN_TEACHING_SIZE Then s = modSpec.MIN_TEACHING_SIZE
-    If s > 20 Then s = 20
+    ' Capped at 28 rather than 20. The old cap meant Auto returned the same
+    ' twenty points for every block from 25pt upward, which is not tracking the
+    ' block at all - and twenty points of proportional prose beside 32pt code
+    ' reads as a caption rather than as a note.
+    If s > 28 Then s = 28
     NoteFontSize = s
 End Function
 

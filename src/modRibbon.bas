@@ -432,10 +432,19 @@ Failed:
 End Sub
 
 Public Sub DoNoteColor(ByVal presetIndex As Long)
+    modOptions.SetNoteColor ThemeNotePreset(presetIndex)
+    DoNoteColorApply
+End Sub
+
+' Paints the current colour onto whatever is singled out. Reached both by
+' choosing from the dropdown and by pressing the swatch beside it - the second
+' is how you give a second note the colour you gave the first.
+Public Sub DoNoteColorApply()
     On Error GoTo Failed
     Dim notes As Collection, blk As Shape
 
-    modOptions.SetNoteColor ThemeNotePreset(presetIndex)
+    ' Before the early exit. The swatch shows the colour in use, so it has to be
+    ' re-read whether or not there was anything to paint.
     RefreshRibbon
 
     Set notes = NotesToStyle(blk)
@@ -444,7 +453,7 @@ Public Sub DoNoteColor(ByVal presetIndex As Long)
     ' Colour changes no geometry, so there is nothing to re-place and the
     ' selection can be left exactly where it was - which matters, because
     ' recolouring one note of several is a thing you do repeatedly.
-    modNote.ApplyFill notes, ThemeNotePreset(presetIndex)
+    modNote.ApplyFill notes, modOptions.NoteColor()
     Exit Sub
 Failed:
     Warn "DoNoteColor failed: " & Err.Description
@@ -1003,6 +1012,23 @@ Public Sub RibbonNoteColorImage(control As IRibbonControl, index As Integer, ByR
     ' No image is a working gallery with labels only. A failed swatch must not
     ' take the control down with it.
     If Not p Is Nothing Then Set image = p
+End Sub
+
+' The swatch shown beside the closed dropdown.
+'
+' A dropDown displays its selected item's LABEL and nothing else - the item
+' images only appear in the open list - and unlike a gallery it has no image of
+' its own. So the colour in use is shown by a button sitting next to it, which
+' also gives it something to do: pressing it applies that colour again, which is
+' how you give a second note the same colour as the first.
+Public Sub RibbonNoteColorFace(control As IRibbonControl, ByRef image)
+    Dim p As Object
+    Set p = modSwatch.Swatch(CurrentNoteColor())
+    If Not p Is Nothing Then Set image = p
+End Sub
+
+Public Sub RibbonNoteColorApply(control As IRibbonControl)
+    DoNoteColorApply
 End Sub
 
 Private Function CurrentNoteColor() As Long

@@ -39,7 +39,7 @@ editable.
 | **Indent guides** | Show or hide the vertical nesting lines, drawn as real shapes. Off by default |
 | **Emphasize** | Band the selected lines and fade the rest |
 | **Note** | Attach an explanation to a line of code |
-| **Note size** | Font size for notes. Auto sizes each one from its block |
+| **Note size** | Font size for notes. 24pt, or Auto to size each one from its block |
 | **Note color** | Twelve presets, each shown as its own swatch |
 | **Note font** | Deck default, or one of four that ship with Windows |
 | **Copy code** | Put the block's code on the clipboard, ready to paste into an editor |
@@ -149,10 +149,14 @@ on line 7 and picking a colour recolours line 7's note, and nothing else.
 Whatever you pick is also remembered for notes made afterwards, stored in the
 deck rather than in the add-in, so it travels with the file.
 
-- **Size.** Auto sizes each note from the block it belongs to, which is usually
-  what you want. Any rung, or any typed size, pins it instead.
-- **Color.** Twelve presets, each shown as a swatch of itself, and the control
-  carries the one in use. A fixed list rather than a full picker, because every
+- **Size.** 24pt to begin with. Auto sizes each note from the block it belongs
+  to instead — worth choosing if you resize blocks a lot, though note that code
+  is set in Consolas and prose in a proportional face, so a note at the code's
+  nominal size looks distinctly smaller than the code.
+- **Color.** Twelve presets, each shown as a swatch of itself in the list. The
+  small square beside the dropdown shows the colour in use and applies it, which
+  is how you give a second note the same colour as the first without going back
+  through the list. A fixed list rather than a full picker, because every
   one of them is checked against the text colour it gets and an arbitrary colour
   is not — the test asserts all twelve clear 4.5:1, and the worst is Emerald at
   4.57. The first six are quiet, for a note that is an aside about the code; the

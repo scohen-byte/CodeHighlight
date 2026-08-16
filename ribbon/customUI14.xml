@@ -150,6 +150,16 @@
                     onAction="RibbonNoteColorChanged"
                     screentip="Color for notes"
                     supertip="The first six are quiet, for a note that is an aside about the code; the rest are saturated, for one that should be the loudest thing on the slide. Applies to the note on the line your cursor is on, or the note you have clicked into, or - with the block itself selected - all of its notes. Each of the three note controls changes only what it is named after, so notes on one slide can differ. The text color follows the fill, so a light preset gets dark words."/>
+          <!-- A dropDown shows its selected item's LABEL and nothing else - the
+               item images appear only in the open list - and it has no image of
+               its own. So the colour in use is shown by this button, which also
+               applies it, the way Word's font-colour button does. -->
+          <button id="btnNoteColorNow"
+                  showLabel="false"
+                  getImage="RibbonNoteColorFace"
+                  onAction="RibbonNoteColorApply"
+                  screentip="The color notes are set to"
+                  supertip="Shows the color currently chosen, and applies it. Press it to give a second note the same color as the first, without going back through the list."/>
           <dropDown id="ddNoteFont"
                     label="Note font"
                     sizeString="Deck default"

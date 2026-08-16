@@ -25,9 +25,15 @@ Public Const TAG_NOTE_FONT  As String = "CODEBLOCK_NOTE_FONT"
 Public Const TAG_STEP_NOTE  As String = "CODEBLOCK_STEP_NOTE"
 Public Const TAG_STEP_BOLD  As String = "CODEBLOCK_STEP_BOLD"
 
-' Size 0 means "work it out from the block", which is the default and is right
-' for almost every deck. An explicit size pins it.
+' Size 0 means "work it out from the block". An explicit size pins it.
 Public Const NOTE_SIZE_AUTO As Long = 0
+
+' What a deck that has never said otherwise gets. A fixed 24 rather than Auto,
+' because Auto derives a note from the CODE size and code is set in Consolas -
+' a note in a proportional face at the same nominal size looks markedly smaller,
+' so deriving it produced notes that read as an afterthought. Auto is still
+' there for anyone who wants notes to track the block.
+Public Const NOTE_SIZE_DEFAULT As Long = 24
 
 Private Function Pres() As Presentation
     On Error Resume Next
@@ -53,8 +59,17 @@ End Sub
 ' Notes
 '------------------------------------------------------------------------------
 
+' An UNSET tag and an explicit Auto are different things, and only the string
+' length tells them apart - Val("") and Val("0") are both 0. Unset means nobody
+' has chosen, so it gets the default; "0" means somebody chose Auto.
 Public Function NoteSize() As Long
-    NoteSize = CLng(Val(GetTag(TAG_NOTE_SIZE)))
+    Dim v As String
+    v = GetTag(TAG_NOTE_SIZE)
+    If Len(v) = 0 Then
+        NoteSize = NOTE_SIZE_DEFAULT
+    Else
+        NoteSize = CLng(Val(v))
+    End If
 End Function
 
 Public Sub SetNoteSize(ByVal pts As Long)
