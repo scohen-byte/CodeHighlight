@@ -3,7 +3,7 @@
 A PowerPoint add-in that renders source code with VS Code's colours, entirely
 offline, with no dependency on anything outside PowerPoint itself.
 
-Type code into a block on the slide and press **Highlight**.
+Type code into a block on the slide and press **Stylize**.
 
 Built for teaching: the palette is matched to what a student sees in their
 editor, the sizes are chosen to read from the back of a lecture hall, and the
@@ -23,14 +23,14 @@ hand like any other text. Nothing is locked.
 
 | | |
 |---|---|
-| **Highlight** | Colours the selected block, refits it, and re-syncs its numbers and guides |
+| **Stylize** | Colours the selected block, refits it, and re-syncs its numbers and guides |
 | **Language** | Which lexer to use, stored per block |
 | **Line numbers** | A separate shape, so the code text stays pure source |
 | **Indent guides** | Vertical lines marking nesting, drawn as real shapes |
 | **Larger / Smaller / Fit** | Steps a size ladder. Growth stops where the code stops fitting the slide |
-| **Emphasise** | Bands the selected lines and fades the rest, for stepping through code across slides |
+| **Emphasize** | Bands the selected lines and fades the rest, for stepping through code across slides |
 | **Copy code** | The source to the clipboard, not a picture of a rectangle |
-| **Strip** | Back to plain text. Highlight brings it all back |
+| **Strip** | Back to plain text. Stylize brings it all back |
 
 `INSTALL.md` covers installation and use, including two PowerPoint autocorrect
 settings that quietly break code and should be turned off first.

@@ -65,7 +65,7 @@ Public Sub DoNewBlock()
     On Error GoTo 0
 End Sub
 
-Public Sub DoHighlight()
+Public Sub DoStylize()
     On Error GoTo Failed
     Dim shp As Shape, problem As String, langId As String
     Dim before As String, after As String, size As Single
@@ -107,10 +107,10 @@ Public Sub DoHighlight()
     RefreshRibbon
     Exit Sub
 Failed:
-    Warn "DoHighlight failed: " & Err.Description
+    Warn "DoStylize failed: " & Err.Description
 End Sub
 
-Public Sub DoHighlightAll()
+Public Sub DoStylizeAll()
     On Error GoTo Failed
     Dim sld As Slide, shp As Shape, count As Long
 
@@ -133,11 +133,11 @@ Public Sub DoHighlightAll()
     Next shp
 
     If count = 0 Then
-        Warn "No code blocks on this slide. Highlight one first, which tags it."
+        Warn "No code blocks on this slide. Stylize one first, which tags it."
     End If
     Exit Sub
 Failed:
-    Warn "DoHighlightAll failed: " & Err.Description
+    Warn "DoStylizeAll failed: " & Err.Description
 End Sub
 
 Public Sub DoToggleGutter()
@@ -190,7 +190,7 @@ End Sub
 ' rather than text, it clears the emphasis instead - so the same button both
 ' sets and removes, which is what you want when stepping through code slide by
 ' slide.
-Public Sub DoEmphasise()
+Public Sub DoEmphasize()
     On Error GoTo Failed
     Dim shp As Shape, problem As String, sel As Selection
     Dim txt As String, a As Long, b As Long, i As Long, list As String
@@ -223,7 +223,7 @@ Public Sub DoEmphasise()
     ' worse than no feedback at all - the block itself is the feedback.
     Exit Sub
 Failed:
-    Warn "DoEmphasise failed: " & Err.Description
+    Warn "DoEmphasize failed: " & Err.Description
 End Sub
 
 ' Puts the block's code on the clipboard as text.
@@ -249,7 +249,7 @@ End Sub
 ' line numbers, no guides. The block itself stays - same font, same dark fill -
 ' so this is an undo for the rendering, not for the block.
 '
-' The tags stay too, so pressing Highlight brings it all straight back.
+' The tags stay too, so pressing Stylize brings it all straight back.
 Public Sub DoStrip()
     On Error GoTo Failed
     Dim shp As Shape, problem As String
@@ -401,12 +401,12 @@ Public Sub RibbonNewBlock(control As IRibbonControl)
     DoNewBlock
 End Sub
 
-Public Sub RibbonHighlight(control As IRibbonControl)
-    DoHighlight
+Public Sub RibbonStylize(control As IRibbonControl)
+    DoStylize
 End Sub
 
-Public Sub RibbonHighlightAll(control As IRibbonControl)
-    DoHighlightAll
+Public Sub RibbonStylizeAll(control As IRibbonControl)
+    DoStylizeAll
 End Sub
 
 Public Sub RibbonLangCount(control As IRibbonControl, ByRef count)
@@ -454,8 +454,8 @@ Public Sub RibbonToggleGuides(control As IRibbonControl, pressed As Boolean)
 End Sub
 
 ' The size box: shows the selected block's size, and accepts a typed one.
-Public Sub RibbonEmphasise(control As IRibbonControl)
-    DoEmphasise
+Public Sub RibbonEmphasize(control As IRibbonControl)
+    DoEmphasize
 End Sub
 
 Public Sub RibbonCopyCode(control As IRibbonControl)
@@ -556,7 +556,7 @@ End Sub
 '
 ' Without this every action costs a re-selection: press Larger, lose the
 ' selection, click the block, press Larger again. Worse, it makes the add-in
-' look broken - you type a line, press Highlight, and nothing happens, because
+' look broken - you type a line, press Stylize, and nothing happens, because
 ' nothing was selected any more.
 '
 ' Selects the GROUP when there is one, so the next drag moves the whole thing.

@@ -36,24 +36,24 @@
                     getSelectedItemIndex="RibbonLangSelected"
                     onAction="RibbonLangChanged"
                     screentip="Language for the selected block"
-                    supertip="Sets which lexer the Highlight button uses. Stored on the shape, so each block remembers its own language."/>
+                    supertip="Sets which lexer the Stylize button uses. Stored on the shape, so each block remembers its own language."/>
         </group>
 
-        <group id="grpHighlight" label="Highlight">
+        <group id="grpStylize" label="Stylize">
           <!-- imageMso ids verified with tools/check-imagemso.ps1. "Repaint" and
                "ListNumbering" look plausible and do not exist in PowerPoint. -->
-          <button id="btnHighlight"
-                  label="Highlight"
+          <button id="btnStylize"
+                  label="Stylize"
                   size="large"
                   imageMso="FormatPainter"
-                  onAction="RibbonHighlight"
-                  screentip="Highlight the selected block"
+                  onAction="RibbonStylize"
+                  screentip="Stylize the selected block"
                   supertip="Re-colors the selected code block from scratch. Safe to press as often as you like."/>
-          <button id="btnHighlightAll"
-                  label="Highlight all"
+          <button id="btnStylizeAll"
+                  label="Stylize all"
                   imageMso="RefreshAll"
-                  onAction="RibbonHighlightAll"
-                  screentip="Highlight every block on this slide"/>
+                  onAction="RibbonStylizeAll"
+                  screentip="Stylize every block on this slide"/>
           <toggleButton id="tglGutter"
                         label="Line numbers"
                         imageMso="NumberingGallery"
@@ -72,11 +72,11 @@
 
         <group id="grpTools" label="Emphasis and text">
           <button id="btnEmphasise"
-                  label="Emphasise"
+                  label="Emphasize"
                   size="large"
                   imageMso="TextHighlightColorPicker"
-                  onAction="RibbonEmphasise"
-                  screentip="Emphasise the selected lines"
+                  onAction="RibbonEmphasize"
+                  screentip="Emphasize the selected lines"
                   supertip="Select text inside the block and press this to band those lines. With the block itself selected rather than text, it clears the emphasis. The choice is stored on the block, so duplicating the slide and moving the emphasis down a line is two clicks."/>
           <button id="btnCopyCode"
                   label="Copy code"
@@ -89,7 +89,7 @@
                   imageMso="ClearFormatting"
                   onAction="RibbonStrip"
                   screentip="Return the block to plain text"
-                  supertip="Removes the colours, emphasis, numbers and guides. The block stays, and Highlight brings it all back."/>
+                  supertip="Removes the colours, emphasis, numbers and guides. The block stays, and Stylize brings it all back."/>
         </group>
 
         <group id="grpSize" label="Size">

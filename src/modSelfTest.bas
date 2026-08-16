@@ -161,7 +161,7 @@ Failed:
     BuildSlice = "ERROR " & Err.Number & ": " & Err.Description
 End Function
 
-' Drives the REAL ribbon command path - DoNewBlock, DoHighlight, DoHighlightAll
+' Drives the REAL ribbon command path - DoNewBlock, DoStylize, DoStylizeAll
 ' and the wrong-selection cases - not the helpers underneath it. That is the
 ' point: a command whose logic lives inside an IRibbonControl callback can only
 ' be reached with a mouse, and would go untested.
@@ -185,7 +185,7 @@ Public Function RibbonSliceTest(ByVal srcPath As String, ByVal pngPath As String
 
     ' --- nothing selected -----------------------------------------------------
     Application.ActiveWindow.Selection.Unselect
-    modRibbon.DoHighlight
+    modRibbon.DoStylize
     r = r & "warn_empty_selection=" & Quoted(modRibbon.LastWarning()) & vbLf
 
     ' --- New block ------------------------------------------------------------
@@ -203,7 +203,7 @@ Public Function RibbonSliceTest(ByVal srcPath As String, ByVal pngPath As String
     ' rather than the no-text-frame one. The no-text-frame path (a picture) is
     ' still unexercised - it needs an image file to construct.
     sld.Shapes.AddShape(msoShapeOval, 10, 10, 40, 40).Select
-    modRibbon.DoHighlight
+    modRibbon.DoStylize
     r = r & "warn_empty_shape=" & Quoted(modRibbon.LastWarning()) & vbLf
     sld.Shapes(sld.Shapes.count).Delete
 
@@ -211,14 +211,14 @@ Public Function RibbonSliceTest(ByVal srcPath As String, ByVal pngPath As String
     sld.Shapes.AddShape(msoShapeOval, 10, 10, 40, 40).Name = "g1"
     sld.Shapes.AddShape(msoShapeOval, 60, 10, 40, 40).Name = "g2"
     sld.Shapes.Range(Array("g1", "g2")).Group.Select
-    modRibbon.DoHighlight
+    modRibbon.DoStylize
     r = r & "warn_group=" & Quoted(modRibbon.LastWarning()) & vbLf
     sld.Shapes(sld.Shapes.count).Delete
 
-    ' --- type into the block, then Highlight ----------------------------------
+    ' --- type into the block, then Stylize ----------------------------------
     shp.TextFrame.TextRange.text = modBlock.NormalizeParagraphs(code)
     shp.Select
-    modRibbon.DoHighlight
+    modRibbon.DoStylize
 
     wantH = modSpec.SpecHeight(modBlock.BlockFontSize(shp), _
                                modBlock.CountLines(shp.TextFrame.TextRange.text))
@@ -244,7 +244,7 @@ Public Function RibbonSliceTest(ByVal srcPath As String, ByVal pngPath As String
     shp.TextFrame.TextRange.text = "a = " & ChrW(&H201C) & "hi" & ChrW(&H201D) & _
                                    vbCr & "b = " & ChrW(&H2018) & "yo" & ChrW(&H2019)
     shp.Select
-    modRibbon.DoHighlight
+    modRibbon.DoStylize
     r = r & "curly_gone=" & Abs(CLng( _
             InStr(shp.TextFrame.TextRange.text, ChrW(&H201C)) = 0 And _
             InStr(shp.TextFrame.TextRange.text, ChrW(&H2018)) = 0)) & vbLf
@@ -255,11 +255,11 @@ Public Function RibbonSliceTest(ByVal srcPath As String, ByVal pngPath As String
     ' Put the real sample back for the render.
     shp.TextFrame.TextRange.text = modBlock.NormalizeParagraphs(code)
     shp.Select
-    modRibbon.DoHighlight
+    modRibbon.DoStylize
 
-    ' --- Highlight all --------------------------------------------------------
-    modRibbon.DoHighlightAll
-    ' AllShapes, not sld.Shapes: Highlight groups a block with its numbers and
+    ' --- Stylize all --------------------------------------------------------
+    modRibbon.DoStylizeAll
+    ' AllShapes, not sld.Shapes: Stylize groups a block with its numbers and
     ' guides, so the block is no longer a top-level shape.
     For Each shp In modBlock.AllShapes(sld)
         If modBlock.IsCodeBlock(shp) Then blocks = blocks + 1
@@ -359,7 +359,7 @@ Public Function GutterTest(ByVal srcPath As String, ByVal pngPath As String) As 
 
     Set shp = modBlock.CreateBlock(sld, code, modSpec.BASE_SIZE, "python")
     shp.Select
-    modRibbon.DoHighlight
+    modRibbon.DoStylize
     r = "gutter_before=" & Abs(CLng(modGutter.HasGutter(shp))) & vbLf
 
     shp.Select
@@ -496,7 +496,7 @@ Private Sub Trace(ByVal path As String, ByVal msg As String)
 End Sub
 
 ' The flow that actually breaks things: build a block, turn the gutter on,
-' THEN edit the text and press Highlight again. Reported symptoms were a missing
+' THEN edit the text and press Stylize again. Reported symptoms were a missing
 ' last number and misplaced guides, both of which only appear on the second
 ' pass, not on a block built in one go.
 Public Function EditFlowTest(ByVal srcPath As String, ByVal pngPath As String) As String
@@ -517,19 +517,19 @@ Public Function EditFlowTest(ByVal srcPath As String, ByVal pngPath As String) A
     Set shp = modBlock.CreateBlock(sld, "x = 1" & vbCr & "y = 2" & vbCr & "z = 3", _
                                    modSpec.BASE_SIZE, "python")
     shp.Select
-    modRibbon.DoHighlight
+    modRibbon.DoStylize
     shp.Select
     modRibbon.DoToggleGutter
     r = "start_lines=3 gutter=" & Abs(CLng(modGutter.HasGutter(shp))) & vbLf
 
-    ' Now edit it to the full sample and Highlight again - the reported flow.
+    ' Now edit it to the full sample and Stylize again - the reported flow.
     ' The last break is a SOFT one (vertical tab), which is what Shift+Enter and
     ' pasted text produce, and what made the counts drift.
     modBlock.UngroupParts shp
     shp.TextFrame.TextRange.text = modBlock.NormalizeParagraphs(code) & _
                                    Chr$(11) & "print(""help"")"
     shp.Select
-    modRibbon.DoHighlight
+    modRibbon.DoStylize
 
     Set g = modGutter.FindGutter(shp)
     r = r & "code_lines=" & modBlock.CountLines(shp.TextFrame.TextRange.text) & vbLf
@@ -622,7 +622,7 @@ Public Function ToolsTest(ByVal srcPath As String, ByVal pngPath As String) As S
 
     Set shp = modBlock.CreateBlock(sld, code, modSpec.BASE_SIZE, "python")
     shp.Select
-    modRibbon.DoHighlight
+    modRibbon.DoStylize
 
     ' Emphasise lines 5 and 6 by selecting text inside them.
     txt = shp.TextFrame.TextRange.text
@@ -630,12 +630,12 @@ Public Function ToolsTest(ByVal srcPath As String, ByVal pngPath As String) As S
     Dim endStart As Long, endLen As Long
     modBlock.LineCharRange txt, 6, endStart, endLen
     shp.TextFrame.TextRange.Characters(a, (endStart + endLen) - a).Select
-    modRibbon.DoEmphasise
+    modRibbon.DoEmphasize
     r = r & "emphasis_tag=" & Quoted(modBlock.GetEmphasis(shp)) & vbLf
 
     ' It must survive a re-render, which is the entire point.
     shp.Select
-    modRibbon.DoHighlight
+    modRibbon.DoStylize
     r = r & "after_rehighlight=" & Quoted(modBlock.GetEmphasis(shp)) & vbLf
     r = r & "line5_banded=" & Banded(shp, 5) & vbLf
     r = r & "line1_banded=" & Banded(shp, 1) & vbLf

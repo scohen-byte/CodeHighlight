@@ -1,13 +1,13 @@
 # CodeHighlight — installing and using it
 
 A PowerPoint add-in that renders source code with VS Code's colours, entirely
-offline. You type code into a block on the slide and press **Highlight**.
+offline. You type code into a block on the slide and press **Stylize**.
 
 Decks made with it open and edit correctly on any machine, with or without the
 add-in. Someone without it sees exactly what you see — an ordinary rounded
 rectangle with ordinary per-character font colours.
 
-What they lose is only the **Highlight button**: nothing will re-colour their
+What they lose is only the **Stylize button**: nothing will re-colour their
 edits automatically. The block is a perfectly ordinary PowerPoint text box, so
 they can still select any text in it and change its colour, size or font by
 hand exactly as they would anywhere else. Nothing is locked.
@@ -76,7 +76,7 @@ On the **AutoFormat As You Type** tab:
 - Untick **"Straight quotes" with "smart quotes"**. Without it, `"hi"` becomes
   `"hi"` with typographic quotes, which is not valid Python.
 
-Highlight repairs the quotes for you, so that one is belt and braces. **It
+Stylize repairs the quotes for you, so that one is belt and braces. **It
 cannot repair the two capitalisation problems** — nothing can tell a variable
 you meant to call `X` from one autocorrect changed, so if either slips through
 you have to correct the letter by hand.
@@ -86,29 +86,29 @@ you have to correct the letter by hand.
 | Button | What it does |
 |---|---|
 | **New block** | Inserts an empty dark block. The placeholder text is selected, so just start typing |
-| **Highlight** | Colours the selected block, refits it, and re-syncs its line numbers and guides. The button you press constantly |
-| **Highlight all** | The same, for every code block on the slide |
+| **Stylize** | Colours the selected block, refits it, and re-syncs its line numbers and guides. The button you press constantly |
+| **Stylize all** | The same, for every code block on the slide |
 | **Language** | Which lexer to use. Stored per block |
 | **Line numbers** | Show or hide the numbers for the selected block. Off by default |
 | **Indent guides** | Show or hide the vertical nesting lines. Off by default |
-| **Emphasise** | Band the selected lines and fade the rest. See below |
+| **Emphasize** | Band the selected lines and fade the rest. See below |
 | **Copy code** | Put the block's code on the clipboard, ready to paste into an editor |
-| **Strip** | Back to plain uncoloured text. Highlight brings it all back |
+| **Strip** | Back to plain uncoloured text. Stylize brings it all back |
 | **Size** | The block's size in points. Pick a rung or type any size |
 | **Larger / Smaller** | Step the font size. Larger stops where the code would stop fitting the slide |
 | **Fit** | Pick the largest size that fits. Warns rather than shrinking below readable |
 
-The block grows as you type. Press **Highlight** after editing to re-colour it —
+The block grows as you type. Press **Stylize** after editing to re-colour it —
 PowerPoint gives an add-in no way to notice that you changed the text.
 
 **Emphasising lines, for stepping through code.** Click into the block, select
-the lines you want to draw attention to, and press **Emphasise**. Those lines
+the lines you want to draw attention to, and press **Emphasize**. Those lines
 get a band behind them and everything else fades back. Press it again with the
 block itself selected — not text inside it — to clear.
 
-The choice is stored on the block and survives every Highlight, which is what
+The choice is stored on the block and survives every Stylize, which is what
 makes a walkthrough cheap: duplicate the slide, select the next line, press
-Emphasise.
+Emphasize.
 
 **Fit will sometimes refuse to be helpful, on purpose.** If a snippet only fits
 at 12pt it tells you so, and says roughly how many slides it needs at 16pt
@@ -126,7 +126,7 @@ self-signed certificate. Sign the VBA project, and the user trusts the publisher
 once on first load, which also survives later updates to the file.
 
 If add-ins are blocked outright, your decks still open and edit perfectly on
-that machine. Only re-highlighting is lost. That is a deliberate design goal,
+that machine. Only re-styling is lost. That is a deliberate design goal,
 not a workaround.
 
 ## 6. Sharing a deck

@@ -15,7 +15,7 @@ Attribute VB_Name = "modGutter"
 '   line spacing is set in EXACT points, so both shapes step identically
 '   word wrap is off, so one paragraph is one visual line
 '   paragraph spacing is zero on both
-' If the two ever drift apart, pressing Highlight re-syncs them. That is the
+' If the two ever drift apart, pressing Stylize re-syncs them. That is the
 ' recovery path, and it means alignment need not be perfect first time.
 '
 ' The shapes are deliberately NOT grouped: grouping makes editing the text
@@ -32,7 +32,7 @@ Public Function FindGutter(ByVal shp As Shape) As Shape
     If Len(blockId) = 0 Then Exit Function
 
     Set sld = OwningSlide(shp)
-    ' Descends into groups: once Highlight has grouped the block with its parts,
+    ' Descends into groups: once Stylize has grouped the block with its parts,
     ' the gutter is no longer a top-level shape.
     For Each g In modBlock.AllShapes(sld)
         If g.Tags(TAG_GUTTER_OF) = blockId Then
@@ -133,7 +133,7 @@ Private Sub RescueStrayText(ByVal shp As Shape, ByVal g As Shape)
     shp.TextFrame.TextRange.text = shp.TextFrame.TextRange.text & vbCr & stray
 End Sub
 
-' Renumbers and re-aligns. Called on every Highlight, so the gutter follows the
+' Renumbers and re-aligns. Called on every Stylize, so the gutter follows the
 ' block's size, position and line count without the user thinking about it.
 ' create=False leaves a block without a gutter alone.
 Public Sub SyncGutter(ByVal shp As Shape, Optional ByVal create As Boolean = False)

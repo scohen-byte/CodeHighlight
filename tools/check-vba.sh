@@ -47,5 +47,20 @@ if [[ -n "$dup" ]]; then
     echo "duplicate public procedure name(s) across modules: $dup"; fail=1
 fi
 
-if [[ $fail -eq 0 ]]; then echo "vba checks passed ($(ls *.bas | wc -l) modules)"; fi
+# 5. Every ribbon callback named in the XML must exist in modRibbon. A missing
+#    one does not fail at load: the tab appears, and the button reports
+#    "Cannot run the macro" when clicked - which reads like a packaging fault.
+RIBBON="$REPO/ribbon/customUI14.xml"
+if [[ -f "$RIBBON" ]]; then
+    for cb in $(grep -oE '(onAction|getText|getPressed|getItemCount|getItemLabel|getSelectedItemIndex|onChange|onLoad)="[A-Za-z0-9_]+"' "$RIBBON" \
+                | cut -d'"' -f2 | sort -u); do
+        if ! grep -q "Sub $cb(" modRibbon.bas; then
+            echo "ribbon callback '$cb' is named in customUI14.xml but not defined in modRibbon.bas"; fail=1
+        fi
+    done
+fi
+
+if [[ $fail -eq 0 ]]; then
+    echo "vba checks passed ($(ls *.bas | wc -l) modules, $(grep -coE '(onAction|getText|getPressed|getItemCount|getItemLabel|getSelectedItemIndex|onChange|onLoad)="' "$RIBBON" 2>/dev/null || echo 0) ribbon callbacks)"
+fi
 exit $fail

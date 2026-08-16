@@ -6,7 +6,7 @@ Attribute VB_Name = "modRender"
 '
 '   RESET FIRST, THEN COLOUR. Setting the entire range to the default colour
 '   before applying spans is what makes re-highlighting idempotent. Without it,
-'   editing a line and pressing Highlight again leaves the old colours behind
+'   editing a line and pressing Stylize again leaves the old colours behind
 '   on the characters that no longer belong to that token.
 '
 '   TOKENIZE THE STRING YOU ARE ABOUT TO INDEX INTO. Positions come back from
@@ -98,7 +98,7 @@ End Function
 '
 ' Called from ApplyHighlight so emphasis survives every re-render. That matters
 ' more than it sounds: the whole use case is duplicating a slide and moving the
-' emphasis down a line, which means Highlight runs constantly and must not undo
+' emphasis down a line, which means Stylize runs constantly and must not undo
 ' it.
 Public Sub ApplyEmphasis(ByVal shp As Shape)
     Dim spec As String, parts() As String, i As Long

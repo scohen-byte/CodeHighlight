@@ -18,7 +18,7 @@ Public Const TAG_BLOCK As String = "CODEBLOCK"
 Public Const TAG_ID    As String = "CODEBLOCK_ID"
 Public Const TAG_LANG  As String = "CODEBLOCK_LANG"
 ' Which lines are emphasised, as a comma list. Stored on the shape so that
-' pressing Highlight again does not wipe it - the whole point is to duplicate a
+' pressing Stylize again does not wipe it - the whole point is to duplicate a
 ' slide and move the emphasis, so it has to survive re-rendering.
 Public Const TAG_EMPHASIS As String = "CODEBLOCK_EMPHASIS"
 
@@ -51,7 +51,7 @@ End Function
 ' Autocorrect replaces straight quotes with typographic ones, and the damage is
 ' invisible until the code stops being code: the lexer no longer sees a string
 ' at all, so it colours the contents as a variable, and pasting the text back
-' into an editor is a syntax error. Repairing it on Highlight fixes the colours
+' into an editor is a syntax error. Repairing it on Stylize fixes the colours
 ' and the code together.
 '
 ' This IS a destructive edit to the text in the shape, and a deliberate one -
@@ -217,7 +217,7 @@ Public Function CreateBlock(ByVal sld As Slide, ByVal code As String, _
         ' line drifts. Autofit is safe precisely because wrap is off.
         '
         ' Autofit ON so the block grows as you type instead of waiting for the
-        ' next Highlight. With wrap off it grows in BOTH directions, so the block
+        ' next Stylize. With wrap off it grows in BOTH directions, so the block
         ' hugs its code rather than spanning the slide - which is what you want
         ' for a short snippet.
         .WordWrap = msoFalse
@@ -332,7 +332,7 @@ Public Function SelectedBlock(ByRef problem As String) As Shape
 
     If shp.Type = msoGroup Then
         ' A group holding one of our blocks is the normal case now, not an
-        ' error: Highlight groups the block with its numbers and guides so the
+        ' error: Stylize groups the block with its numbers and guides so the
         ' whole thing can be dragged as one.
         Dim inner As Shape
         Set inner = BlockInGroup(shp)
@@ -367,9 +367,9 @@ End Function
 ' a block means selecting three or more shapes and dragging them together, every
 ' time. Text is still editable - clicking twice enters the shape inside a group.
 '
-' Highlight ungroups, does its work, and regroups, so nothing downstream has to
+' Stylize ungroups, does its work, and regroups, so nothing downstream has to
 ' understand groups. SelectedBlock looks inside a selected group, so pressing
-' Highlight with the group selected does the right thing.
+' Stylize with the group selected does the right thing.
 
 ' Every shape on the slide, descending INTO groups.
 '
@@ -477,7 +477,7 @@ Public Function IsCodeBlock(ByVal shp As Shape) As Boolean
 End Function
 
 ' Adds the bookkeeping tags if they are absent, leaving any that are already
-' there alone. Called on every Highlight, which is what adopts an untagged
+' there alone. Called on every Stylize, which is what adopts an untagged
 ' block the first time someone highlights it.
 Public Sub EnsureTags(ByVal shp As Shape, ByVal langId As String)
     If Len(shp.Tags(TAG_BLOCK)) = 0 Then shp.Tags.Add TAG_BLOCK, "1"
@@ -515,7 +515,7 @@ End Function
 '------------------------------------------------------------------------------
 
 ' Re-hugs the block to its content. Autofit is off, so a block does not grow as
-' you type - this is what makes the flow work: insert, type, press Highlight,
+' you type - this is what makes the flow work: insert, type, press Stylize,
 ' and the block fits again. It is also the recovery path if anything drifts.
 ' Autofit already keeps the block hugging its code, so this no longer sets the
 ' height - PowerPoint owns that now, and its computed height is a few points

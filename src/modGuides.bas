@@ -13,8 +13,8 @@ Attribute VB_Name = "modGuides"
 ' the same reason the gutter will be able to align.
 '
 ' Guides are tagged with the id of the block they belong to, and cleared and
-' redrawn on every Highlight. That is also the recovery path: if a block is
-' moved and its guides are left behind, pressing Highlight puts them right.
+' redrawn on every Stylize. That is also the recovery path: if a block is
+' moved and its guides are left behind, pressing Stylize puts them right.
 '==============================================================================
 Option Explicit
 
