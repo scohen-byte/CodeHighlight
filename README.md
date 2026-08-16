@@ -39,6 +39,7 @@ editable.
 | **Indent guides** | Show or hide the vertical nesting lines, drawn as real shapes. Off by default |
 | **Emphasize** | Band the selected lines and fade the rest |
 | **Arrow** | Point at a line from the left margin, leaving the code at full contrast |
+| **Arrow color** | Eight syntax hues, darkened to read on a white slide. Deck-wide |
 | **Note** | Attach an explanation to a line of code |
 | **Delete note** | Remove the note you have singled out, and its connector |
 | **Note size** | Font size for notes. 24pt, or Auto to size each one from its block |
@@ -89,10 +90,24 @@ carry arrows at once.
 
 The arrow is sized from the line and sits in whatever room there is to the left
 of the block, so a block near the slide edge gets a shorter one. Move the block
-right and the arrow grows. It is an ordinary shape, so recolouring it with
-PowerPoint's own fill tools sticks — **Stylize** repositions arrows but never
-repaints them. **Strip** does remove them, unlike notes: an arrow holds nothing
-you typed, and one click puts it back.
+right and the arrow grows. **Strip** removes arrows, unlike notes: an arrow holds
+nothing you typed, and one click puts it back.
+
+**Arrow color** offers the syntax hues, darkened. Taking the palette as it
+stands does not work — those colours are chosen against the block's `#1F1F1F`,
+and an arrow sits on the slide. Measured against white, the teal of a class name
+manages 2.04:1 and the purple of a keyword 2.78:1; as text on the block they are
+right, as a solid shape on a white slide they look faded, which is the opposite
+of what an arrow is for. Each keeps its hue and loses enough lightness to clear
+4.5:1 on white, which the test asserts — the weakest is Gold at 4.92.
+
+Arrows are **uniform across a deck** by design: a note's colour says something
+about that note, but an arrow means one thing, so a slide with two colours of
+arrow is saying something it does not mean. Changing the colour therefore
+repaints every arrow in the presentation, which also saves recolouring a
+twenty-slide walkthrough one slide at a time. The colour is applied when an
+arrow is made and when you change it, never on Stylize, so recolouring one by
+hand still sticks until you press the swatch again.
 
 ### Building a walkthrough
 

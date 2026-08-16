@@ -300,12 +300,70 @@ Public Function ThemeCoverMarkColor() As Long
     ThemeCoverMarkColor = RGB(255, 255, 255)                    ' FFFFFF
 End Function
 
-' The arrow in the left margin. It sits on the SLIDE, not on the dark block, so
-' unlike everything else here it has to read against white - a colour chosen for
-' the block background would vanish. Saturated blue rather than red, because red
-' beside code reads as an error marker.
+' The arrow in the left margin, and the colours it can be set to.
+'
+' These are the SYNTAX HUES, DARKENED. Taking the palette colours as they stand
+' does not work: they are chosen against the block's 1F1F1F, and an arrow sits
+' on the slide, which is white. Measured against white, the teal of a class name
+' manages 2.0:1 and the purple of a keyword 2.8:1 - as text on the block they
+' are right, as a solid shape on a white slide they look faded, which is the
+' opposite of what an arrow is for.
+'
+' So each keeps its hue and loses enough lightness to clear 4.5:1 on white,
+' which ArrowTest asserts. The result still reads as belonging to the same
+' design without pretending the background has not changed.
+'
+' The list is aimed at a light slide, because that is what PowerPoint gives you
+' and what a code deck almost always uses.
+Public Function ThemeArrowPresetCount() As Long
+    ThemeArrowPresetCount = 8
+End Function
+
+Public Function ThemeArrowPresetName(ByVal i As Long) As String
+    Select Case i
+        Case 0: ThemeArrowPresetName = "Blue"
+        Case 1: ThemeArrowPresetName = "Purple"
+        Case 2: ThemeArrowPresetName = "Teal"
+        Case 3: ThemeArrowPresetName = "Green"
+        Case 4: ThemeArrowPresetName = "Orange"
+        Case 5: ThemeArrowPresetName = "Gold"
+        Case 6: ThemeArrowPresetName = "Crimson"
+        Case Else: ThemeArrowPresetName = "Ink"
+    End Select
+End Function
+
+Public Function ThemeArrowPreset(ByVal i As Long) As Long
+    Select Case i
+        ' from 569CD6, the declaration keyword blue
+        Case 0: ThemeArrowPreset = RGB(31, 111, 178)            ' 1F6FB2
+        ' from C586C0, the flow-control purple
+        Case 1: ThemeArrowPreset = RGB(142, 76, 138)            ' 8E4C8A
+        ' from 4EC9B0, the class teal
+        Case 2: ThemeArrowPreset = RGB(15, 122, 104)            ' 0F7A68
+        ' from 87C76B, the comment green
+        Case 3: ThemeArrowPreset = RGB(66, 118, 47)             ' 42762F
+        ' from CE9178, the string orange
+        Case 4: ThemeArrowPreset = RGB(168, 90, 56)             ' A85A38
+        ' from DCDCAA and the gold bracket
+        Case 5: ThemeArrowPreset = RGB(138, 109, 0)             ' 8A6D00
+        ' Not from the palette. For the line that is the mistake.
+        Case 6: ThemeArrowPreset = RGB(198, 40, 40)             ' C62828
+        Case Else: ThemeArrowPreset = RGB(43, 43, 43)           ' 2B2B2B
+    End Select
+End Function
+
+Public Function ThemeArrowPresetIndexOf(ByVal rgbColor As Long) As Long
+    Dim i As Long
+    For i = 0 To ThemeArrowPresetCount() - 1
+        If ThemeArrowPreset(i) = rgbColor Then
+            ThemeArrowPresetIndexOf = i
+            Exit Function
+        End If
+    Next i
+End Function
+
 Public Function ThemeArrowColor() As Long
-    ThemeArrowColor = RGB(29, 78, 216)                          ' 1D4ED8
+    ThemeArrowColor = ThemeArrowPreset(0)
 End Function
 
 Public Function ThemeGutterColor() As Long

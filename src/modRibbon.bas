@@ -632,6 +632,30 @@ Failed:
     Warn "DoEmphasisBold failed: " & Err.Description
 End Sub
 
+' Sets the colour every arrow gets, and repaints the ones already in the deck.
+'
+' Deck-wide, unlike the note controls. Arrows are uniform by design - two
+' colours of arrow on one slide say something the arrows do not mean - so
+' "which arrow do you mean" has no answer worth asking, and a walkthrough built
+' before you settled on a colour would otherwise need recolouring slide by slide.
+Public Sub DoArrowColor(ByVal presetIndex As Long)
+    On Error GoTo Failed
+    Dim pres As Presentation
+
+    modOptions.SetArrowColor ThemeArrowPreset(presetIndex)
+    RefreshRibbon
+
+    On Error Resume Next
+    Set pres = Application.ActivePresentation
+    On Error GoTo Failed
+    If pres Is Nothing Then Exit Sub
+
+    modArrow.RecolorAll pres, ThemeArrowPreset(presetIndex)
+    Exit Sub
+Failed:
+    Warn "DoArrowColor failed: " & Err.Description
+End Sub
+
 ' Puts a block arrow in the left margin beside one line, or takes it away again.
 '
 ' The other half of Emphasize. Emphasize fades everything else; this leaves the
@@ -1137,6 +1161,40 @@ End Sub
 
 Public Sub RibbonArrow(control As IRibbonControl)
     DoArrow
+End Sub
+
+Public Sub RibbonArrowColorCount(control As IRibbonControl, ByRef count)
+    count = ThemeArrowPresetCount()
+End Sub
+
+Public Sub RibbonArrowColorLabel(control As IRibbonControl, index As Integer, ByRef label)
+    label = ThemeArrowPresetName(CLng(index))
+End Sub
+
+Public Sub RibbonArrowColorSelected(control As IRibbonControl, ByRef index)
+    index = ThemeArrowPresetIndexOf(modOptions.ArrowColor())
+End Sub
+
+Public Sub RibbonArrowColorChanged(control As IRibbonControl, id As String, index As Integer)
+    DoArrowColor CLng(index)
+End Sub
+
+Public Sub RibbonArrowColorImage(control As IRibbonControl, index As Integer, ByRef image)
+    Dim p As Object
+    Set p = modSwatch.Swatch(ThemeArrowPreset(CLng(index)))
+    If Not p Is Nothing Then Set image = p
+End Sub
+
+' The swatch beside the closed list, for the same reason the note one exists:
+' a dropDown shows its selected item's label and has no image of its own.
+Public Sub RibbonArrowColorFace(control As IRibbonControl, ByRef image)
+    Dim p As Object
+    Set p = modSwatch.Swatch(modOptions.ArrowColor())
+    If Not p Is Nothing Then Set image = p
+End Sub
+
+Public Sub RibbonArrowColorApply(control As IRibbonControl)
+    DoArrowColor ThemeArrowPresetIndexOf(modOptions.ArrowColor())
 End Sub
 
 Public Sub RibbonStepArrowPressed(control As IRibbonControl, ByRef returnedVal)

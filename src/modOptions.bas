@@ -25,6 +25,7 @@ Public Const TAG_NOTE_FONT  As String = "CODEBLOCK_NOTE_FONT"
 Public Const TAG_STEP_NOTE  As String = "CODEBLOCK_STEP_NOTE"
 Public Const TAG_STEP_BOLD  As String = "CODEBLOCK_STEP_BOLD"
 Public Const TAG_STEP_ARROW As String = "CODEBLOCK_STEP_ARROW"
+Public Const TAG_ARROW_COLOR As String = "CODEBLOCK_ARROW_COLOR"
 
 ' Size 0 means "work it out from the block". An explicit size pins it.
 Public Const NOTE_SIZE_AUTO As Long = 0
@@ -101,6 +102,25 @@ End Function
 
 Public Sub SetNoteFont(ByVal fontName As String)
     SetTag TAG_NOTE_FONT, fontName
+End Sub
+
+' Arrows are UNIFORM across a deck, unlike notes. A note's colour says
+' something about that note; an arrow means one thing - look here - so a slide
+' with two colours of arrow is saying something it does not mean. Changing this
+' therefore repaints every arrow in the presentation rather than only the ones
+' in front of you.
+Public Function ArrowColor() As Long
+    Dim v As String
+    v = GetTag(TAG_ARROW_COLOR)
+    If Len(v) = 0 Then
+        ArrowColor = ThemeArrowColor()
+    Else
+        ArrowColor = CLng(Val(v))
+    End If
+End Function
+
+Public Sub SetArrowColor(ByVal rgbColor As Long)
+    SetTag TAG_ARROW_COLOR, CStr(rgbColor)
 End Sub
 
 '------------------------------------------------------------------------------

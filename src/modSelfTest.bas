@@ -879,6 +879,59 @@ Failed:
     NoteTest = r & "ERROR " & Err.Number & ": " & Err.Description
 End Function
 
+' Renders every arrow colour at once, top to bottom in list order, so the
+' palette can be judged as a set rather than one at a time.
+Public Function ArrowPalette(ByVal srcPath As String, ByVal pngPath As String) As String
+    Dim pres As Presentation, sld As Slide, shp As Shape, r As String
+    Dim code As String, i As Long, arr As Shape, lbl As Shape
+
+    On Error GoTo Failed
+    modRibbon.SetQuiet True
+    code = ReadTextFile(srcPath)
+
+    Set pres = Application.ActivePresentation
+    pres.PageSetup.SlideWidth = modSpec.SLIDE_W
+    pres.PageSetup.SlideHeight = modSpec.SLIDE_H
+    Set sld = pres.Slides.Add(pres.Slides.count + 1, ppLayoutBlank)
+    sld.Select
+
+    Set shp = modBlock.CreateBlock(sld, code, modSpec.BASE_SIZE, "python")
+    ' Right of the default position, so each arrow gets its full width - which
+    ' is the point of the render.
+    shp.Left = 180
+    shp.Select
+    modRibbon.DoStylize
+
+    For i = 0 To ThemeArrowPresetCount() - 1
+        modArrow.AddArrow shp, i + 1
+    Next i
+    StyleBlock shp
+    modBlock.UngroupParts shp
+
+    For i = 0 To ThemeArrowPresetCount() - 1
+        Set arr = modArrow.FindArrow(shp, i + 1)
+        If Not arr Is Nothing Then
+            arr.fill.Solid
+            arr.fill.ForeColor.RGB = ThemeArrowPreset(i)
+            Set lbl = sld.Shapes.AddTextbox(msoTextOrientationHorizontal, _
+                                            12, arr.Top - 4, 110, 20)
+            With lbl.TextFrame.TextRange
+                .text = ThemeArrowPresetName(i)
+                .Font.size = 14
+                .Font.Color.RGB = RGB(60, 60, 60)
+                .ParagraphFormat.Alignment = ppAlignRight
+            End With
+            lbl.Line.Visible = msoFalse
+        End If
+    Next i
+
+    sld.Export pngPath, "PNG", 1920, 1080
+    ArrowPalette = "presets=" & ThemeArrowPresetCount() & vbLf
+    Exit Function
+Failed:
+    ArrowPalette = r & "ERROR " & Err.Number & ": " & Err.Description
+End Function
+
 ' Arrows in the left margin: placement, the toggle, and a walkthrough that
 ' points instead of fading.
 Public Function ArrowTest(ByVal srcPath As String, ByVal pngPath As String) As String
@@ -959,6 +1012,45 @@ Public Function ArrowTest(ByVal srcPath As String, ByVal pngPath As String) As S
     Next k
     r = r & "arrowed_slides_unfaded=" & marked & vbLf
     pres.Slides(3).Export Replace(pngPath, ".png", "-walk.png"), "PNG", 1920, 1080
+
+    ' --- the colours ---------------------------------------------------------
+    ' The whole claim is that these are the syntax hues darkened until they read
+    ' on a WHITE slide, so it is measured. 4.5:1 is stricter than WCAG asks of a
+    ' solid shape, deliberately: a washed-out projector eats the margin.
+    Dim worst As Double, worstName As String, cc As Double, q As Long
+    worst = 999
+    For q = 0 To ThemeArrowPresetCount() - 1
+        cc = ThemeContrast(ThemeArrowPreset(q), RGB(255, 255, 255))
+        If cc < worst Then
+            worst = cc
+            worstName = ThemeArrowPresetName(q)
+        End If
+    Next q
+    r = r & "worst_on_white=" & Format$(worst, "0.00") & " (" & worstName & ")" & vbLf
+    r = r & "all_arrow_colors_read=" & Abs(CLng(worst >= 4.5)) & vbLf
+
+    ' And what the raw palette would have managed, so the darkening is shown to
+    ' be doing something rather than assumed to.
+    r = r & "raw_class_teal_on_white=" & _
+            Format$(ThemeContrast(ThemeColor(tkClass), RGB(255, 255, 255)), "0.00") & vbLf
+    r = r & "raw_keyword_purple_on_white=" & _
+            Format$(ThemeContrast(ThemeColor(tkKeywordCtrl), RGB(255, 255, 255)), "0.00") & vbLf
+
+    ' Changing the colour repaints every arrow in the DECK, not just this slide.
+    modRibbon.DoArrowColor 3                                  ' Green
+    Dim wrong As Long, total As Long
+    For k = 1 To pres.Slides.count
+        For Each s3 In modBlock.AllShapes(pres.Slides(k))
+            If Len(s3.Tags(modArrow.TAG_ARROW_OF)) > 0 Then
+                total = total + 1
+                If s3.fill.ForeColor.RGB <> ThemeArrowPreset(3) Then wrong = wrong + 1
+            End If
+        Next s3
+    Next k
+    r = r & "recolored_deck_wide=" & Abs(CLng(total > 1 And wrong = 0)) & _
+            " (" & total & " arrows)" & vbLf
+
+    pres.Slides(3).Export Replace(pngPath, ".png", "-colors.png"), "PNG", 1920, 1080
 
     ' Strip removes them, since an arrow points at styling.
     modOptions.SetStepArrow False

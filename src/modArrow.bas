@@ -90,7 +90,7 @@ Public Function AddArrow(ByVal shp As Shape, ByVal lineNo As Long) As Shape
     Set a = sld.Shapes.AddShape(msoShapeRightArrow, shp.Left - 40, shp.Top, 30, 14)
     With a
         .fill.Solid
-        .fill.ForeColor.RGB = ThemeArrowColor()
+        .fill.ForeColor.RGB = modOptions.ArrowColor()
         .fill.Transparency = 0
         .Line.Visible = msoFalse
         .Shadow.Visible = msoFalse
@@ -117,6 +117,32 @@ Public Sub ClearArrows(ByVal shp As Shape)
         c(i).Delete
     Next i
 End Sub
+
+' Repaints every arrow in the whole presentation.
+'
+' Deck-wide because arrows are uniform by design - see modOptions.ArrowColor -
+' and because the alternative is worse: a walkthrough of twenty slides built
+' before you settled on a colour would otherwise have to be recoloured slide by
+' slide.
+'
+' Colour is applied on CREATION and here, never in PlaceArrows. Repainting on
+' every Stylize would undo any arrow recoloured by hand with PowerPoint's own
+' tools, which is the same bargain notes get.
+Public Function RecolorAll(ByVal pres As Presentation, ByVal rgbColor As Long) As Long
+    Dim sld As Slide, s2 As Shape, n As Long
+
+    On Error Resume Next
+    For Each sld In pres.Slides
+        For Each s2 In modBlock.AllShapes(sld)
+            If Len(s2.Tags(TAG_ARROW_OF)) > 0 Then
+                s2.fill.Solid
+                s2.fill.ForeColor.RGB = rgbColor
+                n = n + 1
+            End If
+        Next s2
+    Next sld
+    RecolorAll = n
+End Function
 
 '------------------------------------------------------------------------------
 ' Placement
