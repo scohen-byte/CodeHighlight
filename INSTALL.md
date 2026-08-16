@@ -96,6 +96,8 @@ you have to correct the letter by hand.
 | **Strip** | Back to plain uncoloured text. Stylize brings it all back |
 | **Step through** | Build a walkthrough: one slide per line. See below |
 | **Build up** | The same, but the emphasis grows downward instead of moving |
+| **Hide lines** | Cover the selected lines with a `?`, so the class can guess them. See below |
+| **Reveal next** | Add the answer slide: the same slide with nothing hidden |
 | **Size** | The block's size in points. Pick a rung or type any size |
 | **Larger / Smaller** | Step the font size. Larger stops where the code would stop fitting the slide |
 | **Fit** | Pick the largest size that fits. Warns rather than shrinking below readable |
@@ -131,6 +133,20 @@ Two things worth knowing:
 
 The generated slides are ordinary slides. Reorder, delete or edit any of them,
 and press Stylize on one if you change its code.
+
+**Hiding lines, to ask rather than tell.** Select lines inside the block and press
+**Hide lines**. They disappear behind a panel carrying a question mark, and the
+block keeps its exact size and shape — nothing shifts, so the audience can see
+precisely how much is missing and where. Press **Reveal next** and the slide is
+duplicated with nothing hidden, giving you the answer slide immediately after the
+question.
+
+To unhide without adding a slide, select the block itself — not text inside it —
+and press **Hide lines** again. **Strip** also clears it.
+
+The code is covered, not deleted. It is still in the file, and anyone who opens
+the deck can drag the panel aside. That is fine when you reveal in the room, but
+do not use it to withhold answers from a deck you hand out beforehand.
 
 **Fit will sometimes refuse to be helpful, on purpose.** If a snippet only fits
 at 12pt it tells you so, and says roughly how many slides it needs at 16pt

@@ -605,6 +605,61 @@ Failed:
     EditFlowTest = r & "ERROR " & Err.Number & ": " & Err.Description
 End Function
 
+' Hide a range, check the cover appears and keeps the layout, then Reveal and
+' check the answer slide follows with nothing hidden.
+Public Function HideTest(ByVal srcPath As String, ByVal pngPath As String) As String
+    Dim pres As Presentation, sld As Slide, shp As Shape, r As String
+    Dim code As String, a As Long, b As Long, endStart As Long, endLen As Long
+    Dim covers As Long, s2 As Shape, hBefore As Single
+
+    On Error GoTo Failed
+    modRibbon.SetQuiet True
+    code = ReadTextFile(srcPath)
+
+    Set pres = Application.ActivePresentation
+    pres.PageSetup.SlideWidth = modSpec.SLIDE_W
+    pres.PageSetup.SlideHeight = modSpec.SLIDE_H
+    Set sld = pres.Slides.Add(pres.Slides.count + 1, ppLayoutBlank)
+    sld.Select
+
+    Set shp = modBlock.CreateBlock(sld, code, modSpec.BASE_SIZE, "python")
+    shp.Select
+    modRibbon.DoStylize
+    hBefore = shp.Height
+
+    ' Hide lines 2 and 3.
+    modBlock.LineCharRange shp.TextFrame.TextRange.text, 2, a, b
+    modBlock.LineCharRange shp.TextFrame.TextRange.text, 3, endStart, endLen
+    shp.TextFrame.TextRange.Characters(a, (endStart + endLen) - a).Select
+    modRibbon.DoHide
+
+    r = "hidden_tag=" & Quoted(modBlock.GetHidden(shp)) & vbLf
+    For Each s2 In modBlock.AllShapes(sld)
+        If s2.Tags(modBlock.TAG_COVER_OF) = shp.Tags(modBlock.TAG_ID) Then covers = covers + 1
+    Next s2
+    r = r & "cover_shapes=" & covers & " (one per run of hidden lines)" & vbLf
+    r = r & "layout_unchanged=" & Abs(CLng(Abs(shp.Height - hBefore) < 0.5)) & vbLf
+
+    sld.Export pngPath, "PNG", 1920, 1080
+
+    ' Reveal adds the answer slide.
+    shp.Select
+    modRibbon.DoReveal
+    r = r & "slides=" & pres.Slides.count & vbLf
+    Dim target As Shape
+    For Each s2 In modBlock.AllShapes(pres.Slides(pres.Slides.count))
+        If s2.Tags(modBlock.TAG_BLOCK) = "1" Then Set target = s2
+    Next s2
+    If Not target Is Nothing Then
+        r = r & "answer_slide_hidden=" & Quoted(modBlock.GetHidden(target)) & vbLf
+    End If
+
+    HideTest = r
+    Exit Function
+Failed:
+    HideTest = r & "ERROR " & Err.Number & ": " & Err.Description
+End Function
+
 ' Compares three ways of showing an emphasised range, since the text highlight
 ' stops at the end of each line and looks ragged when several lines are banded.
 '   A  text highlight only, as now

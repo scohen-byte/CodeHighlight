@@ -117,7 +117,9 @@ Public Sub StyleBlock(ByVal shp As Shape, Optional ByVal langId As String = "")
     ' placed from that margin.
     modGutter.SyncGutter shp
     modGuides.DrawGuides shp
-    ' Back into a group, so the block and its numbers and guides drag as one.
+    ' Covers last: they have to sit above everything to hide anything.
+    modRender.DrawCovers shp
+    ' Back into a group, so the block and its parts drag as one.
     modBlock.GroupParts shp
 End Sub
 
@@ -281,6 +283,8 @@ Public Sub DoStrip()
 
     shp.TextFrame.TextRange.Font.Color.RGB = ThemeColor(tkDefault)
     modRender.ClearBands shp
+    modBlock.SetHidden shp, ""
+    modRender.ClearCovers shp
 
     modBlock.ResizeToContent shp
     Reselect shp
@@ -296,6 +300,73 @@ End Sub
 '
 ' cumulative = False spotlights one line at a time, for tracing execution.
 ' cumulative = True grows the emphasis downward, for building code up.
+' Hides the lines covered by the text selection, behind a panel with a question
+' mark. With the shape selected rather than text, it reveals everything again.
+Public Sub DoHide()
+    On Error GoTo Failed
+    Dim shp As Shape, problem As String, sel As Selection
+    Dim txt As String, a As Long, b As Long, i As Long, list As String
+
+    Set shp = modBlock.SelectedBlock(problem)
+    If shp Is Nothing Then
+        Warn problem
+        Exit Sub
+    End If
+
+    Set sel = Application.ActiveWindow.Selection
+    If sel.Type = ppSelectionText Then
+        If sel.TextRange.length > 0 Then
+            txt = shp.TextFrame.TextRange.text
+            a = modBlock.LineOfChar(txt, sel.TextRange.Start)
+            b = modBlock.LineOfChar(txt, sel.TextRange.Start + sel.TextRange.length - 1)
+            For i = a To b
+                If Len(list) > 0 Then list = list & ","
+                list = list & CStr(i)
+            Next i
+        End If
+    End If
+
+    modBlock.SetHidden shp, list
+    modBlock.UngroupParts shp
+    StyleBlock shp
+    Reselect shp
+    Exit Sub
+Failed:
+    Warn "DoHide failed: " & Err.Description
+End Sub
+
+' Duplicates the slide with nothing hidden, so the answer follows the question.
+Public Sub DoReveal()
+    On Error GoTo Failed
+    Dim shp As Shape, problem As String, sld As Slide, dup As Slide, target As Shape
+
+    Set shp = modBlock.SelectedBlock(problem)
+    If shp Is Nothing Then
+        Warn problem
+        Exit Sub
+    End If
+
+    If Len(modBlock.GetHidden(shp)) = 0 Then
+        Warn "Nothing is hidden on this block. Select some lines and press Hide first."
+        Exit Sub
+    End If
+
+    Set sld = modGutter.OwningSlide(shp)
+    Set dup = sld.Duplicate(1)
+    dup.MoveTo sld.SlideIndex + 1
+
+    Set target = BlockOnSlide(dup, shp.Tags(modBlock.TAG_ID))
+    If Not target Is Nothing Then
+        modBlock.SetHidden target, ""
+        StyleBlock target
+    End If
+
+    sld.Select
+    Exit Sub
+Failed:
+    Warn "DoReveal failed: " & Err.Description
+End Sub
+
 Public Sub DoStepThrough(ByVal cumulative As Boolean)
     On Error GoTo Failed
     Dim shp As Shape, problem As String, sld As Slide, dup As Slide, target As Shape
@@ -579,6 +650,14 @@ Public Sub RibbonToggleGuides(control As IRibbonControl, pressed As Boolean)
 End Sub
 
 ' The size box: shows the selected block's size, and accepts a typed one.
+Public Sub RibbonHide(control As IRibbonControl)
+    DoHide
+End Sub
+
+Public Sub RibbonReveal(control As IRibbonControl)
+    DoReveal
+End Sub
+
 Public Sub RibbonStepThrough(control As IRibbonControl)
     DoStepThrough False
 End Sub

@@ -31,6 +31,8 @@ hand like any other text. Nothing is locked.
 | **Emphasize** | Bands the selected lines and fades the rest |
 | **Step through** | Builds a walkthrough: one slide per line, each emphasising the next, opening and closing on the whole code |
 | **Build up** | The same, with the emphasis growing downward rather than moving |
+| **Hide lines** | Covers lines with a `?`, keeping the block's exact layout, so the class can guess them |
+| **Reveal next** | Duplicates the slide with nothing hidden — the answer, one click after the question |
 | **Copy code** | The source to the clipboard, not a picture of a rectangle |
 | **Strip** | Back to plain text. Stylize brings it all back |
 

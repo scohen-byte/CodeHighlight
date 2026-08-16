@@ -173,3 +173,102 @@ Private Sub AddBand(ByVal sld As Slide, ByVal shp As Shape, _
         .ZOrder msoBringToFront
     End With
 End Sub
+
+'==============================================================================
+' Hidden lines
+'==============================================================================
+
+' Covers the hidden lines with an opaque panel carrying a question mark.
+'
+' The code is COVERED, not removed: the text stays in the shape, so the layout
+' is unchanged, nothing can be lost, and revealing is just deleting a shape.
+' The cost is that the text is still in the file - fine when the reveal happens
+' in the room, not if the deck goes out beforehand.
+Public Sub DrawCovers(ByVal shp As Shape)
+    Dim spec As String, sld As Slide, lineCount As Long
+    Dim size As Single, lineH As Single, pad As Single
+    Dim i As Long, runStart As Long, hidden As Boolean
+
+    On Error GoTo Done
+
+    ClearCovers shp
+    spec = modBlock.GetHidden(shp)
+    If Len(spec) = 0 Then Exit Sub
+
+    Set sld = modGutter.OwningSlide(shp)
+    size = modBlock.BlockFontSize(shp)
+    lineH = modSpec.SpecLine(size)
+    pad = modSpec.SpecPad(size)
+    lineCount = modBlock.CountLines(shp.TextFrame.TextRange.text)
+
+    runStart = -1
+    For i = 1 To lineCount + 1
+        hidden = False
+        If i <= lineCount Then
+            hidden = (InStr("," & spec & ",", "," & CStr(i) & ",") > 0)
+        End If
+
+        If hidden Then
+            If runStart < 0 Then runStart = i
+        ElseIf runStart >= 0 Then
+            AddCover sld, shp, size, _
+                     shp.Top + pad + (runStart - 1) * lineH, _
+                     shp.Top + pad + (i - 1) * lineH
+            runStart = -1
+        End If
+    Next i
+Done:
+End Sub
+
+Public Sub ClearCovers(ByVal shp As Shape)
+    Dim sld As Slide, blockId As String, doomed As Collection, s2 As Shape, i As Long
+
+    blockId = shp.Tags(modBlock.TAG_ID)
+    If Len(blockId) = 0 Then Exit Sub
+    Set sld = modGutter.OwningSlide(shp)
+
+    Set doomed = New Collection
+    For Each s2 In modBlock.AllShapes(sld)
+        If s2.Tags(modBlock.TAG_COVER_OF) = blockId Then doomed.Add s2
+    Next s2
+    For i = doomed.count To 1 Step -1
+        doomed(i).Delete
+    Next i
+End Sub
+
+Private Sub AddCover(ByVal sld As Slide, ByVal shp As Shape, ByVal size As Single, _
+                     ByVal y0 As Single, ByVal y1 As Single)
+    Dim r As Shape
+
+    ' Starts at the code, not at the block edge, so line numbers stay readable -
+    ' the audience can still see WHICH lines are missing.
+    Set r = sld.Shapes.AddShape(msoShapeRectangle, _
+                                shp.Left + shp.TextFrame.MarginLeft - size * 0.2, y0, _
+                                shp.Width - shp.TextFrame.MarginLeft + size * 0.2, y1 - y0)
+    With r
+        .Fill.Solid
+        .Fill.ForeColor.RGB = ThemeCoverColor()
+        .Fill.Transparency = 0
+        .Line.Visible = msoFalse
+        .Shadow.Visible = msoFalse
+        .Tags.Add modBlock.TAG_COVER_OF, shp.Tags(modBlock.TAG_ID)
+    End With
+
+    With r.TextFrame
+        .WordWrap = msoFalse
+        .AutoSize = ppAutoSizeNone
+        .VerticalAnchor = msoAnchorMiddle
+        .MarginLeft = 0
+        .MarginRight = 0
+        .MarginTop = 0
+        .MarginBottom = 0
+        .TextRange.text = "?"
+        .TextRange.Font.Name = THEME_FONT
+        .TextRange.Font.size = size
+        .TextRange.Font.Color.RGB = ThemeGutterColor()
+        .TextRange.ParagraphFormat.Alignment = ppAlignCenter
+    End With
+
+    ' Above everything, or it would not cover anything.
+    r.ZOrder msoBringToFront
+End Sub

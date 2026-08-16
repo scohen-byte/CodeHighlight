@@ -107,6 +107,18 @@
                   onAction="RibbonBuildUp"
                   screentip="One slide per line, emphasis growing downward"
                   supertip="The same, except each slide emphasises everything up to the current line rather than just that line. For building code up rather than tracing it."/>
+          <button id="btnHide"
+                  label="Hide lines"
+                  imageMso="BlackAndWhiteBlack"
+                  onAction="RibbonHide"
+                  screentip="Hide the selected lines behind a question mark"
+                  supertip="Select lines inside the block and press this to cover them, keeping their space. Ask the class what belongs there. With the block itself selected rather than text, it reveals them again."/>
+          <button id="btnReveal"
+                  label="Reveal next"
+                  imageMso="VisibilityVisible"
+                  onAction="RibbonReveal"
+                  screentip="Add the answer on the next slide"
+                  supertip="Duplicates this slide with nothing hidden, so the reveal follows the question."/>
         </group>
 
         <group id="grpSize" label="Size">

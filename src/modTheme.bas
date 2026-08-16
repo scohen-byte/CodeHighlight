@@ -104,6 +104,13 @@ Public Function ThemeDimmed(ByVal rgbColor As Long) As Long
                       bb + (b - bb) * KEEP)
 End Function
 
+' The panel that hides code awaiting a reveal. Close to the block background so
+' it reads as absence rather than as a new element, but not identical - a plain
+' hole looks like a rendering fault, and this should look deliberate.
+Public Function ThemeCoverColor() As Long
+    ThemeCoverColor = RGB(42, 42, 42)                           ' 2A2A2A
+End Function
+
 Public Function ThemeGutterColor() As Long
     ThemeGutterColor = RGB(133, 133, 133)                       ' 858585
 End Function

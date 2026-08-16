@@ -25,6 +25,10 @@ Public Const TAG_EMPHASIS As String = "CODEBLOCK_EMPHASIS"
 Public Const TAG_NOBAND As String = "CODEBLOCK_NOBAND"
 ' Marks an emphasis band rectangle as belonging to a block.
 Public Const TAG_BAND_OF As String = "CODEBLOCK_BAND_OF"
+' Which lines are hidden behind a cover, as a comma list, and the tag marking
+' the cover shapes themselves.
+Public Const TAG_HIDDEN As String = "CODEBLOCK_HIDDEN"
+Public Const TAG_COVER_OF As String = "CODEBLOCK_COVER_OF"
 
 ' Why the last GroupParts did nothing, for the test harness to report.
 Public LastGroupError As String
@@ -156,6 +160,14 @@ End Sub
 Public Function GetEmphasis(ByVal shp As Shape) As String
     GetEmphasis = shp.Tags(TAG_EMPHASIS)
 End Function
+
+Public Function GetHidden(ByVal shp As Shape) As String
+    GetHidden = shp.Tags(TAG_HIDDEN)
+End Function
+
+Public Sub SetHidden(ByVal shp As Shape, ByVal lineList As String)
+    shp.Tags.Add TAG_HIDDEN, lineList
+End Sub
 
 Public Sub SetEmphasis(ByVal shp As Shape, ByVal lineList As String)
     shp.Tags.Add TAG_EMPHASIS, lineList
@@ -451,7 +463,8 @@ Public Sub GroupParts(ByVal shp As Shape)
             If .Tags(TAG_ID) = blockId Or _
                .Tags(modGutter.TAG_GUTTER_OF) = blockId Or _
                .Tags(modGuides.TAG_GUIDE_OF) = blockId Or _
-               .Tags(TAG_BAND_OF) = blockId Then
+               .Tags(TAG_BAND_OF) = blockId Or _
+               .Tags(TAG_COVER_OF) = blockId Then
                 n = n + 1
                 v(n) = .Name
             End If
