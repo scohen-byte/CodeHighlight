@@ -1,5 +1,24 @@
 # CodeHighlight — implementation plan
 
+> **This is the original plan, kept as a record of why things are the way they
+> are — the packaging traps, the measured font metrics, the locked visual spec,
+> the argument for language neutrality. It is not a description of the add-in as
+> it stands. `README.md` is that.**
+>
+> Two things below have since been renamed or removed, and are left as written
+> rather than quietly rewritten:
+>
+> - **Highlight** is now **Stylize**. The word was wrong: it collides with
+>   PowerPoint's own text highlighter, which is a different thing entirely.
+> - **Highlight all** no longer exists. It iterated a snapshot of the slide's
+>   shapes while the pipeline regrouped them underneath it, which invalidates
+>   the references still to come, and it only ever saved a second press of
+>   Stylize. Section 3 of the README lists what the ribbon actually has.
+>
+> Everything built after section 12's build order — emphasis, walkthroughs,
+> hide and reveal, notes, arrows — is documented in `README.md` and in the
+> module headers, which is where the reasoning for those lives.
+
 A PowerPoint add-in that renders source code with VS Code Dark+ syntax colors,
 entirely offline, with no dependency on anything outside PowerPoint itself.
 

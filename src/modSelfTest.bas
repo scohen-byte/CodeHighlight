@@ -879,6 +879,148 @@ Failed:
     NoteTest = r & "ERROR " & Err.Number & ": " & Err.Description
 End Function
 
+' EVERYTHING on one block at once, then Stylize twice.
+'
+' The parts have all been tested apart. What has not is the interaction: eight
+' kinds of child shape - gutter, guides, band, cover, note, leader, anchor,
+' arrow - competing for one group and one z-order, on a pipeline that ungroups
+' and regroups on every pass. Two things can go wrong there and neither shows up
+' in a single-feature test. A part can be LOST, because GroupParts gathers by
+' tag and a tag it does not know about is left behind on the slide. And a part
+' can be DUPLICATED, because anything created rather than repositioned piles up.
+'
+' So it counts every kind, styles again, and counts again. Equal counts across a
+' second pass is the property that matters: the pipeline has to be idempotent,
+' since Stylize is the button you press constantly.
+Public Function EverythingTest(ByVal srcPath As String, ByVal pngPath As String) As String
+    Dim pres As Presentation, sld As Slide, shp As Shape, r As String
+    Dim code As String, a As Long, b As Long, e1 As Long, e2 As Long
+
+    On Error GoTo Failed
+    modRibbon.SetQuiet True
+    code = ReadTextFile(srcPath)
+
+    Set pres = Application.ActivePresentation
+    pres.PageSetup.SlideWidth = modSpec.SLIDE_W
+    pres.PageSetup.SlideHeight = modSpec.SLIDE_H
+    Set sld = pres.Slides.Add(pres.Slides.count + 1, ppLayoutBlank)
+    sld.Select
+
+    Set shp = modBlock.CreateBlock(sld, code, modSpec.BASE_SIZE, "python")
+    shp.Left = 90
+    shp.Select
+    modRibbon.DoStylize
+
+    ' Numbers and guides.
+    shp.Select
+    modRibbon.DoToggleGutter
+    shp.Select
+    modRibbon.DoToggleGuides
+
+    ' Emphasis, in bold.
+    modOptions.SetEmphasisBold True
+    modBlock.SetEmphasis shp, "4,5"
+
+    ' A hidden run.
+    modBlock.LineCharRange shp.TextFrame.TextRange.text, 8, a, b
+    shp.TextFrame.TextRange.Characters(a, b).Select
+    modRibbon.DoHide
+
+    ' Two notes and two arrows, on different lines.
+    modBlock.LineCharRange shp.TextFrame.TextRange.text, 1, a, b
+    shp.TextFrame.TextRange.Characters(a, 1).Select
+    modRibbon.DoNote
+    modBlock.LineCharRange shp.TextFrame.TextRange.text, 6, a, b
+    shp.TextFrame.TextRange.Characters(a, 1).Select
+    modRibbon.DoNote
+    modBlock.LineCharRange shp.TextFrame.TextRange.text, 3, a, b
+    shp.TextFrame.TextRange.Characters(a, 1).Select
+    modRibbon.DoArrow
+    modBlock.LineCharRange shp.TextFrame.TextRange.text, 10, a, b
+    shp.TextFrame.TextRange.Characters(a, 1).Select
+    modRibbon.DoArrow
+
+    shp.Select
+    modRibbon.DoStylize
+    r = "after_first=" & PartCensus(shp) & vbLf
+    r = r & "all_in_one_group=" & Abs(CLng(LooseParts(shp) = 0)) & vbLf
+    e1 = TotalParts(shp)
+
+    sld.Export pngPath, "PNG", 1920, 1080
+
+    ' Again. Nothing may appear and nothing may vanish.
+    shp.Select
+    modRibbon.DoStylize
+    r = r & "after_second=" & PartCensus(shp) & vbLf
+    e2 = TotalParts(shp)
+    r = r & "idempotent=" & Abs(CLng(e1 = e2)) & vbLf
+    r = r & "still_one_group=" & Abs(CLng(LooseParts(shp) = 0)) & vbLf
+
+    modOptions.SetEmphasisBold False
+    EverythingTest = r
+    Exit Function
+Failed:
+    EverythingTest = r & "ERROR " & Err.Number & ": " & Err.Description
+End Function
+
+' One line naming every kind of part and how many there are.
+Private Function PartCensus(ByVal shp As Shape) As String
+    Dim id As String, sld As Slide, s2 As Shape
+    Dim gut As Long, gui As Long, bnd As Long, cov As Long
+    Dim nte As Long, led As Long, anc As Long, arw As Long
+
+    id = shp.Tags(modBlock.TAG_ID)
+    Set sld = modGutter.OwningSlide(shp)
+    For Each s2 In modBlock.AllShapes(sld)
+        If s2.Tags(modGutter.TAG_GUTTER_OF) = id Then gut = gut + 1
+        If s2.Tags(modGuides.TAG_GUIDE_OF) = id Then gui = gui + 1
+        If s2.Tags(modBlock.TAG_BAND_OF) = id Then bnd = bnd + 1
+        If s2.Tags(modBlock.TAG_COVER_OF) = id Then cov = cov + 1
+        If s2.Tags(modNote.TAG_NOTE_OF) = id Then nte = nte + 1
+        If s2.Tags(modNote.TAG_LEADER_OF) = id Then led = led + 1
+        If s2.Tags(modNote.TAG_ANCHOR_OF) = id Then anc = anc + 1
+        If s2.Tags(modArrow.TAG_ARROW_OF) = id Then arw = arw + 1
+    Next s2
+
+    PartCensus = "gutter=" & gut & " guides=" & gui & " bands=" & bnd & _
+                 " covers=" & cov & " notes=" & nte & " leaders=" & led & _
+                 " anchors=" & anc & " arrows=" & arw
+End Function
+
+Private Function TotalParts(ByVal shp As Shape) As Long
+    Dim id As String, sld As Slide, s2 As Shape, n As Long
+    id = shp.Tags(modBlock.TAG_ID)
+    Set sld = modGutter.OwningSlide(shp)
+    For Each s2 In modBlock.AllShapes(sld)
+        If PartOf(s2, id) Then n = n + 1
+    Next s2
+    TotalParts = n
+End Function
+
+' Parts sitting on the SLIDE rather than inside the block's group. Any of these
+' is a tag GroupParts does not know about, and it means the part stops moving
+' with the block.
+Private Function LooseParts(ByVal shp As Shape) As Long
+    Dim id As String, sld As Slide, i As Long, n As Long
+    id = shp.Tags(modBlock.TAG_ID)
+    Set sld = modGutter.OwningSlide(shp)
+    For i = 1 To sld.Shapes.count
+        If PartOf(sld.Shapes(i), id) Then n = n + 1
+    Next i
+    LooseParts = n
+End Function
+
+Private Function PartOf(ByVal s2 As Shape, ByVal id As String) As Boolean
+    PartOf = (s2.Tags(modGutter.TAG_GUTTER_OF) = id) Or _
+             (s2.Tags(modGuides.TAG_GUIDE_OF) = id) Or _
+             (s2.Tags(modBlock.TAG_BAND_OF) = id) Or _
+             (s2.Tags(modBlock.TAG_COVER_OF) = id) Or _
+             (s2.Tags(modNote.TAG_NOTE_OF) = id) Or _
+             (s2.Tags(modNote.TAG_LEADER_OF) = id) Or _
+             (s2.Tags(modNote.TAG_ANCHOR_OF) = id) Or _
+             (s2.Tags(modArrow.TAG_ARROW_OF) = id)
+End Function
+
 ' Renders every arrow colour at once, top to bottom in list order, so the
 ' palette can be judged as a set rather than one at a time.
 Public Function ArrowPalette(ByVal srcPath As String, ByVal pngPath As String) As String

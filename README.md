@@ -264,6 +264,7 @@ tools/check-vba.sh                  # static checks. ALWAYS run before driving P
 tools/run-lexer-tests.sh            # the scanner against its reference, whole corpus
 tools/run-slice.sh lab_snippet      # render one sample to PNG
 tools/run-feature.sh NoteTest band  # drive one modSelfTest function, keep the PNG
+tools/run-feature.sh EverythingTest lab_snippet   # every feature on one block
 tools/build-addin.sh --install      # rebuild and deploy. PowerPoint must be CLOSED
 ```
 
@@ -274,7 +275,17 @@ colours look off. All samples must match.
 
 `check-vba.sh` first is not a nicety: a VBA compile error does not come back as
 an error, it opens the VBA editor with a modal dialog and every later COM call
-blocks — which from the outside is indistinguishable from a hang.
+blocks — which from the outside is indistinguishable from a hang. It also
+resolves every `modX.Member` reference against what `modX.bas` exports, because
+VBA compiles one procedure at a time and a reference to something that has moved
+survives a full green test run, then fails the first time a user reaches that
+one procedure.
+
+`EverythingTest` is the one that catches interaction bugs: eight kinds of child
+shape — gutter, guides, band, cover, note, leader, anchor, arrow — competing for
+one group and one z-order, styled twice. Equal part counts across the second
+pass is the property that matters, since Stylize is the button you press
+constantly and anything created rather than repositioned piles up.
 
 ## Requirements
 
