@@ -23,6 +23,8 @@ Option Explicit
 Public Function ApplyHighlight(ByVal shp As Shape, ByVal langId As String) As Long
     Dim tr As TextRange
     Dim spans() As Span, n As Long, i As Long, applied As Long
+    Dim lineOf() As Long, emph As String, dimming As Boolean
+    Dim c As Long
 
     Set tr = shp.TextFrame.TextRange
     If Len(tr.text) = 0 Then Exit Function
@@ -35,19 +37,60 @@ Public Function ApplyHighlight(ByVal shp As Shape, ByVal langId As String) As Lo
     ' colour and throws the syntax highlighting away.
     ApplyEmphasis shp
 
+    ' When some lines are emphasised, every OTHER line is dimmed. The band alone
+    ' is easy to miss from the back of a lecture hall; fading the surroundings
+    ' makes the live lines carry the slide.
+    emph = modBlock.GetEmphasis(shp)
+    dimming = (Len(emph) > 0)
+    If dimming Then
+        BuildLineIndex tr.text, lineOf
+        tr.Font.Color.RGB = ThemeDimmed(ThemeColor(tkDefault))
+    End If
+
     n = modLexer.Tokenize(tr.text, modLangRegistry.GetLang(langId), spans)
 
     For i = 0 To n - 1
         ' Default-coloured spans were already handled by the reset above, and
         ' skipping them removes roughly half the round trips.
-        If spans(i).Kind <> tkDefault Then
-            tr.Characters(spans(i).Start, spans(i).Length).Font.Color.RGB = _
-                ThemeColor(spans(i).Kind)
-            applied = applied + 1
+        c = ThemeColor(spans(i).Kind)
+        If dimming Then
+            If Not LineIsEmphasised(lineOf, spans(i).Start, emph) Then c = ThemeDimmed(c)
+        End If
+
+        ' The reset already painted the default colour, so a default span only
+        ' needs touching when dimming has changed what "default" should be.
+        If spans(i).Kind <> tkDefault Or dimming Then
+            If c <> tr.Characters(spans(i).Start, 1).Font.Color.RGB Then
+                tr.Characters(spans(i).Start, spans(i).Length).Font.Color.RGB = c
+                applied = applied + 1
+            End If
         End If
     Next i
 
     ApplyHighlight = applied
+End Function
+
+' char index -> line number, built once per render. Walking the text per span
+' would be quadratic, and a long block has hundreds of spans.
+Private Sub BuildLineIndex(ByVal text As String, ByRef lineOf() As Long)
+    Dim i As Long, n As Long, ch As String
+
+    ReDim lineOf(1 To IIf(Len(text) < 1, 1, Len(text)))
+    n = 1
+    For i = 1 To Len(text)
+        lineOf(i) = n
+        ch = Mid$(text, i, 1)
+        If ch = vbCr Or ch = vbLf Or ch = Chr$(11) Then n = n + 1
+    Next i
+End Sub
+
+Private Function LineIsEmphasised(ByRef lineOf() As Long, ByVal charIdx As Long, _
+                                  ByVal emph As String) As Boolean
+    Dim ln As Long
+    On Error Resume Next
+    If charIdx < LBound(lineOf) Or charIdx > UBound(lineOf) Then Exit Function
+    ln = lineOf(charIdx)
+    LineIsEmphasised = (InStr("," & emph & ",", "," & CStr(ln) & ",") > 0)
 End Function
 
 ' Paints the band behind whichever lines the block says are emphasised, and

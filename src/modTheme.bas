@@ -82,6 +82,28 @@ Public Function ThemeEmphasisColor() As Long
     ThemeEmphasisColor = RGB(58, 68, 82)                        ' 3A4452
 End Function
 
+' A colour faded towards the block background. Used to push everything except
+' the emphasised lines back, which reads far more strongly from the back of a
+' room than brightening the emphasised lines alone: the eye is drawn by
+' CONTRAST, and dimming the surroundings raises it everywhere at once.
+Public Function ThemeDimmed(ByVal rgbColor As Long) As Long
+    Const KEEP As Single = 0.4          ' how much of the original survives
+    Dim r As Long, g As Long, b As Long
+    Dim br As Long, bg As Long, bb As Long, back As Long
+
+    back = ThemeBackColor()
+    r = rgbColor And &HFF&
+    g = (rgbColor \ &H100&) And &HFF&
+    b = (rgbColor \ &H10000) And &HFF&
+    br = back And &HFF&
+    bg = (back \ &H100&) And &HFF&
+    bb = (back \ &H10000) And &HFF&
+
+    ThemeDimmed = RGB(br + (r - br) * KEEP, _
+                      bg + (g - bg) * KEEP, _
+                      bb + (b - bb) * KEEP)
+End Function
+
 Public Function ThemeGutterColor() As Long
     ThemeGutterColor = RGB(133, 133, 133)                       ' 858585
 End Function

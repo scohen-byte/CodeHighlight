@@ -219,7 +219,8 @@ Public Sub DoEmphasise()
     modRender.ApplyHighlight shp, modBlock.BlockLangId(shp, CurrentLangId())
     modBlock.GroupParts shp
     Reselect shp
-    If Len(list) = 0 Then Warn "Emphasis cleared."
+    ' Clearing is silent. A dialog to dismiss on every step of a walkthrough is
+    ' worse than no feedback at all - the block itself is the feedback.
     Exit Sub
 Failed:
     Warn "DoEmphasise failed: " & Err.Description
