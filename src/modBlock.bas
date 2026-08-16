@@ -146,6 +146,13 @@ Public Sub FormatBlockText(ByVal shp As Shape, ByVal size As Single)
             .SpaceAfter = 0
         End With
     End With
+
+    ' Tab stops every four characters, matching an editor. Without this a tab
+    ' jumps to PowerPoint's default inch stop, so an indented line sits far
+    ' right of where the same code sits in VS Code.
+    On Error Resume Next
+    shp.TextFrame.Ruler.TabStops.DefaultSpacing = modSpec.SpecTabStop(size)
+    On Error GoTo 0
 End Sub
 
 '------------------------------------------------------------------------------

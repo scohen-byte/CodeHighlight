@@ -287,6 +287,46 @@ Private Function Quoted(ByVal s As String) As String
     Quoted = Chr$(34) & s & Chr$(34)
 End Function
 
+' What does PowerPoint's autofit actually do to a code block? The plan rules it
+' out, but the reason given was gutter alignment, and it is worth measuring
+' rather than inheriting. Reports width and height for each combination.
+Public Function AutofitProbe(ByVal dummy As String) As String
+    Dim pres As Presentation, sld As Slide, shp As Shape
+    Dim r As String, i As Long, code As String
+
+    On Error GoTo Failed
+    code = "x = 1" & vbCr & "y = 2" & vbCr & _
+           "print(some_rather_longer_line_here)" & vbCr & "z = 3"
+
+    Set pres = Application.ActivePresentation
+    pres.PageSetup.SlideWidth = modSpec.SLIDE_W
+    pres.PageSetup.SlideHeight = modSpec.SLIDE_H
+    Set sld = pres.Slides.Add(pres.Slides.count + 1, ppLayoutBlank)
+
+    For i = 0 To 2
+        Set shp = sld.Shapes.AddShape(msoShapeRoundedRectangle, 40, 40 + i * 120, _
+                                      modSpec.CONTENT_W, 100)
+        shp.TextFrame.WordWrap = IIf(i = 2, msoTrue, msoFalse)
+        Select Case i
+            Case 0: shp.TextFrame.AutoSize = ppAutoSizeNone
+            Case 1: shp.TextFrame.AutoSize = ppAutoSizeShapeToFitText   ' wrap off
+            Case 2: shp.TextFrame.AutoSize = ppAutoSizeShapeToFitText   ' wrap on
+        End Select
+        shp.TextFrame.TextRange.text = code
+        modBlock.FormatBlockText shp, modSpec.BASE_SIZE
+        r = r & "case" & i & " wrap=" & IIf(i = 2, "on", "off") & _
+                " autofit=" & IIf(i = 0, "none", "fit") & _
+                " w=" & Format$(shp.Width, "0.0") & _
+                " h=" & Format$(shp.Height, "0.0") & vbLf
+    Next i
+
+    r = r & "expected_h_for_4_lines=" & Format$(modSpec.SpecHeight(modSpec.BASE_SIZE, 4), "0.0")
+    AutofitProbe = r
+    Exit Function
+Failed:
+    AutofitProbe = "ERROR " & Err.Number & ": " & Err.Description
+End Function
+
 ' One file, for poking at a single sample from the VBA editor's Immediate
 ' window. The test harness uses RunCorpus instead - see the note there.
 ' Returns the mask length, or -1 on failure.

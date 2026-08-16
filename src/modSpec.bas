@@ -24,6 +24,11 @@ Private Const GAP_RATIO    As Single = 0.45    ' gutter-to-code gap
 Private Const RADIUS_RATIO As Single = 0.36    ' corner radius
 Private Const ADVANCE      As Single = 0.55    ' Consolas, from consola.ttf
 
+' A tab advances four characters, as in VS Code. PowerPoint's own default tab
+' stop is an inch - about six characters at 22pt - which is why a tab-indented
+' line lands much further right than it does in an editor.
+Public Const TAB_CHARS As Single = 4
+
 ' The content area on a 16:9 slide, measured in Phase -1. 960 x 540 points.
 Public Const SLIDE_W  As Single = 960
 Public Const SLIDE_H  As Single = 540
@@ -49,6 +54,10 @@ End Function
 
 Public Function SpecCharW(ByVal size As Single) As Single
     SpecCharW = size * ADVANCE
+End Function
+
+Public Function SpecTabStop(ByVal size As Single) As Single
+    SpecTabStop = TAB_CHARS * SpecCharW(size)
 End Function
 
 ' Width of the line-number gutter, which sits INSIDE the dark block. Not used by
