@@ -78,13 +78,6 @@
                   onAction="RibbonEmphasize"
                   screentip="Emphasize the selected lines"
                   supertip="Select text inside the block and press this to band those lines. With the block itself selected rather than text, it clears the emphasis. The choice is stored on the block, so duplicating the slide and moving the emphasis down a line is two clicks."/>
-          <button id="btnNote"
-                  label="Note"
-                  size="large"
-                  imageMso="ReviewNewComment"
-                  onAction="RibbonNote"
-                  screentip="Attach a note to the line the cursor is on"
-                  supertip="Puts a note beside the block with a line pointing at the code, so you can say what a line does without cramming it into a comment. It stays anchored: change the size or edit the code above it and Stylize keeps it level with its line. With the block itself selected rather than text, it offers to remove them all."/>
           <button id="btnCopyCode"
                   label="Copy code"
                   imageMso="Copy"
@@ -97,6 +90,34 @@
                   onAction="RibbonStrip"
                   screentip="Return the block to plain text"
                   supertip="Removes the colours, emphasis, numbers and guides. The block stays, and Stylize brings it all back."/>
+        </group>
+
+        <group id="grpNotes" label="Notes">
+          <button id="btnNote"
+                  label="Note"
+                  size="large"
+                  imageMso="ReviewNewComment"
+                  onAction="RibbonNote"
+                  screentip="Attach a note to a line of code"
+                  supertip="Puts a note beside the block with a line pointing at the code, so you can say what a line does without cramming it into a comment. Uses the line the cursor is on, or - with the block itself selected - the emphasised line, which makes annotating a walkthrough one click per slide. It stays anchored: change the size or edit the code above it and Stylize keeps it level with its line."/>
+          <comboBox id="cboNoteSize"
+                    label="Note size"
+                    sizeString="Auto"
+                    getText="RibbonNoteSizeText"
+                    onChange="RibbonNoteSizeChanged"
+                    getItemCount="RibbonNoteSizeCount"
+                    getItemLabel="RibbonNoteSizeLabel"
+                    screentip="Font size for notes"
+                    supertip="Auto sizes each note from the block it belongs to. Pick a rung or type any size to pin it instead. Applies to the selected block's notes at once, and to every note made afterwards."/>
+          <dropDown id="ddNoteColor"
+                    label="Note colour"
+                    sizeString="Indigo"
+                    getItemCount="RibbonNoteColorCount"
+                    getItemLabel="RibbonNoteColorLabel"
+                    getSelectedItemIndex="RibbonNoteColorSelected"
+                    onAction="RibbonNoteColorChanged"
+                    screentip="Colour for notes"
+                    supertip="Applies to the selected block's notes at once, and to every note made afterwards. The text colour follows the fill, so the light preset gets dark words rather than near-white ones."/>
         </group>
 
         <group id="grpWalk" label="Walkthrough">

@@ -349,10 +349,16 @@ End Sub
 ' The cursor is enough - no selection needed - because a note is about one line,
 ' and asking someone to select the line first would be a step for nothing.
 '
-' With the block itself selected rather than text there is no line to attach to,
-' so the gesture means the other thing you might want: clear them. That one asks
-' first. Every other clear in this add-in is silent, because everything else can
-' be rebuilt by pressing Stylize, and typed words cannot.
+' With the BLOCK selected rather than text there is no cursor, so the line is
+' taken from the emphasis. On a walkthrough slide that is exactly the line being
+' talked about, which makes annotating a generated deck one click per slide with
+' nothing to aim at. Build up emphasises a range, and the LAST line of it is the
+' one the slide just arrived at.
+'
+' Only with no cursor and no emphasis does the gesture mean the other thing you
+' might want: clear them. That one asks first. Every other clear in this add-in
+' is silent, because everything else can be rebuilt by pressing Stylize, and
+' typed words cannot.
 Public Sub DoNote()
     On Error GoTo Failed
     Dim shp As Shape, problem As String, sel As Selection
@@ -368,12 +374,14 @@ Public Sub DoNote()
     If sel.Type = ppSelectionText Then
         ln = modBlock.LineOfChar(shp.TextFrame.TextRange.text, sel.TextRange.Start)
     End If
+    If ln < 1 Then ln = LastEmphasisedLine(shp)
 
     If ln < 1 Then
         n = modNote.NoteCount(shp)
         If n = 0 Then
             Warn "Click into the block, put the cursor on the line you want to " & _
-                 "explain, and press Note."
+                 "explain, and press Note. On a walkthrough slide the emphasised " & _
+                 "line is used, so the block itself is enough."
             Exit Sub
         End If
         If Confirm("Remove all " & n & " note(s) from this block? " & _
@@ -409,6 +417,67 @@ Public Sub DoNote()
     Exit Sub
 Failed:
     Warn "DoNote failed: " & Err.Description
+End Sub
+
+' The last line of the block's emphasis, or 0 when nothing is emphasised.
+'
+' The LAST, not the first: Step through emphasises one line, where the two are
+' the same, and Build up emphasises everything so far, where the last line is
+' the one the slide has just reached and the earlier ones are already explained.
+Private Function LastEmphasisedLine(ByVal shp As Shape) As Long
+    Dim spec As String, parts() As String, i As Long, v As Long
+
+    spec = modBlock.GetEmphasis(shp)
+    If Len(spec) = 0 Then Exit Function
+
+    parts = Split(spec, ",")
+    For i = LBound(parts) To UBound(parts)
+        v = CLng(Val(parts(i)))
+        If v > LastEmphasisedLine Then LastEmphasisedLine = v
+    Next i
+End Function
+
+' Sets the size new notes get, and repaints the ones already on the selected
+' block so the choice is visible immediately rather than only on the next note.
+Public Sub DoNoteSize(ByVal pts As Long)
+    On Error GoTo Failed
+    Dim shp As Shape, problem As String
+
+    If pts < 0 Then pts = 0
+    modNote.SetDefaultNoteSize pts
+
+    Set shp = modBlock.SelectedBlock(problem)
+    If shp Is Nothing Then Exit Sub          ' the default is set either way
+    ApplyNoteStyle shp
+    Exit Sub
+Failed:
+    Warn "DoNoteSize failed: " & Err.Description
+End Sub
+
+Public Sub DoNoteColor(ByVal presetIndex As Long)
+    On Error GoTo Failed
+    Dim shp As Shape, problem As String
+
+    modNote.SetDefaultNoteColor ThemeNotePreset(presetIndex)
+
+    Set shp = modBlock.SelectedBlock(problem)
+    If shp Is Nothing Then Exit Sub
+    ApplyNoteStyle shp
+    Exit Sub
+Failed:
+    Warn "DoNoteColor failed: " & Err.Description
+End Sub
+
+' Restyling changes each note's height, so the notes have to be placed again -
+' which StyleBlock does, along with everything else.
+Private Sub ApplyNoteStyle(ByVal shp As Shape)
+    If modNote.NoteCount(shp) = 0 Then Exit Sub
+    modNote.CaptureDrags shp
+    modBlock.UngroupParts shp
+    modNote.RestyleNotes shp
+    StyleBlock shp
+    Reselect shp
+    RefreshRibbon
 End Sub
 
 ' Duplicates the slide with nothing hidden, so the answer follows the question.
@@ -738,6 +807,66 @@ End Sub
 
 Public Sub RibbonNote(control As IRibbonControl)
     DoNote
+End Sub
+
+' Item 0 is Auto - a note sized from the block it belongs to, which is the
+' default and what almost every deck wants. The rest is the ordinary ladder.
+Public Sub RibbonNoteSizeCount(control As IRibbonControl, ByRef count)
+    count = modSpec.LadderCount() + 1
+End Sub
+
+Public Sub RibbonNoteSizeLabel(control As IRibbonControl, index As Integer, ByRef label)
+    If index = 0 Then
+        label = "Auto"
+    Else
+        label = Format$(modSpec.LadderAt(CLng(index) - 1), "0")
+    End If
+End Sub
+
+Public Sub RibbonNoteSizeText(control As IRibbonControl, ByRef text)
+    Dim pts As Long
+    pts = modNote.DefaultNoteSize()
+    If pts < 1 Then
+        text = "Auto"
+    Else
+        text = CStr(pts)
+    End If
+End Sub
+
+Public Sub RibbonNoteSizeChanged(control As IRibbonControl, text As String)
+    Dim want As Long
+
+    If LCase$(Trim$(text)) = "auto" Then
+        DoNoteSize modNote.NOTE_SIZE_AUTO
+        RefreshRibbon
+        Exit Sub
+    End If
+
+    want = CLng(Val(text))
+    If want < 6 Or want > 96 Then
+        Warn "Enter a size between 6 and 96 points, or Auto to size notes " & _
+             "from the block."
+        RefreshRibbon
+        Exit Sub
+    End If
+    DoNoteSize want
+    RefreshRibbon
+End Sub
+
+Public Sub RibbonNoteColorCount(control As IRibbonControl, ByRef count)
+    count = ThemeNotePresetCount()
+End Sub
+
+Public Sub RibbonNoteColorLabel(control As IRibbonControl, index As Integer, ByRef label)
+    label = ThemeNotePresetName(CLng(index))
+End Sub
+
+Public Sub RibbonNoteColorSelected(control As IRibbonControl, ByRef index)
+    index = ThemeNotePresetIndexOf(modNote.DefaultNoteColor())
+End Sub
+
+Public Sub RibbonNoteColorChanged(control As IRibbonControl, id As String, index As Integer)
+    DoNoteColor CLng(index)
 End Sub
 
 Public Sub RibbonStepThrough(control As IRibbonControl)

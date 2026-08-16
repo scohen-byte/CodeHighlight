@@ -36,15 +36,33 @@ Option Explicit
 
 Public Const TAG_NOTE_OF   As String = "CODEBLOCK_NOTE_OF"
 Public Const TAG_NOTE_LINE As String = "CODEBLOCK_NOTE_LINE"
-' The note's accumulated offset from its anchor, "dx,dy".
+' The note's offset from its anchor, "dx,dy". Written ONLY when the user has
+' moved the note - see CaptureDrags.
 Public Const TAG_NOTE_OFF  As String = "CODEBLOCK_NOTE_OFF"
-' Where the block and the note were when this module last placed it,
-' "blockLeft,blockTop,noteLeft,noteTop".
+' What this module last did, as
+' "blockLeft,blockTop,baseLeft,baseTop,placedLeft,placedTop".
+'
+' Base and placed are both needed, and they differ when the stacking pushed the
+' note down. Comparing the note against PLACED says whether the user has moved
+' it; measuring the new offset against BASE is what makes the offset mean "from
+' where this note belongs". Storing only one of the two conflates a note that
+' was stacked with a note that was dragged, and a stacked note then freezes and
+' stops restacking when the note above it grows.
 Public Const TAG_NOTE_SEEN As String = "CODEBLOCK_NOTE_SEEN"
 ' The thin line from the note back to its line of code.
 Public Const TAG_LEADER_OF As String = "CODEBLOCK_LEADER_OF"
 
 Public Const NOTE_PLACEHOLDER As String = "What this line does"
+
+' The size and colour new notes get, stored on the PRESENTATION rather than in a
+' module variable so the choice survives closing PowerPoint and travels with the
+' deck. Whole numbers, for the locale reason above.
+Public Const TAG_PRES_NOTE_SIZE  As String = "CODEBLOCK_NOTE_SIZE"
+Public Const TAG_PRES_NOTE_COLOR As String = "CODEBLOCK_NOTE_COLOR"
+
+' Size 0 means "work it out from the block", which is the default and is right
+' for almost every deck. An explicit size pins it.
+Public Const NOTE_SIZE_AUTO As Long = 0
 
 Private Const GAP_PT    As Single = 24      ' block edge to note
 Private Const MARGIN_PT As Single = 18      ' slide edge the note keeps clear
@@ -136,10 +154,11 @@ End Function
 ' PlaceNotes, which the caller reaches through StyleBlock.
 Public Function AddNote(ByVal shp As Shape, ByVal lineNo As Long) As Shape
     Dim sld As Slide, r As Shape
-    Dim nSize As Single, w As Single, pad As Single
+    Dim nSize As Single, w As Single, pad As Single, fill As Long
 
     Set sld = modGutter.OwningSlide(shp)
-    nSize = NoteFontSize(modBlock.BlockFontSize(shp))
+    nSize = EffectiveNoteSize(shp)
+    fill = DefaultNoteColor()
     pad = modSpec.SpecPad(nSize)
     w = NoteWidth(shp)
 
@@ -147,9 +166,8 @@ Public Function AddNote(ByVal shp As Shape, ByVal lineNo As Long) As Shape
                                 shp.Left + shp.Width + GAP_PT, shp.Top, w, nSize * 3)
     With r
         .Fill.Solid
-        .Fill.ForeColor.RGB = ThemeNoteColor()
+        .Fill.ForeColor.RGB = fill
         .Fill.Transparency = 0
-        .Line.Visible = msoFalse
         .Shadow.Visible = msoFalse
         .Tags.Add TAG_NOTE_OF, shp.Tags(modBlock.TAG_ID)
         .Tags.Add TAG_NOTE_LINE, CStr(lineNo)
@@ -171,7 +189,7 @@ Public Function AddNote(ByVal shp As Shape, ByVal lineNo As Long) As Shape
             ' it looks like the rest of the presentation rather than like this
             ' add-in. Only size and colour are ours.
             .Font.size = nSize
-            .Font.Color.RGB = ThemeNoteTextColor()
+            .Font.Color.RGB = ThemeTextOn(fill)
             .ParagraphFormat.Alignment = ppAlignLeft
         End With
         ' Autofit last, so the first height is measured from the real text and
@@ -181,9 +199,22 @@ Public Function AddNote(ByVal shp As Shape, ByVal lineNo As Long) As Shape
 
     r.Width = w
     r.Adjustments(1) = modSpec.SpecCornerAdjust(nSize, ShorterSide(r))
+    ApplyEdge r, fill
 
     Set AddNote = r
 End Function
+
+' A light note on a light slide has no edge of its own and reads as words
+' floating in space. A dark one does not need the help and looks busier for it.
+Private Sub ApplyEdge(ByVal note As Shape, ByVal fill As Long)
+    If ThemeNeedsEdge(fill) Then
+        note.Line.Visible = msoTrue
+        note.Line.ForeColor.RGB = ThemeEdgeFor(fill)
+        note.Line.Weight = 1
+    Else
+        note.Line.Visible = msoFalse
+    End If
+End Sub
 
 Public Sub RemoveNote(ByVal shp As Shape, ByVal lineNo As Long)
     Dim note As Shape
@@ -226,13 +257,14 @@ End Sub
 ' that as each note's offset from where this module would otherwise put it.
 ' MUST run before the block moves - see the module header.
 '
-' The offset is REPLACED, not accumulated. It is measured against the raw
-' auto-placed base that PlaceNotes stored, so one subtraction gives the whole
-' answer; accumulating deltas instead makes every rounding error permanent.
+' The offset is REPLACED, not accumulated - one subtraction against the stored
+' base gives the whole answer, where accumulating deltas would make every
+' rounding error permanent. And it is written ONLY when the note has actually
+' moved, so a note nobody has touched keeps no offset at all and goes on taking
+' part in the stacking.
 Public Sub CaptureDrags(ByVal shp As Shape)
     Dim arr() As Shape, n As Long, i As Long, v() As String
-    Dim dx As Single, dy As Single, offX As Single, offY As Single
-    Dim bdx As Single, bdy As Single
+    Dim bdx As Single, bdy As Single, mx As Single, my As Single
 
     If mCaptured Then Exit Sub
     mCaptured = True
@@ -241,7 +273,7 @@ Public Sub CaptureDrags(ByVal shp As Shape)
     n = NoteArray(shp, arr)
     For i = 1 To n
         v = Split(arr(i).Tags(TAG_NOTE_SEEN), ",")
-        If UBound(v) = 3 Then
+        If UBound(v) = 5 Then
             ' Whatever the block did, the note did too if they moved together.
             ' Subtracting the block's own movement is what separates "the group
             ' was dragged" from "this note was dragged".
@@ -250,15 +282,17 @@ Public Sub CaptureDrags(ByVal shp As Shape)
             If Abs(bdx) < DRAG_MIN Then bdx = 0
             If Abs(bdy) < DRAG_MIN Then bdy = 0
 
-            dx = (arr(i).Left - Val(v(2))) - bdx
-            dy = (arr(i).Top - Val(v(3))) - bdy
+            ' How far the note is from where this module last put it. Below the
+            ' threshold it has not moved, and the difference is the half point
+            ' lost to storing positions as whole numbers.
+            mx = (arr(i).Left - bdx) - Val(v(4))
+            my = (arr(i).Top - bdy) - Val(v(5))
 
-            ParseOffset arr(i), offX, offY
-            ' Below the threshold nothing moved: the difference is the half
-            ' point lost to storing positions as whole numbers.
-            If Abs(dx - offX) < DRAG_MIN Then dx = offX
-            If Abs(dy - offY) < DRAG_MIN Then dy = offY
-            arr(i).Tags.Add TAG_NOTE_OFF, PtStr(dx) & "," & PtStr(dy)
+            If Abs(mx) >= DRAG_MIN Or Abs(my) >= DRAG_MIN Then
+                arr(i).Tags.Add TAG_NOTE_OFF, _
+                    PtStr((arr(i).Left - bdx) - Val(v(2))) & "," & _
+                    PtStr((arr(i).Top - bdy) - Val(v(3)))
+            End If
         End If
     Next i
 Done:
@@ -356,10 +390,12 @@ Public Sub PlaceNotes(ByVal shp As Shape)
         arr(i).Top = y
         floorY = y + arr(i).Height + STACK_GAP
 
-        ' The base, not the final position: CaptureDrags measures against this.
+        ' Base AND final position. CaptureDrags needs both to tell a note the
+        ' stacking moved from one the user moved.
         arr(i).Tags.Add TAG_NOTE_SEEN, _
                         PtStr(shp.Left) & "," & PtStr(shp.Top) & "," & _
-                        PtStr(baseX) & "," & PtStr(baseY)
+                        PtStr(baseX) & "," & PtStr(baseY) & "," & _
+                        PtStr(x) & "," & PtStr(y)
 
         AddLeader sld, shp, arr(i), ax, ay
     Next i
@@ -432,6 +468,96 @@ Public Function NoteFontSize(ByVal blockSize As Single) As Single
     If s > 20 Then s = 20
     NoteFontSize = s
 End Function
+
+'------------------------------------------------------------------------------
+' The size and colour new notes get
+'------------------------------------------------------------------------------
+
+Private Function ActivePres() As Presentation
+    On Error Resume Next
+    Set ActivePres = Application.ActivePresentation
+    On Error GoTo 0
+End Function
+
+' NOTE_SIZE_AUTO when nothing has been chosen, which is the usual case.
+Public Function DefaultNoteSize() As Long
+    Dim p As Presentation
+    Set p = ActivePres()
+    If p Is Nothing Then Exit Function
+    DefaultNoteSize = CLng(Val(p.Tags(TAG_PRES_NOTE_SIZE)))
+End Function
+
+Public Sub SetDefaultNoteSize(ByVal pts As Long)
+    Dim p As Presentation
+    Set p = ActivePres()
+    If p Is Nothing Then Exit Sub
+    p.Tags.Add TAG_PRES_NOTE_SIZE, CStr(pts)
+End Sub
+
+Public Function DefaultNoteColor() As Long
+    Dim p As Presentation, v As String
+    DefaultNoteColor = ThemeNoteColor()
+    Set p = ActivePres()
+    If p Is Nothing Then Exit Function
+    v = p.Tags(TAG_PRES_NOTE_COLOR)
+    If Len(v) > 0 Then DefaultNoteColor = CLng(Val(v))
+End Function
+
+Public Sub SetDefaultNoteColor(ByVal rgbColor As Long)
+    Dim p As Presentation
+    Set p = ActivePres()
+    If p Is Nothing Then Exit Sub
+    p.Tags.Add TAG_PRES_NOTE_COLOR, CStr(rgbColor)
+End Sub
+
+' The size a note on this block should be: the pinned choice, or derived.
+Public Function EffectiveNoteSize(ByVal shp As Shape) As Single
+    Dim pinned As Long
+    pinned = DefaultNoteSize()
+    If pinned >= 1 Then
+        EffectiveNoteSize = CSng(pinned)
+    Else
+        EffectiveNoteSize = NoteFontSize(modBlock.BlockFontSize(shp))
+    End If
+End Function
+
+' Repaints and resizes every note on a block. The text is untouched - only the
+' size, the fill and the text colour, which is derived from the fill so a light
+' preset does not end up with near-white words on it.
+'
+' Height follows the text, so the caller has to place the notes again afterwards.
+Public Sub RestyleNotes(ByVal shp As Shape)
+    Dim arr() As Shape, n As Long, i As Long
+    Dim size As Single, fill As Long, pad As Single, w As Single
+
+    On Error GoTo Done
+    n = NoteArray(shp, arr)
+    If n = 0 Then Exit Sub
+
+    size = EffectiveNoteSize(shp)
+    fill = DefaultNoteColor()
+    pad = modSpec.SpecPad(size)
+
+    For i = 1 To n
+        w = arr(i).Width
+        arr(i).fill.Solid
+        arr(i).fill.ForeColor.RGB = fill
+        arr(i).fill.Transparency = 0
+        With arr(i).TextFrame
+            .MarginLeft = pad
+            .MarginRight = pad
+            .MarginTop = Round(pad * 0.6, 1)
+            .MarginBottom = Round(pad * 0.6, 1)
+            .TextRange.Font.size = size
+            .TextRange.Font.Color.RGB = ThemeTextOn(fill)
+        End With
+        ' Autofit reflows the height for the new size; the width is ours to keep.
+        arr(i).Width = w
+        arr(i).Adjustments(1) = modSpec.SpecCornerAdjust(size, ShorterSide(arr(i)))
+        ApplyEdge arr(i), fill
+    Next i
+Done:
+End Sub
 
 ' How wide a new note can be: the room to the right of the block, then the room
 ' to its left, and failing both the full slide width for a note placed below.

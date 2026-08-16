@@ -125,10 +125,92 @@ Public Function ThemeNoteTextColor() As Long
     ThemeNoteTextColor = RGB(235, 235, 235)                     ' EBEBEB
 End Function
 
+' The colours a note can be set to. A short list rather than a full colour
+' picker: every one of these is checked against the text colour it gets, and an
+' arbitrary colour is not. Slate is first because it is the default.
+Public Function ThemeNotePresetCount() As Long
+    ThemeNotePresetCount = 6
+End Function
+
+Public Function ThemeNotePresetName(ByVal i As Long) As String
+    Select Case i
+        Case 0: ThemeNotePresetName = "Slate"
+        Case 1: ThemeNotePresetName = "Indigo"
+        Case 2: ThemeNotePresetName = "Teal"
+        Case 3: ThemeNotePresetName = "Plum"
+        Case 4: ThemeNotePresetName = "Ink"
+        Case Else: ThemeNotePresetName = "Paper"
+    End Select
+End Function
+
+Public Function ThemeNotePreset(ByVal i As Long) As Long
+    Select Case i
+        Case 0: ThemeNotePreset = RGB(58, 68, 82)               ' 3A4452
+        Case 1: ThemeNotePreset = RGB(59, 58, 92)               ' 3B3A5C
+        Case 2: ThemeNotePreset = RGB(30, 70, 69)               ' 1E4645
+        Case 3: ThemeNotePreset = RGB(74, 51, 80)               ' 4A3350
+        Case 4: ThemeNotePreset = RGB(43, 43, 43)               ' 2B2B2B
+        Case Else: ThemeNotePreset = RGB(242, 242, 239)         ' F2F2EF
+    End Select
+End Function
+
+Public Function ThemeNotePresetIndexOf(ByVal rgbColor As Long) As Long
+    Dim i As Long
+    For i = 0 To ThemeNotePresetCount() - 1
+        If ThemeNotePreset(i) = rgbColor Then
+            ThemeNotePresetIndexOf = i
+            Exit Function
+        End If
+    Next i
+End Function
+
+' Rec. 709 luma. Close enough to tell a light fill from a dark one, and it needs
+' no gamma work to do that.
+Public Function ThemeIsLight(ByVal rgbColor As Long) As Boolean
+    Dim r As Long, g As Long, b As Long
+    r = rgbColor And &HFF&
+    g = (rgbColor \ &H100&) And &HFF&
+    b = (rgbColor \ &H10000) And &HFF&
+    ThemeIsLight = ((0.2126 * r + 0.7152 * g + 0.0722 * b) / 255 > 0.5)
+End Function
+
+' The text colour for a given note fill, so a light preset does not end up with
+' near-white text on it.
+Public Function ThemeTextOn(ByVal rgbColor As Long) As Long
+    If ThemeIsLight(rgbColor) Then
+        ThemeTextOn = RGB(26, 26, 26)                           ' 1A1A1A
+    Else
+        ThemeTextOn = ThemeNoteTextColor()
+    End If
+End Function
+
+' A light note on a white slide has no edge of its own, and reads as text
+' floating in space rather than as a note. Dark fills need no such help, so they
+' get none - a border on them only adds a line to look at.
+Public Function ThemeNeedsEdge(ByVal rgbColor As Long) As Boolean
+    ThemeNeedsEdge = ThemeIsLight(rgbColor)
+End Function
+
+Public Function ThemeEdgeFor(ByVal rgbColor As Long) As Long
+    Const DARKEN As Single = 0.78
+    Dim r As Long, g As Long, b As Long
+    r = rgbColor And &HFF&
+    g = (rgbColor \ &H100&) And &HFF&
+    b = (rgbColor \ &H10000) And &HFF&
+    ThemeEdgeFor = RGB(r * DARKEN, g * DARKEN, b * DARKEN)
+End Function
+
 ' The line from a note back to its code. Quiet on purpose: it has to be
 ' followable without competing with either end of it.
 Public Function ThemeLeaderColor() As Long
     ThemeLeaderColor = RGB(133, 133, 133)                       ' 858585
+End Function
+
+' The question mark on a cover panel. Pure white, and set bold where it is used:
+' it is the only thing on that part of the slide, and it is the question being
+' put to the room.
+Public Function ThemeCoverMarkColor() As Long
+    ThemeCoverMarkColor = RGB(255, 255, 255)                    ' FFFFFF
 End Function
 
 Public Function ThemeGutterColor() As Long

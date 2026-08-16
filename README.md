@@ -39,7 +39,9 @@ editable.
 | **Line numbers** | Show or hide the numbers for the selected block. A separate shape, so the code text stays pure source. Off by default |
 | **Indent guides** | Show or hide the vertical nesting lines, drawn as real shapes. Off by default |
 | **Emphasize** | Band the selected lines and fade the rest |
-| **Note** | Attach an explanation to the line the cursor is on |
+| **Note** | Attach an explanation to a line of code |
+| **Note size** | Font size for notes. Auto sizes each one from its block |
+| **Note colour** | One of six presets. The text colour follows the fill |
 | **Copy code** | Put the block's code on the clipboard, ready to paste into an editor |
 | **Strip** | Back to plain uncoloured text. Stylize brings it all back |
 | **Step through** | Build a walkthrough: one slide per line, each emphasising the next |
@@ -91,7 +93,7 @@ and press Stylize on one if you change its code.
 ### Hiding lines, to ask rather than tell
 
 Select lines inside the block and press **Hide lines**. They disappear behind a
-panel carrying a question mark, and the block keeps its exact size and shape —
+panel carrying a bold white question mark, and the block keeps its exact size —
 nothing shifts, so the audience can see precisely how much is missing and where.
 Press **Reveal next** and the slide is duplicated with nothing hidden, giving
 you the answer slide immediately after the question.
@@ -113,6 +115,20 @@ the cursor is enough.
 The note is anchored, not merely placed. Edit the code above it, change the
 size, or drag the whole block, and Stylize brings the note back level with its
 line. Drag a note somewhere you prefer and Stylize leaves it there.
+
+**On a walkthrough slide the block itself is enough.** With the block selected
+rather than text, the note attaches to the emphasised line — so annotating a
+generated Step through is one click per slide, with nothing to aim at. Build up
+emphasises a range, and the note goes on its **last** line, which is the one
+that slide has just reached.
+
+**Note size** and **Note colour** apply to the selected block's notes straight
+away, and to every note made afterwards. Auto sizes each note from the block it
+belongs to, which is usually what you want. The six colours are fixed rather
+than a full picker, because each one is checked against the text colour it gets
+— the light preset gets dark words and a faint edge so it does not dissolve into
+a white slide. The choice is stored in the deck, not in the add-in, so it
+travels with the file.
 
 - **Two notes on nearby lines stack** rather than landing on top of each other.
 - **A block too wide to leave a margin** puts its notes below itself instead,

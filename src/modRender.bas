@@ -212,13 +212,62 @@ Public Sub DrawCovers(ByVal shp As Shape)
             If runStart < 0 Then runStart = i
         ElseIf runStart >= 0 Then
             AddCover sld, shp, size, _
-                     shp.Top + pad + (runStart - 1) * lineH, _
-                     shp.Top + pad + (i - 1) * lineH
+                     CoverTop(shp, runStart, shp.Top + pad + (runStart - 1) * lineH), _
+                     CoverBottom(shp, i - 1, shp.Top + pad + (i - 1) * lineH)
             runStart = -1
         End If
     Next i
 Done:
 End Sub
+
+' The top and bottom of a cover, MEASURED rather than predicted.
+'
+' The computed line box is [pad + (n-1)*lineH, pad + n*lineH], and the glyphs do
+' not stay inside it. Line spacing is set in exact points, so PowerPoint puts
+' the baseline where the spacing says and lets the descenders of the last line
+' hang below the box - a couple of points of code peeking out from under an
+' otherwise opaque panel, which is exactly the kind of thing that only shows up
+' on a projector. So ask where the characters actually landed.
+'
+' The measurement is unioned with the computed box rather than replacing it: a
+' blank line has no characters to measure, and a failed measurement must make
+' the panel bigger or leave it alone, never smaller.
+Private Function CoverTop(ByVal shp As Shape, ByVal lineNo As Long, _
+                          ByVal computed As Single) As Single
+    Dim t As Single, h As Single
+    CoverTop = computed
+    If Not LineBounds(shp, lineNo, t, h) Then Exit Function
+    If t < computed Then CoverTop = t
+End Function
+
+Private Function CoverBottom(ByVal shp As Shape, ByVal lineNo As Long, _
+                             ByVal computed As Single) As Single
+    Dim t As Single, h As Single
+    CoverBottom = computed
+    If Not LineBounds(shp, lineNo, t, h) Then Exit Function
+    If t + h > computed Then CoverBottom = t + h
+End Function
+
+' Where one line's characters actually sit. False when there is nothing to
+' measure - a blank line, or a line number outside the text.
+'
+' Public so a test can assert what the panel is supposed to guarantee: that no
+' hidden line's ink falls outside it. Two points of leak is invisible in a
+' screenshot and obvious on a projector.
+Public Function LineBounds(ByVal shp As Shape, ByVal lineNo As Long, _
+                            ByRef topPt As Single, ByRef heightPt As Single) As Boolean
+    Dim tr As TextRange, startIdx As Long, length As Long
+
+    On Error GoTo Done
+    Set tr = shp.TextFrame.TextRange
+    modBlock.LineCharRange tr.text, lineNo, startIdx, length
+    If startIdx < 1 Or length < 1 Then Exit Function
+
+    topPt = tr.Characters(startIdx, length).BoundTop
+    heightPt = tr.Characters(startIdx, length).BoundHeight
+    LineBounds = (heightPt > 0)
+Done:
+End Function
 
 Public Sub ClearCovers(ByVal shp As Shape)
     Dim sld As Slide, blockId As String, doomed As Collection, s2 As Shape, i As Long
@@ -265,7 +314,11 @@ Private Sub AddCover(ByVal sld As Slide, ByVal shp As Shape, ByVal size As Singl
         .TextRange.text = "?"
         .TextRange.Font.Name = THEME_FONT
         .TextRange.Font.size = size
-        .TextRange.Font.Color.RGB = ThemeGutterColor()
+        ' Bold and white. The question mark is the ASK - it is what the slide is
+        ' doing while the code is covered - so it carries the panel rather than
+        ' sitting in it quietly like a line number.
+        .TextRange.Font.Bold = msoTrue
+        .TextRange.Font.Color.RGB = ThemeCoverMarkColor()
         .TextRange.ParagraphFormat.Alignment = ppAlignCenter
     End With
 

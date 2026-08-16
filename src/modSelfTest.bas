@@ -640,6 +640,42 @@ Public Function HideTest(ByVal srcPath As String, ByVal pngPath As String) As St
     r = r & "cover_shapes=" & covers & " (one per run of hidden lines)" & vbLf
     r = r & "layout_unchanged=" & Abs(CLng(Abs(shp.Height - hBefore) < 0.5)) & vbLf
 
+    ' The panel must cover every hidden line's INK, not its computed line box.
+    ' Descenders hang below the box, and a two-point leak of code under an
+    ' opaque panel is invisible here and plain on a projector.
+    Dim cov As Shape, lt As Single, lh As Single, leak As Single, ln As Long
+    For Each s2 In modBlock.AllShapes(sld)
+        If s2.Tags(modBlock.TAG_COVER_OF) = shp.Tags(modBlock.TAG_ID) Then Set cov = s2
+    Next s2
+    If Not cov Is Nothing Then
+        For ln = 2 To 3
+            If modRender.LineBounds(shp, ln, lt, lh) Then
+                If cov.Top - lt > leak Then leak = cov.Top - lt
+                If (lt + lh) - (cov.Top + cov.Height) > leak Then
+                    leak = (lt + lh) - (cov.Top + cov.Height)
+                End If
+            End If
+        Next ln
+        r = r & "ink_leak_pt=" & Format$(leak, "0.00") & vbLf
+
+        ' What the PREDICTED line box would have leaked, so the measurement is
+        ' shown to be earning its keep rather than assumed to.
+        Dim cSize As Single, cLine As Single, cPad As Single
+        Dim cTop As Single, cBot As Single, wouldLeak As Single
+        cSize = modBlock.BlockFontSize(shp)
+        cLine = modSpec.SpecLine(cSize)
+        cPad = modSpec.SpecPad(cSize)
+        cTop = shp.Top + cPad + (2 - 1) * cLine
+        cBot = shp.Top + cPad + 3 * cLine
+        For ln = 2 To 3
+            If modRender.LineBounds(shp, ln, lt, lh) Then
+                If cTop - lt > wouldLeak Then wouldLeak = cTop - lt
+                If (lt + lh) - cBot > wouldLeak Then wouldLeak = (lt + lh) - cBot
+            End If
+        Next ln
+        r = r & "leak_if_predicted_pt=" & Format$(wouldLeak, "0.00") & vbLf
+    End If
+
     sld.Export pngPath, "PNG", 1920, 1080
 
     ' Reveal adds the answer slide.
@@ -715,8 +751,9 @@ Public Function NoteTest(ByVal srcPath As String, ByVal pngPath As String) As St
     sld.Export pngPath, "PNG", 1920, 1080
 
     ' A dragged note must survive the next Stylize.
-    n2.Left = n2.Left + 40
-    n2.Top = n2.Top - 60
+    ' Downward, the way someone actually drags a note clear of the one above it.
+    n2.Left = n2.Left + 30
+    n2.Top = n2.Top + 70
     draggedX = n2.Left
     draggedY = n2.Top
     shp.Select
@@ -739,6 +776,37 @@ Public Function NoteTest(ByVal srcPath As String, ByVal pngPath As String) As St
     Else
         r = r & "level_with_line=n/a (placed below the block)" & vbLf
     End If
+
+    ' On a walkthrough slide the block itself is enough: the line comes from the
+    ' emphasis, and from its LAST line, which is where Build up has got to.
+    modBlock.SetEmphasis shp, "3,4,5"
+    shp.Select
+    modRibbon.DoStylize
+    ' The SHAPE, not text inside it - that is the gesture being tested.
+    Dim grp As Shape
+    Set grp = modBlock.ParentGroup(shp)
+    If grp Is Nothing Then shp.Select Else grp.Select
+    modRibbon.DoNote
+    r = r & "note_from_emphasis=" & _
+            Abs(CLng(Not modNote.FindNote(shp, 5) Is Nothing)) & vbLf
+
+    ' Colour and size apply to the notes already there, not only to the next one.
+    modBlock.SetEmphasis shp, ""
+    shp.Select
+    modRibbon.DoNoteColor 5                      ' Paper, the one light preset
+    Set n1 = modNote.FindNote(shp, 1)
+    r = r & "colour_applied=" & _
+            Abs(CLng(n1.fill.ForeColor.RGB = ThemeNotePreset(5))) & vbLf
+    ' A light fill must get dark words, or the note is unreadable.
+    r = r & "text_follows_fill=" & _
+            Abs(CLng(n1.TextFrame.TextRange.Font.Color.RGB = ThemeTextOn(ThemeNotePreset(5)))) & vbLf
+
+    shp.Select
+    modRibbon.DoNoteSize 24
+    Set n1 = modNote.FindNote(shp, 1)
+    r = r & "size_applied=" & Format$(n1.TextFrame.TextRange.Font.size, "0") & vbLf
+
+    sld.Export Replace(pngPath, ".png", "-styled.png"), "PNG", 1920, 1080
 
     ' Strip must not eat the words.
     shp.Select
