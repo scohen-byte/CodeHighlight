@@ -93,42 +93,83 @@ Private Function LineIsEmphasised(ByRef lineOf() As Long, ByVal charIdx As Long,
     LineIsEmphasised = (InStr("," & emph & ",", "," & CStr(ln) & ",") > 0)
 End Function
 
-' Paints the band behind whichever lines the block says are emphasised, and
-' clears it everywhere else.
+' Draws the emphasis bands: one full-width translucent rectangle per RUN of
+' consecutive emphasised lines.
 '
-' Called from ApplyHighlight so emphasis survives every re-render. That matters
-' more than it sounds: the whole use case is duplicating a slide and moving the
-' emphasis down a line, which means Stylize runs constantly and must not undo
-' it.
+' Rectangles rather than the text highlight, for two reasons. The text
+' highlight follows the CHARACTERS, so it stops at the end of each line and
+' leaves a ragged right edge, and it skips blank lines inside a range - both
+' plainly visible once more than one line is emphasised. And setting
+' Font.Highlight over a range COLLAPSES the runs, which repaints every
+' character one colour; dropping it removes that hazard from the renderer.
+'
+' The rectangles sit on top, since nothing can be placed between a shape's fill
+' and its own text. At this transparency the tint is slight and every token
+' colour survives it - checked against a render, not assumed.
 Public Sub ApplyEmphasis(ByVal shp As Shape)
-    Dim spec As String, parts() As String, i As Long
-    Dim txt As String, startIdx As Long, length As Long
+    Dim spec As String, sld As Slide, lineCount As Long
+    Dim size As Single, lineH As Single, pad As Single
+    Dim i As Long, runStart As Long, inRun As Boolean, emphasised As Boolean
 
     On Error GoTo Done
 
-    ' Clear by painting the band the same colour as the block.
-    '
-    ' Font.Highlight is a ColorFormat - it has RGB, and NO Visible, so there is
-    ' no "off". On a solid dark block, a band in the background colour is
-    ' indistinguishable from no band at all.
-    shp.TextFrame2.TextRange.Font.Highlight.RGB = ThemeBackColor()
-
+    ClearBands shp
     spec = modBlock.GetEmphasis(shp)
     If Len(spec) = 0 Then Exit Sub
+    If shp.Tags(modBlock.TAG_NOBAND) = "1" Then Exit Sub
 
-    txt = shp.TextFrame.TextRange.text
-    parts = Split(spec, ",")
-    For i = LBound(parts) To UBound(parts)
-        If Len(Trim$(parts(i))) > 0 Then
-            modBlock.LineCharRange txt, CLng(Val(parts(i))), startIdx, length
-            ' A zero length is a blank line - still worth banding, so the
-            ' emphasis reads as a contiguous block rather than a dashed one.
-            If startIdx > 0 Then
-                If length = 0 Then length = 1
-                shp.TextFrame2.TextRange.Characters(startIdx, length) _
-                   .Font.Highlight.RGB = ThemeEmphasisColor()
-            End If
+    Set sld = modGutter.OwningSlide(shp)
+    size = modBlock.BlockFontSize(shp)
+    lineH = modSpec.SpecLine(size)
+    pad = modSpec.SpecPad(size)
+    lineCount = modBlock.CountLines(shp.TextFrame.TextRange.text)
+
+    runStart = -1
+    For i = 1 To lineCount + 1
+        emphasised = False
+        If i <= lineCount Then
+            emphasised = (InStr("," & spec & ",", "," & CStr(i) & ",") > 0)
+        End If
+
+        If emphasised Then
+            If runStart < 0 Then runStart = i
+        ElseIf runStart >= 0 Then
+            AddBand sld, shp, _
+                    shp.Top + pad + (runStart - 1) * lineH, _
+                    shp.Top + pad + (i - 1) * lineH
+            runStart = -1
         End If
     Next i
 Done:
+End Sub
+
+Public Sub ClearBands(ByVal shp As Shape)
+    Dim sld As Slide, blockId As String, doomed As Collection, s2 As Shape, i As Long
+
+    blockId = shp.Tags(modBlock.TAG_ID)
+    If Len(blockId) = 0 Then Exit Sub
+    Set sld = modGutter.OwningSlide(shp)
+
+    Set doomed = New Collection
+    For Each s2 In modBlock.AllShapes(sld)
+        If s2.Tags(modBlock.TAG_BAND_OF) = blockId Then doomed.Add s2
+    Next s2
+    For i = doomed.count To 1 Step -1
+        doomed(i).Delete
+    Next i
+End Sub
+
+Private Sub AddBand(ByVal sld As Slide, ByVal shp As Shape, _
+                    ByVal y0 As Single, ByVal y1 As Single)
+    Dim r As Shape
+    Set r = sld.Shapes.AddShape(msoShapeRectangle, shp.Left, y0, shp.Width, y1 - y0)
+    With r
+        .Fill.Solid
+        .Fill.ForeColor.RGB = ThemeEmphasisColor()
+        .Fill.Transparency = 0.86
+        .Line.Visible = msoFalse
+        .Shadow.Visible = msoFalse
+        .Tags.Add modBlock.TAG_BAND_OF, shp.Tags(modBlock.TAG_ID)
+        .ZOrder msoBringToFront
+    End With
 End Sub

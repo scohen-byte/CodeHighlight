@@ -21,6 +21,10 @@ Public Const TAG_LANG  As String = "CODEBLOCK_LANG"
 ' pressing Stylize again does not wipe it - the whole point is to duplicate a
 ' slide and move the emphasis, so it has to survive re-rendering.
 Public Const TAG_EMPHASIS As String = "CODEBLOCK_EMPHASIS"
+' "1" means show the emphasis as dimming alone, with no band behind the text.
+Public Const TAG_NOBAND As String = "CODEBLOCK_NOBAND"
+' Marks an emphasis band rectangle as belonging to a block.
+Public Const TAG_BAND_OF As String = "CODEBLOCK_BAND_OF"
 
 ' Why the last GroupParts did nothing, for the test harness to report.
 Public LastGroupError As String
@@ -446,7 +450,8 @@ Public Sub GroupParts(ByVal shp As Shape)
         With sld.Shapes(i)
             If .Tags(TAG_ID) = blockId Or _
                .Tags(modGutter.TAG_GUTTER_OF) = blockId Or _
-               .Tags(modGuides.TAG_GUIDE_OF) = blockId Then
+               .Tags(modGuides.TAG_GUIDE_OF) = blockId Or _
+               .Tags(TAG_BAND_OF) = blockId Then
                 n = n + 1
                 v(n) = .Name
             End If

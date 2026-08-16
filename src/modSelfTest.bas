@@ -605,6 +605,62 @@ Failed:
     EditFlowTest = r & "ERROR " & Err.Number & ": " & Err.Description
 End Function
 
+' Compares three ways of showing an emphasised range, since the text highlight
+' stops at the end of each line and looks ragged when several lines are banded.
+'   A  text highlight only, as now
+'   B  a translucent rectangle over the full width
+'   C  no band at all, relying on the dimming
+Public Function BandProbe(ByVal srcPath As String, ByVal pngPath As String) As String
+    Dim pres As Presentation, sld As Slide, shp As Shape, r As String
+    Dim code As String, i As Long, y0 As Single, y1 As Single, rect As Shape
+    Dim lineH As Single, pad As Single, size As Single
+
+    On Error GoTo Failed
+    modRibbon.SetQuiet True
+    code = ReadTextFile(srcPath)
+
+    Set pres = Application.ActivePresentation
+    pres.PageSetup.SlideWidth = modSpec.SLIDE_W
+    pres.PageSetup.SlideHeight = modSpec.SLIDE_H
+
+    For i = 0 To 2
+        Set sld = pres.Slides.Add(pres.Slides.count + 1, ppLayoutBlank)
+        sld.Select
+        Set shp = modBlock.CreateBlock(sld, code, modSpec.BASE_SIZE, "python")
+        modBlock.SetEmphasis shp, "1,2,3,5"
+        ' C asks the renderer for dimming without a band, rather than removing
+        ' the band afterwards - setting Font.Highlight after the colours
+        ' collapses the runs and repaints everything one colour.
+        If i = 2 Then shp.Tags.Add modBlock.TAG_NOBAND, "1"
+        shp.Select
+        modRibbon.DoStylize
+
+        If i = 1 Then
+            ' B: the band as now, plus a translucent full-width rectangle over
+            ' the range. The ragged text band ends up hidden under the rect.
+            size = modBlock.BlockFontSize(shp)
+            lineH = modSpec.SpecLine(size)
+            pad = modSpec.SpecPad(size)
+            modBlock.UngroupParts shp
+            y0 = shp.Top + pad
+            y1 = y0 + 3 * lineH
+            Set rect = sld.Shapes.AddShape(msoShapeRectangle, shp.Left + 4, y0, shp.Width - 8, y1 - y0)
+            rect.Fill.ForeColor.RGB = RGB(120, 150, 200)
+            rect.Fill.Transparency = 0.82
+            rect.Line.Visible = msoFalse
+            rect.ZOrder msoBringToFront
+        End If
+    Next i
+
+    pres.Slides(pres.Slides.count - 2).Export Replace(pngPath, ".png", "-A.png"), "PNG", 1920, 1080
+    pres.Slides(pres.Slides.count - 1).Export Replace(pngPath, ".png", "-B.png"), "PNG", 1920, 1080
+    pres.Slides(pres.Slides.count).Export Replace(pngPath, ".png", "-C.png"), "PNG", 1920, 1080
+    BandProbe = "rendered A (text highlight), B (translucent rect), C (dim only)"
+    Exit Function
+Failed:
+    BandProbe = "ERROR " & Err.Number & ": " & Err.Description
+End Function
+
 ' Builds a walkthrough and checks the slides that come out: how many, in what
 ' order, and which line each one emphasises.
 Public Function StepTest(ByVal srcPath As String, ByVal mode As String) As String
@@ -704,19 +760,21 @@ Failed:
     ToolsTest = r & "ERROR " & Err.Number & ": " & Err.Description
 End Function
 
-' Whether a line carries the emphasis band, by COLOUR - Font.Highlight is a
-' ColorFormat with no Visible to ask. Answers -1 for "could not tell" rather
-' than taking the run down.
+' Whether a line falls inside an emphasis band. The bands are shapes now, so
+' this asks geometry: does a band cover this line's row.
 Private Function Banded(ByVal shp As Shape, ByVal lineNo As Long) As Long
-    Dim a As Long, b As Long, c As Long
-    Banded = -1
+    Dim sld As Slide, s2 As Shape, y As Single, size As Single
+    Banded = 0
     On Error Resume Next
-    modBlock.LineCharRange shp.TextFrame.TextRange.text, lineNo, a, b
-    If a <= 0 Then Exit Function
-    If b <= 0 Then b = 1
-    c = shp.TextFrame2.TextRange.Characters(a, b).Font.Highlight.RGB
-    If Err.Number = 0 Then Banded = Abs(CLng(c = ThemeEmphasisColor()))
-    Err.Clear
+    size = modBlock.BlockFontSize(shp)
+    ' The middle of the line's row.
+    y = shp.Top + modSpec.SpecPad(size) + (lineNo - 0.5) * modSpec.SpecLine(size)
+    Set sld = modGutter.OwningSlide(shp)
+    For Each s2 In modBlock.AllShapes(sld)
+        If s2.Tags(modBlock.TAG_BAND_OF) = shp.Tags(modBlock.TAG_ID) Then
+            If y >= s2.Top And y <= s2.Top + s2.Height Then Banded = 1
+        End If
+    Next s2
 End Function
 
 ' What is actually available for the clipboard and for text backgrounds - both

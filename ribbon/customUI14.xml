@@ -102,7 +102,8 @@
                   supertip="Duplicates this slide once per line of code, emphasising a different line each time. This slide keeps nothing emphasised, so it still shows the code whole. Select text first to walk only those lines."/>
           <button id="btnBuildUp"
                   label="Build up"
-                  imageMso="AnimationCustom"
+                  size="large"
+                  imageMso="SlideShowFromBeginning"
                   onAction="RibbonBuildUp"
                   screentip="One slide per line, emphasis growing downward"
                   supertip="The same, except each slide emphasises everything up to the current line rather than just that line. For building code up rather than tracing it."/>

@@ -278,9 +278,7 @@ Public Sub DoStrip()
     modBlock.SetEmphasis shp, ""
 
     shp.TextFrame.TextRange.Font.Color.RGB = ThemeColor(tkDefault)
-    On Error Resume Next
-    shp.TextFrame2.TextRange.Font.Highlight.RGB = ThemeBackColor()
-    On Error GoTo Failed
+    modRender.ClearBands shp
 
     modBlock.ResizeToContent shp
     Reselect shp
