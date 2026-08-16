@@ -2,8 +2,8 @@ Attribute VB_Name = "modBlock"
 '==============================================================================
 ' modBlock - creating a code block, and finding one again.
 '
-' THIN SLICE VERSION: creation only. No gutter, no resizing, no identity
-' fallback. Those come after the render path is proven against a real slide.
+' Creation, selection, identity and re-hugging the height. No gutter and no size
+' ladder yet - those are Phases 3 and 4.
 '
 ' The shape's text is the source. Nothing is stored anywhere else, which is what
 ' makes the output portable - a colleague without the add-in sees an ordinary
@@ -116,6 +116,137 @@ Public Sub FormatBlockText(ByVal shp As Shape, ByVal size As Single)
             .SpaceAfter = 0
         End With
     End With
+End Sub
+
+'------------------------------------------------------------------------------
+' Finding a block again
+'------------------------------------------------------------------------------
+
+' The block implied by the current selection, or Nothing with a reason in
+' problem. Deliberately permissive: PLAN.md section 8 says any selected shape
+' with text counts, tagged or not, so a block pasted from an old deck or from a
+' colleague still works. Nothing about DISPLAY depends on the tag surviving.
+Public Function SelectedBlock(ByRef problem As String) As Shape
+    Dim sel As Selection, shp As Shape
+
+    problem = ""
+    On Error GoTo NoWindow
+    Set sel = Application.ActiveWindow.Selection
+    On Error GoTo 0
+
+    Select Case sel.Type
+        Case ppSelectionShapes, ppSelectionText
+            If sel.ShapeRange.count = 0 Then
+                problem = "Select a code block first."
+                Exit Function
+            End If
+            Set shp = sel.ShapeRange(1)
+        Case Else
+            problem = "Select a code block first."
+            Exit Function
+    End Select
+
+    If shp.Type = msoGroup Then
+        problem = "That is a group. Ungroup it, or select the block inside it."
+        Exit Function
+    End If
+    If shp.HasTextFrame = msoFalse Then
+        problem = "That shape cannot hold text, so there is nothing to highlight."
+        Exit Function
+    End If
+    If shp.TextFrame.HasText = msoFalse Then
+        problem = "That block is empty. Type some code into it first."
+        Exit Function
+    End If
+
+    Set SelectedBlock = shp
+    Exit Function
+
+NoWindow:
+    problem = "Open a slide in Normal view first."
+End Function
+
+Public Function IsCodeBlock(ByVal shp As Shape) As Boolean
+    IsCodeBlock = (shp.Tags(TAG_BLOCK) = "1")
+End Function
+
+' Adds the bookkeeping tags if they are absent, leaving any that are already
+' there alone. Called on every Highlight, which is what adopts an untagged
+' block the first time someone highlights it.
+Public Sub EnsureTags(ByVal shp As Shape, ByVal langId As String)
+    If Len(shp.Tags(TAG_BLOCK)) = 0 Then shp.Tags.Add TAG_BLOCK, "1"
+    If Len(shp.Tags(TAG_ID)) = 0 Then shp.Tags.Add TAG_ID, NewBlockId()
+    If Len(shp.Tags(TAG_LANG)) = 0 Then shp.Tags.Add TAG_LANG, langId
+End Sub
+
+' Resolution order: the shape's own tag, then the ribbon's current choice, then
+' the registry default. An unrecognised tag falls back rather than erroring, so
+' a block from a future version still renders as something.
+Public Function BlockLangId(ByVal shp As Shape, ByVal fallbackId As String) As String
+    Dim v As String
+    v = shp.Tags(TAG_LANG)
+    If Len(v) = 0 Then v = fallbackId
+    If Len(v) = 0 Then v = modLangRegistry.DefaultLangId()
+    BlockLangId = v
+End Function
+
+Public Sub SetBlockLang(ByVal shp As Shape, ByVal langId As String)
+    shp.Tags.Add TAG_LANG, langId      ' Add replaces an existing tag
+End Sub
+
+' The size the block is currently set in. Reading the first character rather
+' than the whole range, because a range with mixed sizes reports ppMixed and
+' the caller would silently get nonsense.
+Public Function BlockFontSize(ByVal shp As Shape) As Single
+    Dim s As Single
+    On Error Resume Next
+    s = shp.TextFrame.TextRange.Characters(1, 1).Font.size
+    On Error GoTo 0
+    If s <= 0 Then s = modSpec.BASE_SIZE
+    BlockFontSize = s
+End Function
+
+'------------------------------------------------------------------------------
+
+' Re-hugs the block to its content. Autofit is off, so a block does not grow as
+' you type - this is what makes the flow work: insert, type, press Highlight,
+' and the block fits again. It is also the recovery path if anything drifts.
+Public Sub ResizeToContent(ByVal shp As Shape)
+    Dim size As Single, h As Single, pad As Single, centreY As Single
+
+    size = BlockFontSize(shp)
+    h = modSpec.SpecHeight(size, CountLines(shp.TextFrame.TextRange.text))
+    pad = modSpec.SpecPad(size)
+
+    With shp.TextFrame
+        .MarginLeft = pad
+        .MarginRight = pad
+        .MarginTop = pad
+        .MarginBottom = pad
+    End With
+
+    ' Grow around the block's CENTRE, not its top edge. Growing downward from a
+    ' fixed top sends a block that started one line tall off the bottom of the
+    ' slide as soon as real code is typed into it - and the height is correct
+    ' the whole time, so only looking at a render catches it.
+    '
+    ' Preserving the centre also does the right thing for a block the user has
+    ' deliberately moved: it stays put instead of jumping back to the middle.
+    ' And a block created centred in the content area stays exactly where the
+    ' reference puts it.
+    centreY = shp.Top + shp.Height / 2
+    shp.Height = h
+    shp.Top = centreY - h / 2
+
+    ' Only clamp when the block can actually fit. When it cannot, leave it
+    ' centred and overflowing equally at both ends - that is the honest signal
+    ' that the content needs a smaller size, which is what Fit is for.
+    If h <= modSpec.SLIDE_H Then
+        If shp.Top < 0 Then shp.Top = 0
+        If shp.Top + h > modSpec.SLIDE_H Then shp.Top = modSpec.SLIDE_H - h
+    End If
+
+    shp.Adjustments(1) = modSpec.SpecCornerAdjust(size, h)
 End Sub
 
 Private Function NewBlockId() As String

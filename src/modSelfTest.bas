@@ -159,6 +159,116 @@ Failed:
     BuildSlice = "ERROR " & Err.Number & ": " & Err.Description
 End Function
 
+' Drives the REAL ribbon command path - DoNewBlock, DoHighlight, DoHighlightAll
+' and the wrong-selection cases - not the helpers underneath it. That is the
+' point: a command whose logic lives inside an IRibbonControl callback can only
+' be reached with a mouse, and would go untested.
+'
+' Returns "key=value" pairs. Anything ending _ok is an assertion.
+Public Function RibbonSliceTest(ByVal srcPath As String, ByVal pngPath As String) As String
+    Dim pres As Presentation, sld As Slide, shp As Shape
+    Dim code As String, r As String
+    Dim wantH As Single, gotH As Single, blocks As Long
+
+    On Error GoTo Failed
+    modRibbon.SetQuiet True          ' a modal warning would hang the run
+
+    code = ReadTextFile(srcPath)
+
+    Set pres = Application.ActivePresentation
+    pres.PageSetup.SlideWidth = modSpec.SLIDE_W
+    pres.PageSetup.SlideHeight = modSpec.SLIDE_H
+    Set sld = pres.Slides.Add(pres.Slides.count + 1, ppLayoutBlank)
+    sld.Select
+
+    ' --- nothing selected -----------------------------------------------------
+    Application.ActiveWindow.Selection.Unselect
+    modRibbon.DoHighlight
+    r = r & "warn_empty_selection=" & Quoted(modRibbon.LastWarning()) & vbLf
+
+    ' --- New block ------------------------------------------------------------
+    modRibbon.DoNewBlock
+    If sld.Shapes.count <> 1 Then
+        RibbonSliceTest = r & "newblock_ok=0 shapes=" & sld.Shapes.count
+        Exit Function
+    End If
+    Set shp = sld.Shapes(1)
+    r = r & "newblock_ok=" & Abs(CLng(modBlock.IsCodeBlock(shp))) & vbLf
+    r = r & "newblock_lang=" & shp.Tags(modBlock.TAG_LANG) & vbLf
+
+    ' --- an empty shape is not a code block -----------------------------------
+    ' An oval DOES have a text frame, so this exercises the empty-text guard
+    ' rather than the no-text-frame one. The no-text-frame path (a picture) is
+    ' still unexercised - it needs an image file to construct.
+    sld.Shapes.AddShape(msoShapeOval, 10, 10, 40, 40).Select
+    modRibbon.DoHighlight
+    r = r & "warn_empty_shape=" & Quoted(modRibbon.LastWarning()) & vbLf
+    sld.Shapes(sld.Shapes.count).Delete
+
+    ' --- a group is not a code block ------------------------------------------
+    sld.Shapes.AddShape(msoShapeOval, 10, 10, 40, 40).Name = "g1"
+    sld.Shapes.AddShape(msoShapeOval, 60, 10, 40, 40).Name = "g2"
+    sld.Shapes.Range(Array("g1", "g2")).Group.Select
+    modRibbon.DoHighlight
+    r = r & "warn_group=" & Quoted(modRibbon.LastWarning()) & vbLf
+    sld.Shapes(sld.Shapes.count).Delete
+
+    ' --- type into the block, then Highlight ----------------------------------
+    shp.TextFrame.TextRange.text = modBlock.NormalizeParagraphs(code)
+    shp.Select
+    modRibbon.DoHighlight
+
+    wantH = modSpec.SpecHeight(modBlock.BlockFontSize(shp), _
+                               modBlock.CountLines(shp.TextFrame.TextRange.text))
+    gotH = shp.Height
+    r = r & "lines=" & modBlock.CountLines(shp.TextFrame.TextRange.text) & vbLf
+    r = r & "height_want=" & Format$(wantH, "0.0") & vbLf
+    r = r & "height_got=" & Format$(gotH, "0.0") & vbLf
+    r = r & "height_ok=" & Abs(CLng(Abs(gotH - wantH) < 0.5)) & vbLf
+    ' Position matters as much as height. A block can be exactly the right size
+    ' and still hang off the bottom of the slide.
+    r = r & "top=" & Format$(shp.Top, "0.0") & vbLf
+    r = r & "onslide_ok=" & Abs(CLng(shp.Top >= 0 And _
+                                     shp.Top + shp.Height <= modSpec.SLIDE_H + 0.5)) & vbLf
+
+    ' --- Highlight all --------------------------------------------------------
+    modRibbon.DoHighlightAll
+    For Each shp In sld.Shapes
+        If modBlock.IsCodeBlock(shp) Then blocks = blocks + 1
+    Next shp
+    r = r & "highlight_all_blocks=" & blocks & vbLf
+
+    sld.Export pngPath, "PNG", 1920, 1080
+    RibbonSliceTest = r & "done=1"
+    Exit Function
+
+Failed:
+    RibbonSliceTest = r & "ERROR " & Err.Number & ": " & Err.Description
+End Function
+
+' Tags on every shape, so persistence across save/close/reopen can be checked
+' from the outside.
+Public Function ReportTags() As String
+    Dim sld As Slide, shp As Shape, r As String
+    On Error GoTo Failed
+    For Each sld In Application.ActivePresentation.Slides
+        For Each shp In sld.Shapes
+            r = r & sld.SlideIndex & " " & shp.Name & _
+                    " block=" & shp.Tags(modBlock.TAG_BLOCK) & _
+                    " lang=" & shp.Tags(modBlock.TAG_LANG) & _
+                    " id=" & shp.Tags(modBlock.TAG_ID) & vbLf
+        Next shp
+    Next sld
+    ReportTags = r
+    Exit Function
+Failed:
+    ReportTags = "ERROR " & Err.Number & ": " & Err.Description
+End Function
+
+Private Function Quoted(ByVal s As String) As String
+    Quoted = Chr$(34) & s & Chr$(34)
+End Function
+
 ' One file, for poking at a single sample from the VBA editor's Immediate
 ' window. The test harness uses RunCorpus instead - see the note there.
 ' Returns the mask length, or -1 on failure.
