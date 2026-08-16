@@ -7,9 +7,9 @@ Python is the only language shipped in v1 and the only one being built for now.
 The architecture is language-neutral throughout, so a second language is a data
 table rather than a rewrite. See section 5b.
 
-Status: Phases −1 and 0 complete. Phase 1 part done — the lexer is finished and
-passes its whole corpus; the renderer and block creation are next. Written
-2026-08-14, renamed from PyCodeHighlight on 2026-08-15.
+Status: Phases −1 through 4 complete. The add-in is built, installed and in use.
+Phase 5 (signing and a clean install on a second machine) is what remains, and
+it needs Sara. Written 2026-08-14, renamed from PyCodeHighlight on 2026-08-15.
 
 ---
 
@@ -799,10 +799,20 @@ catch that second one.
 def / class / call site / builtins / self / decorators. This is what makes it
 look like VS Code rather than like Notepad with green comments.
 
-**Phase 3 — line numbers (~1 h).**
+**Phase 3 — line numbers. DONE 2026-08-16.**
 Gutter creation, toggle, renumber and re-align on every Highlight.
 
-**Phase 4 — resizing and polish (~1.5 h).**
+Alignment holds on the three properties the design already guaranteed: exact
+point line spacing, wrap off, zero paragraph spacing. Measured on a 12-line
+block - 12 numbers, matching top and left, code margin 48.2pt = pad 14.1 +
+gutter 34.1, exactly the spec. Toggling off restores the margin.
+
+Also built, unplanned, because Sara asked: **indent guides**, the vertical lines
+marking nesting. Real line shapes in the indentation whitespace, so the text
+stays pure source. Drift measured at 0.6pt or less on a 26.4pt line. Both the
+gutter and the guides are per-block toggles - numbers off by default, guides on.
+
+**Phase 4 — resizing and polish. DONE 2026-08-16.**
 A+ / A− / Fit against the locked spec in section 5a, including the two guards
 (cap A+ at the fitting size, warn below 16pt). Then Highlight all, and error
 handling for the obvious wrong selections — nothing selected, a picture
@@ -812,10 +822,21 @@ Resizing touches every derived quantity at once, so build it against
 `tools/lab.py --ladder` as the reference: render the same snippet at each ladder
 size from VBA and compare against the Python output.
 
-**Phase 5 — ship (~1 h).**
-Self-sign, write `INSTALL.md`, install on a second machine from scratch
-following only the written steps, and confirm a deck opens correctly on a
-machine with no add-in.
+**Phase 5 — ship. PARTLY DONE. This is what is left, and it needs Sara.**
+
+`INSTALL.md` is written. It covers install, the two autocorrect settings that
+must be turned off, what every button does, the IT-policy fallback, and what a
+colleague sees without the add-in.
+
+Still to do, none of which can be done from WSL:
+
+1. **Self-sign** with `SelfCert.exe`, so a machine with a policy-managed Trust
+   Center can load it.
+2. **Install on a second machine** following only what `INSTALL.md` says, and
+   fix whatever the instructions get wrong.
+3. **Open a deck on a machine with no add-in** and confirm it renders and edits.
+   Consolas ships with Windows, so this should be uneventful - but it is the
+   portability claim the whole design rests on, and it has never been tested.
 
 **Phase 6 — optional, later.**
 f-string interpolation. A light theme. A "strip highlighting" button to return a
