@@ -231,6 +231,24 @@ Public Function RibbonSliceTest(ByVal srcPath As String, ByVal pngPath As String
     r = r & "onslide_ok=" & Abs(CLng(shp.Top >= 0 And _
                                      shp.Top + shp.Height <= modSpec.SLIDE_H + 0.5)) & vbLf
 
+    ' --- autocorrect repair ---------------------------------------------------
+    ' Exactly what PowerPoint produces when you type quotes into a shape.
+    shp.TextFrame.TextRange.text = "a = " & ChrW(&H201C) & "hi" & ChrW(&H201D) & _
+                                   vbCr & "b = " & ChrW(&H2018) & "yo" & ChrW(&H2019)
+    shp.Select
+    modRibbon.DoHighlight
+    r = r & "curly_gone=" & Abs(CLng( _
+            InStr(shp.TextFrame.TextRange.text, ChrW(&H201C)) = 0 And _
+            InStr(shp.TextFrame.TextRange.text, ChrW(&H2018)) = 0)) & vbLf
+    ' The repair only matters if the strings then colour AS strings.
+    r = r & "string_mask=" & Quoted(Split(modLexer.MaskOf( _
+            shp.TextFrame.TextRange.text, RunLang()), vbLf)(0)) & vbLf
+
+    ' Put the real sample back for the render.
+    shp.TextFrame.TextRange.text = modBlock.NormalizeParagraphs(code)
+    shp.Select
+    modRibbon.DoHighlight
+
     ' --- Highlight all --------------------------------------------------------
     modRibbon.DoHighlightAll
     For Each shp In sld.Shapes

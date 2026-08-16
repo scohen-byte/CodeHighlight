@@ -35,6 +35,36 @@ Public Function NormalizeParagraphs(ByVal text As String) As String
     NormalizeParagraphs = text
 End Function
 
+' Undoes what PowerPoint's autocorrect does to code as you type.
+'
+' Autocorrect replaces straight quotes with typographic ones, and the damage is
+' invisible until the code stops being code: the lexer no longer sees a string
+' at all, so it colours the contents as a variable, and pasting the text back
+' into an editor is a syntax error. Repairing it on Highlight fixes the colours
+' and the code together.
+'
+' This IS a destructive edit to the text in the shape, and a deliberate one -
+' the same question PLAN.md section 14 raises about tabs. The difference is that
+' a curly quote in code is never what anyone meant, whereas a tab might be.
+'
+' Autocapitalisation cannot be repaired here. Nothing distinguishes a variable
+' the user named X from one autocorrect capitalised, so that has to be prevented
+' in PowerPoint's own settings.
+Public Function NormalizeCodeText(ByVal text As String) As String
+    text = Replace(text, ChrW(&H2018), "'")      ' left single quote
+    text = Replace(text, ChrW(&H2019), "'")      ' right single quote
+    text = Replace(text, ChrW(&H201A), "'")      ' low single quote
+    text = Replace(text, ChrW(&H201B), "'")      ' reversed single quote
+    text = Replace(text, ChrW(&H201C), Chr$(34)) ' left double quote
+    text = Replace(text, ChrW(&H201D), Chr$(34)) ' right double quote
+    text = Replace(text, ChrW(&H201E), Chr$(34)) ' low double quote
+    text = Replace(text, ChrW(&H2013), "-")      ' en dash, from "--"
+    text = Replace(text, ChrW(&H2014), "-")      ' em dash
+    text = Replace(text, ChrW(&H2026), "...")    ' ellipsis
+    text = Replace(text, ChrW(&HA0), " ")        ' non-breaking space
+    NormalizeCodeText = text
+End Function
+
 Public Function CountLines(ByVal text As String) As Long
     Dim n As Long, i As Long
     n = 1

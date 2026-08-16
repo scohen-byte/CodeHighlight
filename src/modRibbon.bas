@@ -57,18 +57,33 @@ Public Sub DoNewBlock()
     Set shp = modBlock.CreateBlock(sld, PlaceholderFor(lang), modSpec.BASE_SIZE, lang.id)
     modRender.ApplyHighlight shp, lang.id
 
-    On Error Resume Next     ' selecting needs a window, and is a convenience
+    ' Select the placeholder TEXT, not just the shape, so the first keystroke
+    ' replaces it and there is nothing to delete by hand.
+    On Error Resume Next
     shp.Select
+    shp.TextFrame.TextRange.Select
     On Error GoTo 0
 End Sub
 
 Public Sub DoHighlight()
     Dim shp As Shape, problem As String, langId As String
+    Dim before As String, after As String, size As Single
 
     Set shp = modBlock.SelectedBlock(problem)
     If shp Is Nothing Then
         Warn problem
         Exit Sub
+    End If
+
+    ' Repair autocorrect damage first, so the lexer sees code rather than
+    ' typography. Rewriting the text drops run formatting, so the block
+    ' formatting is reapplied before colouring.
+    size = modBlock.BlockFontSize(shp)
+    before = shp.TextFrame.TextRange.text
+    after = modBlock.NormalizeCodeText(before)
+    If after <> before Then
+        shp.TextFrame.TextRange.text = after
+        modBlock.FormatBlockText shp, size
     End If
 
     langId = modBlock.BlockLangId(shp, CurrentLangId())
@@ -211,5 +226,5 @@ Private Function PlaceholderFor(ByRef lang As LangDef) As String
         parts = Split(Trim$(lang.LineComments), " ")
         marker = parts(0) & " "
     End If
-    PlaceholderFor = marker & "type or paste your code here, then press Highlight"
+    PlaceholderFor = marker & "type your code here"
 End Function
