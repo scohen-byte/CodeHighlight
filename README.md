@@ -38,6 +38,7 @@ editable.
 | **Line numbers** | Show or hide the numbers for the selected block. A separate shape, so the code text stays pure source. Off by default |
 | **Indent guides** | Show or hide the vertical nesting lines, drawn as real shapes. Off by default |
 | **Emphasize** | Band the selected lines and fade the rest |
+| **Arrow** | Point at a line from the left margin, leaving the code at full contrast |
 | **Note** | Attach an explanation to a line of code |
 | **Delete note** | Remove the note you have singled out, and its connector |
 | **Note size** | Font size for notes. 24pt, or Auto to size each one from its block |
@@ -49,6 +50,7 @@ editable.
 | **Build up** | The same, with the emphasis growing downward rather than moving |
 | **Note per step** | Every generated slide arrives with a note on the line it emphasises |
 | **Bold the line** | Render the newest emphasised line in bold as well as banded |
+| **Arrow, not fade** | Mark each generated slide with an arrow instead of fading the rest |
 | **Hide lines** | Cover lines with a `?`, keeping the block's exact layout, so the class can guess them |
 | **Reveal next** | Duplicate the slide with nothing hidden — the answer, one click after the question |
 | **Size** | The block's size in points. Pick a rung or type any size |
@@ -70,6 +72,27 @@ clear.
 The choice is stored on the block and survives every Stylize, which is what
 makes a walkthrough cheap: duplicate the slide, select the next line, press
 Emphasize.
+
+### Pointing at a line without fading the rest
+
+**Emphasize** and **Arrow** are two different instruments. Emphasize says
+*ignore everything else* — it bands one line and fades the rest, which is right
+when the surroundings are noise. **Arrow** puts a block arrow in the left margin
+and leaves the code at full contrast: *look here, and keep reading*. A short
+snippet whose whole point is that it is readable should not have most of it
+greyed out to draw the eye to line one.
+
+It takes the line the cursor is on, or — with the block itself selected — the
+emphasised line. Press it again on the same line to take the arrow away, or with
+the block selected and nothing emphasised to clear them all. Several lines can
+carry arrows at once.
+
+The arrow is sized from the line and sits in whatever room there is to the left
+of the block, so a block near the slide edge gets a shorter one. Move the block
+right and the arrow grows. It is an ordinary shape, so recolouring it with
+PowerPoint's own fill tools sticks — **Stylize** repositions arrows but never
+repaints them. **Strip** does remove them, unlike notes: an arrow holds nothing
+you typed, and one click puts it back.
 
 ### Building a walkthrough
 
@@ -95,6 +118,10 @@ Two options change what gets built:
 - **Note per step** gives every generated slide a note already attached to the
   line it emphasises, so the walkthrough arrives ready to be written into rather
   than ready to be clicked at. Build up attaches it to the newest line.
+- **Arrow, not fade** marks each generated slide with an arrow in the left
+  margin rather than a band and a fade, so the code stays whole and readable
+  throughout. Step through moves one arrow down the margin; Build up leaves them
+  behind, so the marks accumulate the way the code does.
 - **Bold the line** renders that line in bold as well as banded. The band changes
   the background; bold changes the letters, which is the strongest signal
   available without moving anything. It applies wherever emphasis is used, not

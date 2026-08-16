@@ -300,6 +300,14 @@ Public Function ThemeCoverMarkColor() As Long
     ThemeCoverMarkColor = RGB(255, 255, 255)                    ' FFFFFF
 End Function
 
+' The arrow in the left margin. It sits on the SLIDE, not on the dark block, so
+' unlike everything else here it has to read against white - a colour chosen for
+' the block background would vanish. Saturated blue rather than red, because red
+' beside code reads as an error marker.
+Public Function ThemeArrowColor() As Long
+    ThemeArrowColor = RGB(29, 78, 216)                          ' 1D4ED8
+End Function
+
 Public Function ThemeGutterColor() As Long
     ThemeGutterColor = RGB(133, 133, 133)                       ' 858585
 End Function

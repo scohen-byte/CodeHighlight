@@ -123,9 +123,10 @@ Public Sub StyleBlock(ByVal shp As Shape, Optional ByVal langId As String = "")
     modGuides.DrawGuides shp
     ' Covers next: they have to sit above everything to hide anything.
     modRender.DrawCovers shp
-    ' Notes after the block has reached its final size and position, since they
-    ' are placed from its edge.
+    ' Notes and arrows after the block has reached its final size and position,
+    ' since both are placed from its edges.
     modNote.PlaceNotes shp
+    modArrow.PlaceArrows shp
     ' Back into a group, so the block and its parts drag as one.
     modBlock.GroupParts shp
 End Sub
@@ -262,6 +263,9 @@ Public Sub DoStrip()
     modRender.ClearBands shp
     modBlock.SetHidden shp, ""
     modRender.ClearCovers shp
+    ' Arrows go, notes stay. An arrow holds nothing the user typed and one
+    ' click puts one back, so it belongs with the emphasis it replaces.
+    modArrow.ClearArrows shp
 
     modBlock.ResizeToContent shp
     ' Notes SURVIVE a strip. Everything else this removes can be rebuilt by
@@ -628,6 +632,55 @@ Failed:
     Warn "DoEmphasisBold failed: " & Err.Description
 End Sub
 
+' Puts a block arrow in the left margin beside one line, or takes it away again.
+'
+' The other half of Emphasize. Emphasize fades everything else; this leaves the
+' code whole and points at a line from outside it, which is what you want when
+' the whole snippet has to stay readable.
+'
+' Same targeting as Note, so there is one answer to "which line do you mean":
+' the cursor's line, or - with the block itself selected - the emphasised one,
+' which is what makes it one click per slide on a generated walkthrough. With
+' the block selected and nothing emphasised, it clears the arrows. No
+' confirmation for that, unlike notes: an arrow holds nothing you typed.
+Public Sub DoArrow()
+    On Error GoTo Failed
+    Dim shp As Shape, problem As String, sel As Selection, ln As Long
+
+    Set shp = modBlock.SelectedBlock(problem)
+    If shp Is Nothing Then
+        Warn problem
+        Exit Sub
+    End If
+
+    Set sel = Application.ActiveWindow.Selection
+    If sel.Type = ppSelectionText Then
+        ln = modBlock.LineOfChar(shp.TextFrame.TextRange.text, sel.TextRange.Start)
+    End If
+    If ln < 1 Then ln = modBlock.LastEmphasisedLine(modBlock.GetEmphasis(shp))
+
+    modBlock.UngroupParts shp
+    If ln < 1 Then
+        If modArrow.ArrowCount(shp) = 0 Then
+            Warn "Put the cursor on the line you want to point at, and press " & _
+                 "Arrow. On a walkthrough slide the emphasised line is used, so " & _
+                 "the block itself is enough."
+            modBlock.GroupParts shp
+            Exit Sub
+        End If
+        modArrow.ClearArrows shp
+    ElseIf Not modArrow.RemoveArrow(shp, ln) Then
+        modArrow.AddArrow shp, ln
+    End If
+
+    StyleBlock shp
+    Reselect shp
+    RefreshRibbon
+    Exit Sub
+Failed:
+    Warn "DoArrow failed: " & Err.Description
+End Sub
+
 ' Duplicates the slide with nothing hidden, so the answer follows the question.
 Public Sub DoReveal()
     On Error GoTo Failed
@@ -730,7 +783,22 @@ Public Sub DoStepThrough(ByVal cumulative As Boolean)
             Else
                 list = CStr(steps(k))
             End If
-            modBlock.SetEmphasis target, list
+            ' Arrows INSTEAD of emphasis, when the deck asks for it. Step
+            ' through moves one arrow down the margin; Build up leaves them
+            ' behind, so the marks accumulate the way the code does.
+            If modOptions.StepArrow() Then
+                modBlock.SetEmphasis target, ""
+                If cumulative Then
+                    For i = 1 To k
+                        modArrow.AddArrow target, steps(i)
+                    Next i
+                Else
+                    modArrow.ClearArrows target
+                    modArrow.AddArrow target, steps(k)
+                End If
+            Else
+                modBlock.SetEmphasis target, list
+            End If
             ' A note per step, already attached to the line this slide is
             ' about, so the walkthrough arrives ready to be written into.
             ' steps(k) is the newly emphasised line either way - for Build up
@@ -1065,6 +1133,19 @@ End Sub
 
 Public Sub RibbonDeleteNote(control As IRibbonControl)
     DoDeleteNote
+End Sub
+
+Public Sub RibbonArrow(control As IRibbonControl)
+    DoArrow
+End Sub
+
+Public Sub RibbonStepArrowPressed(control As IRibbonControl, ByRef returnedVal)
+    returnedVal = modOptions.StepArrow()
+End Sub
+
+Public Sub RibbonToggleStepArrow(control As IRibbonControl, pressed As Boolean)
+    modOptions.SetStepArrow pressed
+    RefreshRibbon
 End Sub
 
 Private Function CurrentNoteColor() As Long

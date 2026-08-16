@@ -879,6 +879,101 @@ Failed:
     NoteTest = r & "ERROR " & Err.Number & ": " & Err.Description
 End Function
 
+' Arrows in the left margin: placement, the toggle, and a walkthrough that
+' points instead of fading.
+Public Function ArrowTest(ByVal srcPath As String, ByVal pngPath As String) As String
+    Dim pres As Presentation, sld As Slide, shp As Shape, r As String
+    Dim code As String, a As Long, b As Long, arr As Shape
+    Dim topPt As Single, hPt As Single, k As Long, marked As Long
+    Dim target As Shape, s3 As Shape
+
+    On Error GoTo Failed
+    modRibbon.SetQuiet True
+    code = ReadTextFile(srcPath)
+
+    Set pres = Application.ActivePresentation
+    pres.PageSetup.SlideWidth = modSpec.SLIDE_W
+    pres.PageSetup.SlideHeight = modSpec.SLIDE_H
+    Set sld = pres.Slides.Add(pres.Slides.count + 1, ppLayoutBlank)
+    sld.Select
+
+    Set shp = modBlock.CreateBlock(sld, code, modSpec.BASE_SIZE, "python")
+    shp.Select
+    modRibbon.DoStylize
+
+    ' Point at line 3, from the cursor.
+    modBlock.LineCharRange shp.TextFrame.TextRange.text, 3, a, b
+    shp.TextFrame.TextRange.Characters(a, 1).Select
+    modRibbon.DoArrow
+
+    r = "arrows=" & modArrow.ArrowCount(shp) & vbLf
+    Set arr = modArrow.FindArrow(shp, 3)
+    If arr Is Nothing Then
+        ArrowTest = r & "ERROR: no arrow"
+        Exit Function
+    End If
+
+    r = r & "left_of_block=" & Abs(CLng(arr.Left + arr.Width <= shp.Left)) & vbLf
+    ' Level with the line's INK, not with the predicted line box.
+    If modRender.LineBounds(shp, 3, topPt, hPt) Then
+        r = r & "level_with_line=" & _
+                Abs(CLng(Abs((arr.Top + arr.Height / 2) - (topPt + hPt / 2)) < 2)) & vbLf
+    End If
+    ' The code must NOT be faded - that is the whole point of an arrow.
+    r = r & "no_emphasis=" & Abs(CLng(Len(modBlock.GetEmphasis(shp)) = 0)) & vbLf
+
+    sld.Export pngPath, "PNG", 1920, 1080
+
+    ' It follows the line when the block is resized.
+    Dim wasTop As Single
+    wasTop = arr.Top
+    shp.Select
+    modRibbon.DoSizeUp
+    Set arr = modArrow.FindArrow(shp, 3)
+    modRender.LineBounds shp, 3, topPt, hPt
+    r = r & "followed_resize=" & _
+            Abs(CLng(Abs((arr.Top + arr.Height / 2) - (topPt + hPt / 2)) < 2 And _
+                     Abs(arr.Top - wasTop) > 1)) & vbLf
+
+    ' Pressing it again on the same line takes it away.
+    modBlock.LineCharRange shp.TextFrame.TextRange.text, 3, a, b
+    shp.TextFrame.TextRange.Characters(a, 1).Select
+    modRibbon.DoArrow
+    r = r & "toggled_off=" & Abs(CLng(modArrow.ArrowCount(shp) = 0)) & vbLf
+
+    ' A walkthrough that points instead of fading.
+    modOptions.SetStepArrow True
+    shp.Select
+    modRibbon.DoStepThrough False
+    r = r & "slides=" & pres.Slides.count & vbLf
+    For k = 2 To pres.Slides.count
+        Set target = Nothing
+        For Each s3 In modBlock.AllShapes(pres.Slides(k))
+            If s3.Tags(modBlock.TAG_BLOCK) = "1" Then Set target = s3
+        Next s3
+        If Not target Is Nothing Then
+            If modArrow.ArrowCount(target) > 0 And Len(modBlock.GetEmphasis(target)) = 0 Then
+                marked = marked + 1
+            End If
+        End If
+    Next k
+    r = r & "arrowed_slides_unfaded=" & marked & vbLf
+    pres.Slides(3).Export Replace(pngPath, ".png", "-walk.png"), "PNG", 1920, 1080
+
+    ' Strip removes them, since an arrow points at styling.
+    modOptions.SetStepArrow False
+    shp.Select
+    modRibbon.DoArrow
+    shp.Select
+    modRibbon.DoStrip
+    r = r & "gone_after_strip=" & Abs(CLng(modArrow.ArrowCount(shp) = 0)) & vbLf
+
+    ArrowTest = r
+    Exit Function
+Failed:
+    ArrowTest = r & "ERROR " & Err.Number & ": " & Err.Description
+End Function
+
 ' A focused probe: does a connector attached to a note follow the note when the
 ' note is moved from code? Everything else in NoteTest was too tangled to give a
 ' clean answer.

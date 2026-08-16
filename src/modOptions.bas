@@ -24,6 +24,7 @@ Public Const TAG_NOTE_COLOR As String = "CODEBLOCK_NOTE_COLOR"
 Public Const TAG_NOTE_FONT  As String = "CODEBLOCK_NOTE_FONT"
 Public Const TAG_STEP_NOTE  As String = "CODEBLOCK_STEP_NOTE"
 Public Const TAG_STEP_BOLD  As String = "CODEBLOCK_STEP_BOLD"
+Public Const TAG_STEP_ARROW As String = "CODEBLOCK_STEP_ARROW"
 
 ' Size 0 means "work it out from the block". An explicit size pins it.
 Public Const NOTE_SIZE_AUTO As Long = 0
@@ -115,6 +116,20 @@ End Function
 
 Public Sub SetStepNote(ByVal on_ As Boolean)
     SetTag TAG_STEP_NOTE, IIf(on_, "1", "0")
+End Sub
+
+' Mark each step with an arrow in the left margin INSTEAD of emphasising it.
+'
+' Instead, not as well. The point of an arrow is that the code stays whole and
+' readable while one line is singled out from outside it, and a walkthrough that
+' both faded the surroundings and pointed at the line would be saying the same
+' thing twice in the louder of the two ways.
+Public Function StepArrow() As Boolean
+    StepArrow = (GetTag(TAG_STEP_ARROW) = "1")
+End Function
+
+Public Sub SetStepArrow(ByVal on_ As Boolean)
+    SetTag TAG_STEP_ARROW, IIf(on_, "1", "0")
 End Sub
 
 ' Render the newly emphasised line in bold as well as banded. Applies wherever
