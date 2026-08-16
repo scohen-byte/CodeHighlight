@@ -139,12 +139,18 @@ named after, so two notes on one slide can differ in colour, size and font
 independently. Each one applies to:
 
 - the note on the line your **cursor** is on, or
-- the note you have **clicked into**, or
-- **all** of the block's notes, when the block itself is selected.
+- the note you have **clicked into**.
 
-The cursor route matters because Stylize groups every note with its block, and
-reaching a shape inside a group takes two deliberate clicks. Putting the cursor
-on line 7 and picking a colour recolours line 7's note, and nothing else.
+With nothing singled out they change nothing — they only record the choice for
+the next note. That matters more than it sounds: the selection sits on the block
+after every other command, so a rule that fell back to "all of them" meant
+opening the colour list to set up your next note silently repainted the ones
+already there.
+
+The cursor route is what makes this workable. Stylize groups every note with its
+block, and reaching a shape inside a group takes two deliberate clicks. Putting
+the cursor on line 7 and picking a colour recolours line 7's note, and nothing
+else.
 
 Whatever you pick is also remembered for notes made afterwards, stored in the
 deck rather than in the add-in, so it travels with the file.

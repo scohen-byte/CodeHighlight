@@ -788,9 +788,12 @@ Public Function NoteTest(ByVal srcPath As String, ByVal pngPath As String) As St
     r = r & "note_from_emphasis=" & _
             Abs(CLng(Not modNote.FindNote(shp, 5) Is Nothing)) & vbLf
 
-    ' Colour and size apply to the notes already there, not only to the next one.
+    ' Colour and size reach a note that has been SINGLED OUT - here by putting
+    ' the cursor on its line, which is the gesture that works on a note inside
+    ' a group. With nothing singled out they would correctly do nothing.
     modBlock.SetEmphasis shp, ""
-    shp.Select
+    modBlock.LineCharRange shp.TextFrame.TextRange.text, 1, a, b
+    shp.TextFrame.TextRange.Characters(a, 1).Select
     modRibbon.DoNoteColor 5                      ' Paper, the one light preset
     Set n1 = modNote.FindNote(shp, 1)
     r = r & "colour_applied=" & _
@@ -799,8 +802,9 @@ Public Function NoteTest(ByVal srcPath As String, ByVal pngPath As String) As St
     r = r & "text_follows_fill=" & _
             Abs(CLng(n1.TextFrame.TextRange.Font.Color.RGB = ThemeTextOn(ThemeNotePreset(5)))) & vbLf
 
-    shp.Select
-    modRibbon.DoNoteSize 24
+    modBlock.LineCharRange shp.TextFrame.TextRange.text, 1, a, b
+    shp.TextFrame.TextRange.Characters(a, 1).Select
+    modRibbon.DoNoteSize 32
     Set n1 = modNote.FindNote(shp, 1)
     r = r & "size_applied=" & Format$(n1.TextFrame.TextRange.Font.size, "0") & vbLf
 
@@ -962,19 +966,32 @@ Public Function OptionsTest(ByVal srcPath As String, ByVal pngPath As String) As
             Abs(CLng(nA.fill.ForeColor.RGB = ThemeNotePreset(9) And _
                      nB.fill.ForeColor.RGB = ThemeNotePreset(10))) & vbLf
 
-    ' With the BLOCK selected rather than a line, all of them change.
+    ' With the BLOCK selected and nothing singled out, NOTHING is repainted.
+    ' The selection sits on the block after every other command, so a colour
+    ' chosen for the next note used to silently repaint the ones already there.
     shp.Select
     modRibbon.DoNoteColor 11                              ' Violet
     Set nA = modNote.FindNote(shp, 2)
     Set nB = modNote.FindNote(shp, 3)
-    r = r & "block_selected_changes_all=" & _
-            Abs(CLng(nA.fill.ForeColor.RGB = ThemeNotePreset(11) And _
-                     nB.fill.ForeColor.RGB = ThemeNotePreset(11))) & vbLf
+    r = r & "block_selected_repaints_nothing=" & _
+            Abs(CLng(nA.fill.ForeColor.RGB = ThemeNotePreset(9) And _
+                     nB.fill.ForeColor.RGB = ThemeNotePreset(10))) & vbLf
+    ' It did record the choice, which is the whole of what it should have done.
+    r = r & "choice_recorded=" & _
+            Abs(CLng(modOptions.NoteColor() = ThemeNotePreset(11))) & vbLf
 
-    ' Put them back to two colours, then check Stylize never repaints a note.
-    modBlock.LineCharRange shp.TextFrame.TextRange.text, 2, a, l
+    ' The swatch button applies the recorded colour, but still only to a note
+    ' that has been singled out.
+    modBlock.LineCharRange shp.TextFrame.TextRange.text, 3, a, l
     shp.TextFrame.TextRange.Characters(a, 1).Select
-    modRibbon.DoNoteColor 9
+    modRibbon.DoNoteColorApply
+    Set nA = modNote.FindNote(shp, 2)
+    Set nB = modNote.FindNote(shp, 3)
+    r = r & "swatch_applies_to_cursor_line=" & _
+            Abs(CLng(nB.fill.ForeColor.RGB = ThemeNotePreset(11) And _
+                     nA.fill.ForeColor.RGB = ThemeNotePreset(9))) & vbLf
+
+    ' Stylize never repaints a note.
     shp.Select
     modRibbon.DoStylize
     Set nA = modNote.FindNote(shp, 2)

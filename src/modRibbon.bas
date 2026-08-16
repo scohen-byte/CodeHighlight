@@ -486,19 +486,24 @@ End Sub
 
 ' The notes a style command should act on, and the block they belong to.
 '
-' Three ways of singling a note out, tried in order:
+' Two ways of singling a note out:
 '
 '   the note itself is selected      - clicking into the group and picking it
 '   the cursor is on its line        - the same gesture that made the note
-'   neither                          - every note on the selected block
 '
-' The middle one is not a nicety. Every note ends up inside a group with its
-' block, and reaching a shape inside a group takes two deliberate clicks, so
-' without it recolouring one note of several would be fiddly enough that nobody
+' Anything else - a selected block, a selected group, nothing at all - yields
+' NOTHING, and the command only records the choice for the next note.
+'
+' It used to fall back to "all of the block's notes", which read as a
+' convenience and behaved as a trap: the selection is left on the block after
+' every other command, so opening the colour list to pick a colour for the NEXT
+' note silently repainted the notes already there. Nothing should repaint a note
+' unless you have pointed at it.
+'
+' The cursor route is the one that carries this. Every note ends up inside a
+' group with its block, and reaching a shape inside a group takes two deliberate
+' clicks, so without it singling a note out would be fiddly enough that nobody
 ' would do it.
-'
-' Empty when none of the three applies, which is not an error: the choice is
-' still stored for the next note.
 Private Function NotesToStyle(ByRef blk As Shape) As Collection
     Dim c As Collection, shp As Shape, problem As String
     Dim ln As Long, note As Shape
@@ -511,24 +516,19 @@ Private Function NotesToStyle(ByRef blk As Shape) As Collection
         Exit Function
     End If
 
+    Set NotesToStyle = New Collection
+
     Set shp = modBlock.SelectedBlock(problem)
-    If shp Is Nothing Then
-        Set NotesToStyle = New Collection
-        Exit Function
-    End If
-    Set blk = shp
+    If shp Is Nothing Then Exit Function
 
     ln = CursorLine(shp)
-    If ln > 0 Then
-        Set note = modNote.FindNote(shp, ln)
-        If Not note Is Nothing Then
-            c.Add note
-            Set NotesToStyle = c
-            Exit Function
-        End If
-    End If
+    If ln < 1 Then Exit Function
+    Set note = modNote.FindNote(shp, ln)
+    If note Is Nothing Then Exit Function
 
-    Set NotesToStyle = modNote.AllNotes(shp)
+    Set blk = shp
+    c.Add note
+    Set NotesToStyle = c
 End Function
 
 ' The line the text cursor is on, or 0 when the selection is not text.

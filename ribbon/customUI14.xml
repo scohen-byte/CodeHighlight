@@ -134,32 +134,34 @@
                     getItemCount="RibbonNoteSizeCount"
                     getItemLabel="RibbonNoteSizeLabel"
                     screentip="Font size for notes"
-                    supertip="Auto sizes each note from the block it belongs to. Pick a rung or type any size to pin it instead. Applies to the note on the line your cursor is on, or the note you have clicked into, or - with the block itself selected - all of its notes. Each of the three note controls changes only what it is named after, so notes on one slide can differ. The choice is also remembered for notes made afterwards."/>
+                    supertip="Auto sizes each note from the block it belongs to. Pick a rung or type any size to pin it instead. Applies to the note on the line your cursor is on, or the note you have clicked into. With nothing singled out it only records the choice for the next note, so opening this list can never repaint a note you were not pointing at. Each of the three note controls changes only what it is named after, so notes on one slide can differ. The choice is also remembered for notes made afterwards."/>
           <!-- A dropDown rather than a gallery, so it reads the same way as
                Note size and Note font: label on the left, control on the
                right. dropDown items carry images too, which is what the
-               swatches need - the name of a colour is not the colour, and
-               modSwatch draws them. -->
-          <dropDown id="ddNoteColor"
-                    label="Note color"
-                    sizeString="Crimson"
-                    getItemCount="RibbonNoteColorCount"
-                    getItemLabel="RibbonNoteColorLabel"
-                    getItemImage="RibbonNoteColorImage"
-                    getSelectedItemIndex="RibbonNoteColorSelected"
-                    onAction="RibbonNoteColorChanged"
-                    screentip="Color for notes"
-                    supertip="The first six are quiet, for a note that is an aside about the code; the rest are saturated, for one that should be the loudest thing on the slide. Applies to the note on the line your cursor is on, or the note you have clicked into, or - with the block itself selected - all of its notes. Each of the three note controls changes only what it is named after, so notes on one slide can differ. The text color follows the fill, so a light preset gets dark words."/>
-          <!-- A dropDown shows its selected item's LABEL and nothing else - the
-               item images appear only in the open list - and it has no image of
-               its own. So the colour in use is shown by this button, which also
-               applies it, the way Word's font-colour button does. -->
-          <button id="btnNoteColorNow"
-                  showLabel="false"
-                  getImage="RibbonNoteColorFace"
-                  onAction="RibbonNoteColorApply"
-                  screentip="The color notes are set to"
-                  supertip="Shows the color currently chosen, and applies it. Press it to give a second note the same color as the first, without going back through the list."/>
+               swatches need - the name of a colour is not the colour.
+
+               Boxed with the swatch button, because a group packs its controls
+               into rows on its own and put the button on a row of its own,
+               under the label, where it read as unrelated. A horizontal box is
+               the only way to say "these two are one control". -->
+          <box id="boxNoteColor" boxStyle="horizontal">
+            <dropDown id="ddNoteColor"
+                      label="Note color"
+                      sizeString="Crimson"
+                      getItemCount="RibbonNoteColorCount"
+                      getItemLabel="RibbonNoteColorLabel"
+                      getItemImage="RibbonNoteColorImage"
+                      getSelectedItemIndex="RibbonNoteColorSelected"
+                      onAction="RibbonNoteColorChanged"
+                      screentip="Color for notes"
+                      supertip="The first six are quiet, for a note that is an aside about the code; the rest are saturated, for one that should be the loudest thing on the slide. Applies to the note on the line your cursor is on, or the note you have clicked into. With nothing singled out it only records the choice for the next note, so opening this list can never repaint a note you were not pointing at. Each of the three note controls changes only what it is named after, so notes on one slide can differ. The text color follows the fill, so a light preset gets dark words."/>
+            <button id="btnNoteColorNow"
+                    showLabel="false"
+                    getImage="RibbonNoteColorFace"
+                    onAction="RibbonNoteColorApply"
+                    screentip="The color notes are set to"
+                    supertip="Shows the color currently chosen, and applies it to the note you have singled out - by putting the cursor on its line, or by clicking into it. Press it to give a second note the same color as the first without going back through the list."/>
+          </box>
           <dropDown id="ddNoteFont"
                     label="Note font"
                     sizeString="Deck default"
@@ -168,7 +170,7 @@
                     getSelectedItemIndex="RibbonNoteFontSelected"
                     onAction="RibbonNoteFontChanged"
                     screentip="Font for notes"
-                    supertip="Deck default inherits your presentation's own body font, so a note looks like the rest of the deck rather than like code. It cannot be applied back to a note that already has a named font, so it only affects notes made afterwards. The others ship with Windows or Office, and apply to the note on the line your cursor is on, or the note you have clicked into, or - with the block itself selected - all of its notes. each note control changes only what it is named after, so notes on one slide can differ."/>
+                    supertip="Deck default inherits your presentation's own body font, so a note looks like the rest of the deck rather than like code. It cannot be applied back to a note that already has a named font, so it only affects notes made afterwards. The others ship with Windows or Office, and apply to the note on the line your cursor is on, or the note you have clicked into, and otherwise only to notes made afterwards."/>
         </group>
 
         <group id="grpWalk" label="Walkthrough">
