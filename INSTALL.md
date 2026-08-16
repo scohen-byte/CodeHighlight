@@ -51,23 +51,35 @@ before installing.
 If the tab misbehaves after an update, untick and re-tick the add-in in that
 same dialog. PowerPoint caches it while loaded.
 
-## 3. Turn off two autocorrect settings
+## 3. Turn off three autocorrect settings
 
 **Do this before teaching with it.** PowerPoint autocorrects as you type, and
-two of its habits quietly break code.
+three of its habits quietly break code.
 
 **File → Options → Proofing → AutoCorrect Options…**
 
-- On the **AutoCorrect** tab, untick **Capitalize first letter of sentences**.
-  Without this, typing `x = 3` gives you `X = 3` — a different program, and one
-  nothing can repair afterwards, because there is no way to tell a variable you
-  meant to call `X` from one autocorrect changed.
-- On the **AutoFormat As You Type** tab, untick
-  **"Straight quotes" with "smart quotes"**. Without this, `"hi"` becomes `"hi"`
-  with typographic quotes, which is not valid Python.
+On the **AutoCorrect** tab:
 
-Highlight repairs the quotes for you, so this one is belt and braces. It cannot
-repair the capitalisation.
+- Untick **Capitalize first letter of sentences**. Without it, typing `x = 3`
+  gives you `X = 3` — a different program.
+- In the **Replace text as you type** list, find the entry replacing **`i`**
+  with **`I`**, select it and press **Delete**. Without it, `for i in
+  range(10)` becomes `for I in range(10)`, and `i` is the most common loop
+  variable there is.
+
+  Note this replacement list is shared across Office, so removing it stops Word
+  doing the same thing. That is usually welcome, but it is not a
+  PowerPoint-only change.
+
+On the **AutoFormat As You Type** tab:
+
+- Untick **"Straight quotes" with "smart quotes"**. Without it, `"hi"` becomes
+  `"hi"` with typographic quotes, which is not valid Python.
+
+Highlight repairs the quotes for you, so that one is belt and braces. **It
+cannot repair the two capitalisation problems** — nothing can tell a variable
+you meant to call `X` from one autocorrect changed, so if either slips through
+you have to correct the letter by hand.
 
 ## 4. Using it
 

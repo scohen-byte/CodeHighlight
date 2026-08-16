@@ -58,9 +58,12 @@ End Function
 ' the same question PLAN.md section 14 raises about tabs. The difference is that
 ' a curly quote in code is never what anyone meant, whereas a tab might be.
 '
-' Autocapitalisation cannot be repaired here. Nothing distinguishes a variable
-' the user named X from one autocorrect capitalised, so that has to be prevented
-' in PowerPoint's own settings.
+' Autocapitalisation is NOT repaired here - not because it is unfixable, but
+' because only the author can fix it. Nothing distinguishes a variable someone
+' named X from one autocorrect capitalised, so guessing would be worse than
+' leaving it. Prevent it in PowerPoint's settings, and correct any that slip
+' through by hand. INSTALL.md section 3 lists the settings, including the
+' replacement of i with I, which mangles the commonest loop variable there is.
 Public Function NormalizeCodeText(ByVal text As String) As String
     text = Replace(text, ChrW(&H2018), "'")      ' left single quote
     text = Replace(text, ChrW(&H2019), "'")      ' right single quote
