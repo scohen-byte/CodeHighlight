@@ -77,13 +77,26 @@ repair the capitalisation.
 | **Highlight** | Colours the selected block, refits it, and re-syncs its line numbers and guides. The button you press constantly |
 | **Highlight all** | The same, for every code block on the slide |
 | **Language** | Which lexer to use. Stored per block |
-| **Line numbers** | Show or hide the numbers for the selected block |
-| **Indent guides** | Show or hide the vertical nesting lines. On by default |
+| **Line numbers** | Show or hide the numbers for the selected block. Off by default |
+| **Indent guides** | Show or hide the vertical nesting lines. Off by default |
+| **Emphasise** | Band the selected lines and fade the rest. See below |
+| **Copy code** | Put the block's code on the clipboard, ready to paste into an editor |
+| **Strip** | Back to plain uncoloured text. Highlight brings it all back |
+| **Size** | The block's size in points. Pick a rung or type any size |
 | **Larger / Smaller** | Step the font size. Larger stops where the code would stop fitting the slide |
 | **Fit** | Pick the largest size that fits. Warns rather than shrinking below readable |
 
 The block grows as you type. Press **Highlight** after editing to re-colour it —
 PowerPoint gives an add-in no way to notice that you changed the text.
+
+**Emphasising lines, for stepping through code.** Click into the block, select
+the lines you want to draw attention to, and press **Emphasise**. Those lines
+get a band behind them and everything else fades back. Press it again with the
+block itself selected — not text inside it — to clear.
+
+The choice is stored on the block and survives every Highlight, which is what
+makes a walkthrough cheap: duplicate the slide, select the next line, press
+Emphasise.
 
 **Fit will sometimes refuse to be helpful, on purpose.** If a snippet only fits
 at 12pt it tells you so, and says roughly how many slides it needs at 16pt
