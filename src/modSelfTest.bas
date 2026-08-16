@@ -589,6 +589,59 @@ Failed:
     EditFlowTest = r & "ERROR " & Err.Number & ": " & Err.Description
 End Function
 
+' Numbering rules, checked without PowerPoint doing any layout: leading and
+' trailing blanks unnumbered, everything between numbered consecutively.
+Public Function NumberProbe(ByVal dummy As String) As String
+    Dim r As String, cases(0 To 4) As String, i As Long, out As String
+
+    cases(0) = "a" & vbCr & "b" & vbCr & "c"
+    cases(1) = "a" & vbCr & "b" & vbCr & "c" & vbCr           ' trailing CR
+    cases(2) = "" & vbCr & "a" & vbCr & "b" & vbCr & ""       ' padded both ends
+    cases(3) = "a" & vbCr & "" & vbCr & "c"                   ' blank in the middle
+    cases(4) = "print(1)" & vbCr & "print(2)" & vbCr & "" & vbCr & _
+               "for i in x:" & vbCr & "    if y:" & vbCr & "        z()" & vbCr & "done()"
+
+    For i = 0 To 4
+        out = Replace(modGutter.NumberColumn(cases(i)), vbCr, "|")
+        r = r & "case" & i & " lines=" & modBlock.CountLines(cases(i)) & _
+                " numbers=[" & out & "]" & vbLf
+    Next i
+    NumberProbe = r
+End Function
+
+' Compares PowerPoint's own paragraph count against CountLines, for text with
+' and without a trailing newline. The reported symptom - the last number appears
+' only when there is a blank line after it - is what an off-by-one in the line
+' count looks like from the outside.
+Public Function CountProbe(ByVal dummy As String) As String
+    Dim pres As Presentation, sld As Slide, shp As Shape
+    Dim r As String, txt As String, i As Long
+
+    On Error GoTo Failed
+    Set pres = Application.ActivePresentation
+    Set sld = pres.Slides.Add(pres.Slides.count + 1, ppLayoutBlank)
+
+    For i = 0 To 1
+        txt = "a = 1" & vbCr & "b = 2" & vbCr & "c = 3"
+        If i = 1 Then txt = txt & vbCr          ' with a trailing paragraph mark
+        Set shp = sld.Shapes.AddShape(msoShapeRoundedRectangle, 40, 40 + i * 200, 400, 150)
+        shp.TextFrame.WordWrap = msoFalse
+        shp.TextFrame.TextRange.text = txt
+
+        r = r & IIf(i = 0, "no trailing CR: ", "trailing CR:    ")
+        r = r & "set_len=" & Len(txt) & _
+                " readback_len=" & Len(shp.TextFrame.TextRange.text) & _
+                " Paragraphs=" & shp.TextFrame.TextRange.Paragraphs.count & _
+                " CountLines=" & modBlock.CountLines(shp.TextFrame.TextRange.text) & _
+                " lastchar=" & AscW(Right$(shp.TextFrame.TextRange.text, 1)) & vbLf
+    Next i
+
+    CountProbe = r
+    Exit Function
+Failed:
+    CountProbe = r & "ERROR " & Err.Number & ": " & Err.Description
+End Function
+
 ' Isolates the indent-level computation from the drawing, so a failure in one
 ' cannot be mistaken for the other.
 Public Function GuideProbe(ByVal dummy As String) As String

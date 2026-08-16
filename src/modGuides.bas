@@ -135,6 +135,10 @@ Private Sub AddGuideLine(ByVal sld As Slide, ByVal blockId As String, _
         .Weight = GUIDE_WEIGHT
     End With
     ln.Tags.Add TAG_GUIDE_OF, blockId
+    ' In front of the block's fill. Repeated grouping and ungrouping reorders
+    ' shapes, and a guide behind the fill is simply invisible - which looks
+    ' exactly like the guides never being drawn.
+    ln.ZOrder msoBringToFront
 End Sub
 
 '------------------------------------------------------------------------------

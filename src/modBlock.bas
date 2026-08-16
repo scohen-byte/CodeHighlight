@@ -71,8 +71,20 @@ Public Function NormalizeCodeText(ByVal text As String) As String
     NormalizeCodeText = text
 End Function
 
+' Paragraph count, matching what PowerPoint itself reports.
+'
+' A TRAILING paragraph mark does not start a new paragraph: PowerPoint counts
+' "a" & vbCr as one paragraph, not two. Counting it as two put a phantom number
+' at the bottom of the gutter, and made the numbers appear correct only when
+' there happened to be a blank line at the end.
 Public Function CountLines(ByVal text As String) As Long
     Dim n As Long, i As Long
+
+    Do While Len(text) > 0
+        If Right$(text, 1) <> vbCr Then Exit Do
+        text = Left$(text, Len(text) - 1)
+    Loop
+
     n = 1
     For i = 1 To Len(text)
         If Mid$(text, i, 1) = vbCr Then n = n + 1

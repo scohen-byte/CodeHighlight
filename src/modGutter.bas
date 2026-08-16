@@ -77,6 +77,68 @@ Public Sub RemoveGutter(ByVal shp As Shape)
     shp.TextFrame.MarginLeft = modSpec.SpecPad(modBlock.BlockFontSize(shp))
 End Sub
 
+' The number column, one entry per paragraph so the two shapes stay in step.
+'
+' Blank lines at the START or END are padding - people use them to give a block
+' a little breathing room - so they get no number. Everything between the first
+' and last non-blank line is numbered consecutively, INCLUDING blank lines in
+' the middle, which are part of the code, and including the last line, which is
+' the whole point.
+Public Function NumberColumn(ByVal text As String) As String
+    Dim lines() As String, i As Long, firstReal As Long, lastReal As Long
+    Dim n As Long, out As String
+
+    text = Replace(Replace(text, vbCrLf, vbCr), vbLf, vbCr)
+    ' A trailing paragraph mark does not start a new paragraph.
+    Do While Len(text) > 0
+        If Right$(text, 1) <> vbCr Then Exit Do
+        text = Left$(text, Len(text) - 1)
+    Loop
+    lines = Split(text, vbCr)
+
+    firstReal = -1
+    lastReal = -1
+    For i = LBound(lines) To UBound(lines)
+        If Len(Trim$(lines(i))) > 0 Then
+            If firstReal < 0 Then firstReal = i
+            lastReal = i
+        End If
+    Next i
+
+    For i = LBound(lines) To UBound(lines)
+        If i > LBound(lines) Then out = out & vbCr
+        If firstReal >= 0 And i >= firstReal And i <= lastReal Then
+            n = n + 1
+            out = out & CStr(n)
+        End If
+    Next i
+
+    NumberColumn = out
+End Function
+
+' Moves anything that is not a line number out of the gutter and onto the end of
+' the code, where the user meant to type it.
+Private Sub RescueStrayText(ByVal shp As Shape, ByVal g As Shape)
+    Dim existing As String, lines() As String, i As Long, stray As String
+
+    On Error Resume Next
+    existing = g.TextFrame.TextRange.text
+    On Error GoTo 0
+    If Len(existing) = 0 Then Exit Sub
+
+    lines = Split(Replace(Replace(existing, vbCrLf, vbCr), vbLf, vbCr), vbCr)
+    For i = LBound(lines) To UBound(lines)
+        ' A line number is digits and nothing else. Anything else was typed.
+        If Len(Trim$(lines(i))) > 0 And Not IsNumeric(Trim$(lines(i))) Then
+            If Len(stray) > 0 Then stray = stray & vbCr
+            stray = stray & lines(i)
+        End If
+    Next i
+
+    If Len(stray) = 0 Then Exit Sub
+    shp.TextFrame.TextRange.text = shp.TextFrame.TextRange.text & vbCr & stray
+End Sub
+
 ' Renumbers and re-aligns. Called on every Highlight, so the gutter follows the
 ' block's size, position and line count without the user thinking about it.
 ' create=False leaves a block without a gutter alone.
@@ -107,11 +169,15 @@ Public Sub SyncGutter(ByVal shp As Shape, Optional ByVal create As Boolean = Fal
         g.Fill.Visible = msoFalse
     End If
 
-    numbers = ""
-    For i = 1 To lineCount
-        If i > 1 Then numbers = numbers & vbCr
-        numbers = numbers & CStr(i)
-    Next i
+    ' RESCUE anything typed into the gutter before overwriting it.
+    '
+    ' The gutter is a transparent text box lying over the block's left edge, so
+    ' it is entirely possible to click into it and type - the text then appears
+    ' left of the code, uncoloured and unnumbered, because it is not in the code
+    ' block at all. Overwriting it with the numbers would silently destroy it.
+    RescueStrayText shp, g
+
+    numbers = NumberColumn(shp.TextFrame.TextRange.text)
 
     With g.TextFrame
         .WordWrap = msoFalse
@@ -151,4 +217,9 @@ Public Sub SyncGutter(ByVal shp As Shape, Optional ByVal create As Boolean = Fal
     g.Width = pad + gutterW
     g.Height = modSpec.SpecHeight(size, lineCount)
     If shp.Height > g.Height Then g.Height = shp.Height
+
+    ' In FRONT of the block, or the block's opaque fill hides the numbers.
+    ' Grouping and ungrouping reorders shapes, so this cannot be left to the
+    ' order things happened to be created in.
+    g.ZOrder msoBringToFront
 End Sub
