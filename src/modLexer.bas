@@ -58,6 +58,8 @@ Private mAtLineStart As Boolean
 ' for soft keywords, and distinct from mAtLineStart, which is cleared before
 ' the identifier is scanned.
 Private mWasLineStart As Boolean
+' Bracket nesting depth, across the whole block.
+Private mDepth As Long
 
 '==============================================================================
 ' Public API
@@ -136,6 +138,7 @@ Private Sub InitRun(ByVal text As String, ByRef lang As LangDef)
     mPrevWord = ""
     mAtLineStart = True
     mWasLineStart = True
+    mDepth = 0
 End Sub
 
 '==============================================================================
@@ -208,10 +211,39 @@ Private Sub ScanOneToken()
         Exit Sub
     End If
 
+    ' Brackets last, so a quote or a digit still wins. Depth runs across the
+    ' whole block, not per line, which is what VS Code does.
+    If Len(mLang.OpenBrackets) > 0 Then
+        If InStr(mLang.OpenBrackets, ch) > 0 Then
+            Emit mPos, 1, BracketClass(mDepth)
+            mDepth = mDepth + 1
+            mPos = mPos + 1
+            mPrevWord = ""
+            Exit Sub
+        ElseIf InStr(mLang.CloseBrackets, ch) > 0 Then
+            ' Decrement FIRST, so a closing bracket takes the same colour as the
+            ' opener it matches. Clamped at zero so a stray ")" cannot drive the
+            ' depth negative and shift every colour after it.
+            If mDepth > 0 Then mDepth = mDepth - 1
+            Emit mPos, 1, BracketClass(mDepth)
+            mPos = mPos + 1
+            mPrevWord = ""
+            Exit Sub
+        End If
+    End If
+
     Emit mPos, 1, tkDefault
     mPos = mPos + 1
     mPrevWord = ""
 End Sub
+
+Private Function BracketClass(ByVal depth As Long) As TokenClass
+    Select Case depth Mod 3
+        Case 0:  BracketClass = tkBracket1
+        Case 1:  BracketClass = tkBracket2
+        Case Else: BracketClass = tkBracket3
+    End Select
+End Function
 
 '==============================================================================
 ' Comments

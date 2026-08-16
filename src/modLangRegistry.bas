@@ -52,6 +52,8 @@ Public Type LangDef
     ' --- identifiers --------------------------------------------------------
     CaseSensitive     As Boolean
     DecoratorChar     As String   ' "@" at line start, "" if the language has none
+    OpenBrackets      As String   ' "([{" - empty disables depth colouring
+    CloseBrackets     As String   ' ")]}" - must pair positionally with the above
     ControlKeywords   As String   ' purple - flow control
     SoftKeywords      As String   ' purple, but only where a statement can start
     DeclKeywords      As String   ' blue   - declarations, literals, word operators

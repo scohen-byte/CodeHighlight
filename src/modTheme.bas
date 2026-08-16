@@ -26,6 +26,12 @@ Public Enum TokenClass
     tkFunction = 6          ' definitions, call sites, builtins, decorators
     tkClass = 7             ' the name in a class definition
     tkVariable = 8          ' plain identifiers, parameters, attributes
+    ' Bracket pairs, coloured by nesting depth and cycling every three levels,
+    ' the way VS Code does by default. Language-neutral like every other class -
+    ' which brackets exist is a property of the language table.
+    tkBracket1 = 9
+    tkBracket2 = 10
+    tkBracket3 = 11
 End Enum
 
 Public Const THEME_FONT As String = "Consolas"
@@ -40,6 +46,9 @@ Public Function ThemeColor(ByVal kind As TokenClass) As Long
         Case tkFunction:     ThemeColor = RGB(220, 220, 170)    ' DCDCAA
         Case tkClass:        ThemeColor = RGB(78, 201, 176)     ' 4EC9B0
         Case tkVariable:     ThemeColor = RGB(156, 220, 254)    ' 9CDCFE
+        Case tkBracket1:     ThemeColor = RGB(255, 215, 0)      ' FFD700 gold
+        Case tkBracket2:     ThemeColor = RGB(218, 112, 214)    ' DA70D6 orchid
+        Case tkBracket3:     ThemeColor = RGB(23, 159, 255)     ' 179FFF blue
         Case Else:           ThemeColor = RGB(212, 212, 212)    ' D4D4D4 default
     End Select
 End Function
@@ -64,6 +73,9 @@ Public Function ThemeMaskChar(ByVal kind As TokenClass) As String
         Case tkFunction:     ThemeMaskChar = "f"
         Case tkClass:        ThemeMaskChar = "t"
         Case tkVariable:     ThemeMaskChar = "v"
+        Case tkBracket1:     ThemeMaskChar = "1"
+        Case tkBracket2:     ThemeMaskChar = "2"
+        Case tkBracket3:     ThemeMaskChar = "3"
         Case Else:           ThemeMaskChar = "."
     End Select
 End Function

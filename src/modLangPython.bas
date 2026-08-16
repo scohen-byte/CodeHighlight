@@ -39,6 +39,8 @@ Public Function PythonLang() As LangDef
 
     L.CaseSensitive = True
     L.DecoratorChar = "@"
+    L.OpenBrackets = "([{"
+    L.CloseBrackets = ")]}"
 
     ' Purple. Flow control.
     L.ControlKeywords = "if elif else for while return break continue " & _

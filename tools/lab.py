@@ -45,6 +45,11 @@ PALETTE = {
     "func":     "DCDCAA",   # definitions, call sites, builtins, decorators
     "cls":      "4EC9B0",   # class names, types
     "var":      "9CDCFE",   # variables, parameters, attributes
+    # Bracket pairs by nesting depth, cycling every three levels. On by default
+    # in VS Code, and on a line like print(id(x)) it is most of what you see.
+    "br1":      "FFD700",   # gold
+    "br2":      "DA70D6",   # orchid
+    "br3":      "179FFF",   # blue
     "gutter":   "858585",
     "label":    "808080",
 }
@@ -150,6 +155,43 @@ PAD = Pt(14)            # internal padding inside the dark block
 GUTTER_W = Inches(0.55)
 
 
+BRACKET_KEYS = ("br1", "br2", "br3")
+OPEN_BRACKETS = "([{"
+CLOSE_BRACKETS = ")]}"
+
+
+def apply_bracket_depth(runs: list[tuple[str, str]]) -> list[tuple[str, str]]:
+    """Split brackets out of punctuation runs and colour them by nesting depth.
+
+    Only runs already classified as `default` are examined, so brackets inside
+    strings and comments are left alone - they are not structure.
+    """
+    out: list[tuple[str, str]] = []
+    depth = 0
+    for key, value in runs:
+        if key != "default":
+            out.append((key, value))
+            continue
+        buf = ""
+        for ch in value:
+            if ch in OPEN_BRACKETS or ch in CLOSE_BRACKETS:
+                if buf:
+                    out.append(("default", buf))
+                    buf = ""
+                if ch in OPEN_BRACKETS:
+                    out.append((BRACKET_KEYS[depth % 3], ch))
+                    depth += 1
+                else:
+                    # Decrement first so a closer matches its opener's colour.
+                    depth = max(0, depth - 1)
+                    out.append((BRACKET_KEYS[depth % 3], ch))
+            else:
+                buf += ch
+        if buf:
+            out.append(("default", buf))
+    return out
+
+
 def classify(tokens: list[tuple]) -> list[tuple[str, str]]:
     """Map pygments tokens onto our palette keys, VS Code style."""
     out: list[tuple[str, str]] = []
@@ -210,7 +252,7 @@ def classify(tokens: list[tuple]) -> list[tuple[str, str]]:
             at_line_start = value.endswith("\n")
         elif "\n" in value:
             at_line_start = True
-    return out
+    return apply_bracket_depth(out)
 
 
 def to_lines(classified: list[tuple[str, str]]) -> list[list[tuple[str, str]]]:

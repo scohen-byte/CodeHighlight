@@ -14,7 +14,7 @@ sense that the colours look off.
 
     .  default        c  comment       s  string        n  number
     k  keyword ctrl   d  keyword decl  f  function      t  class / type
-    v  variable
+    v  variable      1/2/3  bracket depth
 
 Usage:
     lexref.py FILE...            masks only, machine-comparable
@@ -45,6 +45,9 @@ KEY2CHAR = {
     "func":    "f",
     "cls":     "t",
     "var":     "v",
+    "br1":     "1",
+    "br2":     "2",
+    "br3":     "3",
 }
 
 # Languages are looked up by id, so a second language means one more entry.
