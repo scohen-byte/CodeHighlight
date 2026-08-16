@@ -94,6 +94,8 @@ you have to correct the letter by hand.
 | **Emphasize** | Band the selected lines and fade the rest. See below |
 | **Copy code** | Put the block's code on the clipboard, ready to paste into an editor |
 | **Strip** | Back to plain uncoloured text. Stylize brings it all back |
+| **Step through** | Build a walkthrough: one slide per line. See below |
+| **Build up** | The same, but the emphasis grows downward instead of moving |
 | **Size** | The block's size in points. Pick a rung or type any size |
 | **Larger / Smaller** | Step the font size. Larger stops where the code would stop fitting the slide |
 | **Fit** | Pick the largest size that fits. Warns rather than shrinking below readable |
@@ -109,6 +111,26 @@ block itself selected — not text inside it — to clear.
 The choice is stored on the block and survives every Stylize, which is what
 makes a walkthrough cheap: duplicate the slide, select the next line, press
 Emphasize.
+
+**Building a walkthrough.** Select a block and press **Step through**. The slide
+is duplicated once per line of code, each copy emphasising the next line, and a
+final copy is added with nothing emphasised — so the sequence opens and closes on
+the whole code and you simply advance through the slides as you talk.
+
+**Build up** does the same except the emphasis grows downward: each slide shows
+everything covered so far rather than one line. Use Step through for tracing
+what runs next, Build up for assembling code piece by piece.
+
+Two things worth knowing:
+
+- **Blank lines get no slide of their own.** A slide emphasising an empty line is
+  a dead beat.
+- **Select text first to walk only part of a block.** Without a selection it
+  walks every line, which on a forty-line block means forty slides. Past twelve
+  it asks before going ahead.
+
+The generated slides are ordinary slides. Reorder, delete or edit any of them,
+and press Stylize on one if you change its code.
 
 **Fit will sometimes refuse to be helpful, on purpose.** If a snippet only fits
 at 12pt it tells you so, and says roughly how many slides it needs at 16pt

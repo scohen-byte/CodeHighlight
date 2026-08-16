@@ -28,7 +28,9 @@ hand like any other text. Nothing is locked.
 | **Line numbers** | A separate shape, so the code text stays pure source |
 | **Indent guides** | Vertical lines marking nesting, drawn as real shapes |
 | **Larger / Smaller / Fit** | Steps a size ladder. Growth stops where the code stops fitting the slide |
-| **Emphasize** | Bands the selected lines and fades the rest, for stepping through code across slides |
+| **Emphasize** | Bands the selected lines and fades the rest |
+| **Step through** | Builds a walkthrough: one slide per line, each emphasising the next, opening and closing on the whole code |
+| **Build up** | The same, with the emphasis growing downward rather than moving |
 | **Copy code** | The source to the clipboard, not a picture of a rectangle |
 | **Strip** | Back to plain text. Stylize brings it all back |
 
