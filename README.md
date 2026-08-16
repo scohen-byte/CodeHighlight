@@ -13,8 +13,11 @@ add-in refuses to shrink code past the point of legibility.
 
 The result is an ordinary rounded rectangle with ordinary per-character font
 colours. No custom XML parts, no external files, no linked objects. Someone
-without the add-in sees exactly what you see and can edit the text normally —
-they only lose the ability to re-colour it afterwards.
+without the add-in sees exactly what you see and can edit the text normally.
+
+What they lose is only the automatic re-colouring. The block is a plain
+PowerPoint text box, so its colours, sizes and fonts can still be changed by
+hand like any other text. Nothing is locked.
 
 ## What it does
 

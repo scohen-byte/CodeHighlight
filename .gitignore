@@ -7,3 +7,6 @@ dist/*.ppam
 *.ppam.bak
 dist/lexer/
 dist/slice/
+
+# Working notes, not for the public repo
+HANDOFF.md

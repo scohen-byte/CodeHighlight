@@ -5,8 +5,12 @@ offline. You type code into a block on the slide and press **Highlight**.
 
 Decks made with it open and edit correctly on any machine, with or without the
 add-in. Someone without it sees exactly what you see — an ordinary rounded
-rectangle with ordinary per-character font colours. They simply cannot
-re-colour it after editing.
+rectangle with ordinary per-character font colours.
+
+What they lose is only the **Highlight button**: nothing will re-colour their
+edits automatically. The block is a perfectly ordinary PowerPoint text box, so
+they can still select any text in it and change its colour, size or font by
+hand exactly as they would anywhere else. Nothing is locked.
 
 ---
 
