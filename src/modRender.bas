@@ -30,6 +30,11 @@ Public Function ApplyHighlight(ByVal shp As Shape, ByVal langId As String) As Lo
     tr.Font.Name = THEME_FONT
     tr.Font.Color.RGB = ThemeColor(tkDefault)
 
+    ' Emphasis BEFORE the colours. Setting Font.Highlight across the whole range
+    ' collapses the runs, so doing it afterwards repaints every character in one
+    ' colour and throws the syntax highlighting away.
+    ApplyEmphasis shp
+
     n = modLexer.Tokenize(tr.text, modLangRegistry.GetLang(langId), spans)
 
     For i = 0 To n - 1
@@ -44,3 +49,43 @@ Public Function ApplyHighlight(ByVal shp As Shape, ByVal langId As String) As Lo
 
     ApplyHighlight = applied
 End Function
+
+' Paints the band behind whichever lines the block says are emphasised, and
+' clears it everywhere else.
+'
+' Called from ApplyHighlight so emphasis survives every re-render. That matters
+' more than it sounds: the whole use case is duplicating a slide and moving the
+' emphasis down a line, which means Highlight runs constantly and must not undo
+' it.
+Public Sub ApplyEmphasis(ByVal shp As Shape)
+    Dim spec As String, parts() As String, i As Long
+    Dim txt As String, startIdx As Long, length As Long
+
+    On Error GoTo Done
+
+    ' Clear by painting the band the same colour as the block.
+    '
+    ' Font.Highlight is a ColorFormat - it has RGB, and NO Visible, so there is
+    ' no "off". On a solid dark block, a band in the background colour is
+    ' indistinguishable from no band at all.
+    shp.TextFrame2.TextRange.Font.Highlight.RGB = ThemeBackColor()
+
+    spec = modBlock.GetEmphasis(shp)
+    If Len(spec) = 0 Then Exit Sub
+
+    txt = shp.TextFrame.TextRange.text
+    parts = Split(spec, ",")
+    For i = LBound(parts) To UBound(parts)
+        If Len(Trim$(parts(i))) > 0 Then
+            modBlock.LineCharRange txt, CLng(Val(parts(i))), startIdx, length
+            ' A zero length is a blank line - still worth banding, so the
+            ' emphasis reads as a contiguous block rather than a dashed one.
+            If startIdx > 0 Then
+                If length = 0 Then length = 1
+                shp.TextFrame2.TextRange.Characters(startIdx, length) _
+                   .Font.Highlight.RGB = ThemeEmphasisColor()
+            End If
+        End If
+    Next i
+Done:
+End Sub

@@ -605,6 +605,111 @@ Failed:
     EditFlowTest = r & "ERROR " & Err.Number & ": " & Err.Description
 End Function
 
+' Emphasis, copy and strip, driven through the real commands.
+Public Function ToolsTest(ByVal srcPath As String, ByVal pngPath As String) As String
+    Dim pres As Presentation, sld As Slide, shp As Shape
+    Dim r As String, code As String, txt As String, a As Long, b As Long
+
+    On Error GoTo Failed
+    modRibbon.SetQuiet True
+    code = ReadTextFile(srcPath)
+
+    Set pres = Application.ActivePresentation
+    pres.PageSetup.SlideWidth = modSpec.SLIDE_W
+    pres.PageSetup.SlideHeight = modSpec.SLIDE_H
+    Set sld = pres.Slides.Add(pres.Slides.count + 1, ppLayoutBlank)
+    sld.Select
+
+    Set shp = modBlock.CreateBlock(sld, code, modSpec.BASE_SIZE, "python")
+    shp.Select
+    modRibbon.DoHighlight
+
+    ' Emphasise lines 5 and 6 by selecting text inside them.
+    txt = shp.TextFrame.TextRange.text
+    modBlock.LineCharRange txt, 5, a, b
+    Dim endStart As Long, endLen As Long
+    modBlock.LineCharRange txt, 6, endStart, endLen
+    shp.TextFrame.TextRange.Characters(a, (endStart + endLen) - a).Select
+    modRibbon.DoEmphasise
+    r = r & "emphasis_tag=" & Quoted(modBlock.GetEmphasis(shp)) & vbLf
+
+    ' It must survive a re-render, which is the entire point.
+    shp.Select
+    modRibbon.DoHighlight
+    r = r & "after_rehighlight=" & Quoted(modBlock.GetEmphasis(shp)) & vbLf
+    r = r & "line5_banded=" & Banded(shp, 5) & vbLf
+    r = r & "line1_banded=" & Banded(shp, 1) & vbLf
+
+    sld.Export pngPath, "PNG", 1920, 1080
+
+    ' Copy, then strip.
+    shp.Select
+    modRibbon.DoCopyCode
+    r = r & "copy_ok=1" & vbLf
+
+    shp.Select
+    modRibbon.DoStrip
+    r = r & "after_strip_gutter=" & Abs(CLng(modGutter.HasGutter(shp))) & _
+            " emphasis=" & Quoted(modBlock.GetEmphasis(shp)) & _
+            " guides=" & Abs(CLng(modGuides.GuidesEnabled(shp))) & vbLf
+
+    ToolsTest = r
+    Exit Function
+Failed:
+    ToolsTest = r & "ERROR " & Err.Number & ": " & Err.Description
+End Function
+
+' Whether a line carries the emphasis band, by COLOUR - Font.Highlight is a
+' ColorFormat with no Visible to ask. Answers -1 for "could not tell" rather
+' than taking the run down.
+Private Function Banded(ByVal shp As Shape, ByVal lineNo As Long) As Long
+    Dim a As Long, b As Long, c As Long
+    Banded = -1
+    On Error Resume Next
+    modBlock.LineCharRange shp.TextFrame.TextRange.text, lineNo, a, b
+    If a <= 0 Then Exit Function
+    If b <= 0 Then b = 1
+    c = shp.TextFrame2.TextRange.Characters(a, b).Font.Highlight.RGB
+    If Err.Number = 0 Then Banded = Abs(CLng(c = ThemeEmphasisColor()))
+    Err.Clear
+End Function
+
+' What is actually available for the clipboard and for text backgrounds - both
+' are version-dependent, and guessing wrong means a feature that fails on the
+' one machine that matters.
+Public Function CapabilityProbe(ByVal dummy As String) As String
+    Dim r As String, o As Object, pres As Presentation, sld As Slide, shp As Shape
+
+    Set pres = Application.ActivePresentation
+    Set sld = pres.Slides.Add(pres.Slides.count + 1, ppLayoutBlank)
+    Set shp = sld.Shapes.AddShape(msoShapeRoundedRectangle, 40, 40, 400, 100)
+    shp.TextFrame.TextRange.text = "abc" & vbCr & "def"
+
+    On Error Resume Next
+    Set o = CreateObject("MSForms.DataObject")
+    r = r & "MSForms.DataObject: " & IIf(Err.Number = 0, "AVAILABLE", "no (" & Err.Description & ")") & vbLf
+    Err.Clear
+
+    shp.TextFrame2.TextRange.Font.Highlight.RGB = RGB(80, 80, 40)
+    r = r & "TextFrame2 Font.Highlight: " & IIf(Err.Number = 0, "AVAILABLE", "no (" & Err.Description & ")") & vbLf
+    Err.Clear
+
+    shp.TextFrame.TextRange.Copy
+    r = r & "TextRange.Copy: " & IIf(Err.Number = 0, "works", "no (" & Err.Description & ")") & vbLf
+    Err.Clear
+
+    ' Can we read the user's text selection inside a shape?
+    shp.TextFrame.TextRange.Characters(1, 5).Select
+    r = r & "Selection.Type after selecting text = " & Application.ActiveWindow.Selection.Type & _
+            " (3 = ppSelectionText)" & vbLf
+    r = r & "selected text = [" & Application.ActiveWindow.Selection.TextRange.text & "]" & vbLf
+    r = r & "sel start=" & Application.ActiveWindow.Selection.TextRange.Start & _
+            " len=" & Application.ActiveWindow.Selection.TextRange.Length & vbLf
+    On Error GoTo 0
+
+    CapabilityProbe = r
+End Function
+
 ' Three New block presses in a row. They must not land on top of each other.
 Public Function CascadeProbe(ByVal dummy As String) As String
     Dim pres As Presentation, sld As Slide, r As String, i As Long, shp As Shape

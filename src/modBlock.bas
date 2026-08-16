@@ -17,6 +17,10 @@ Option Explicit
 Public Const TAG_BLOCK As String = "CODEBLOCK"
 Public Const TAG_ID    As String = "CODEBLOCK_ID"
 Public Const TAG_LANG  As String = "CODEBLOCK_LANG"
+' Which lines are emphasised, as a comma list. Stored on the shape so that
+' pressing Highlight again does not wipe it - the whole point is to duplicate a
+' slide and move the emphasis, so it has to survive re-rendering.
+Public Const TAG_EMPHASIS As String = "CODEBLOCK_EMPHASIS"
 
 ' Why the last GroupParts did nothing, for the test harness to report.
 Public LastGroupError As String
@@ -106,6 +110,49 @@ Public Function CountLines(ByVal text As String) As Long
     lines = SplitLines(text)
     CountLines = UBound(lines) - LBound(lines) + 1
 End Function
+
+' Which line a 1-based character index falls on.
+Public Function LineOfChar(ByVal text As String, ByVal idx As Long) As Long
+    Dim i As Long, n As Long, ch As String
+    n = 1
+    For i = 1 To Len(text)
+        If i >= idx Then Exit For
+        ch = Mid$(text, i, 1)
+        If ch = vbCr Or ch = vbLf Or ch = Chr$(11) Then n = n + 1
+    Next i
+    LineOfChar = n
+End Function
+
+' The character range of one line, 1-based, excluding its line break.
+Public Sub LineCharRange(ByVal text As String, ByVal lineNo As Long, _
+                         ByRef startIdx As Long, ByRef length As Long)
+    Dim i As Long, n As Long, ch As String, seen As Long
+
+    startIdx = 0
+    length = 0
+    n = 1
+    startIdx = 1
+    For i = 1 To Len(text)
+        ch = Mid$(text, i, 1)
+        If ch = vbCr Or ch = vbLf Or ch = Chr$(11) Then
+            If n = lineNo Then
+                length = i - startIdx
+                Exit Sub
+            End If
+            n = n + 1
+            startIdx = i + 1
+        End If
+    Next i
+    If n = lineNo Then length = Len(text) - startIdx + 1 Else startIdx = 0
+End Sub
+
+Public Function GetEmphasis(ByVal shp As Shape) As String
+    GetEmphasis = shp.Tags(TAG_EMPHASIS)
+End Function
+
+Public Sub SetEmphasis(ByVal shp As Shape, ByVal lineList As String)
+    shp.Tags.Add TAG_EMPHASIS, lineList
+End Sub
 
 ' The longest line, in COLUMNS not characters, so a tab counts as a full tab
 ' stop. This is what decides whether the code fits the slide widthwise.

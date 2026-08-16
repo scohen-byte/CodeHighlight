@@ -184,6 +184,100 @@ Failed:
     Warn "DoToggleGuides failed: " & Err.Description
 End Sub
 
+' Emphasise the lines covered by the text selection.
+'
+' Select some text inside the block and press this. With the SHAPE selected
+' rather than text, it clears the emphasis instead - so the same button both
+' sets and removes, which is what you want when stepping through code slide by
+' slide.
+Public Sub DoEmphasise()
+    On Error GoTo Failed
+    Dim shp As Shape, problem As String, sel As Selection
+    Dim txt As String, a As Long, b As Long, i As Long, list As String
+
+    Set shp = modBlock.SelectedBlock(problem)
+    If shp Is Nothing Then
+        Warn problem
+        Exit Sub
+    End If
+
+    Set sel = Application.ActiveWindow.Selection
+    If sel.Type = ppSelectionText Then
+        If sel.TextRange.length > 0 Then
+            txt = shp.TextFrame.TextRange.text
+            a = modBlock.LineOfChar(txt, sel.TextRange.Start)
+            b = modBlock.LineOfChar(txt, sel.TextRange.Start + sel.TextRange.length - 1)
+            For i = a To b
+                If Len(list) > 0 Then list = list & ","
+                list = list & CStr(i)
+            Next i
+        End If
+    End If
+
+    modBlock.SetEmphasis shp, list
+    modBlock.UngroupParts shp
+    modRender.ApplyHighlight shp, modBlock.BlockLangId(shp, CurrentLangId())
+    modBlock.GroupParts shp
+    Reselect shp
+    If Len(list) = 0 Then Warn "Emphasis cleared."
+    Exit Sub
+Failed:
+    Warn "DoEmphasise failed: " & Err.Description
+End Sub
+
+' Puts the block's code on the clipboard as text.
+Public Sub DoCopyCode()
+    On Error GoTo Failed
+    Dim shp As Shape, problem As String
+
+    Set shp = modBlock.SelectedBlock(problem)
+    If shp Is Nothing Then
+        Warn problem
+        Exit Sub
+    End If
+
+    ' Copying the TextRange rather than the shape: pasting into an editor then
+    ' gives the source, not a picture of a rounded rectangle.
+    shp.TextFrame.TextRange.Copy
+    Exit Sub
+Failed:
+    Warn "DoCopyCode failed: " & Err.Description
+End Sub
+
+' Returns a block to plain, uncoloured text: no syntax colours, no emphasis, no
+' line numbers, no guides. The block itself stays - same font, same dark fill -
+' so this is an undo for the rendering, not for the block.
+'
+' The tags stay too, so pressing Highlight brings it all straight back.
+Public Sub DoStrip()
+    On Error GoTo Failed
+    Dim shp As Shape, problem As String
+
+    Set shp = modBlock.SelectedBlock(problem)
+    If shp Is Nothing Then
+        Warn problem
+        Exit Sub
+    End If
+
+    modBlock.UngroupParts shp
+    modGutter.RemoveGutter shp
+    modGuides.SetGuidesEnabled shp, False
+    modGuides.DrawGuides shp
+    modBlock.SetEmphasis shp, ""
+
+    shp.TextFrame.TextRange.Font.Color.RGB = ThemeColor(tkDefault)
+    On Error Resume Next
+    shp.TextFrame2.TextRange.Font.Highlight.RGB = ThemeBackColor()
+    On Error GoTo Failed
+
+    modBlock.ResizeToContent shp
+    Reselect shp
+    RefreshRibbon
+    Exit Sub
+Failed:
+    Warn "DoStrip failed: " & Err.Description
+End Sub
+
 Public Sub DoSizeUp()
     StepSize 1
 End Sub
@@ -359,6 +453,18 @@ Public Sub RibbonToggleGuides(control As IRibbonControl, pressed As Boolean)
 End Sub
 
 ' The size box: shows the selected block's size, and accepts a typed one.
+Public Sub RibbonEmphasise(control As IRibbonControl)
+    DoEmphasise
+End Sub
+
+Public Sub RibbonCopyCode(control As IRibbonControl)
+    DoCopyCode
+End Sub
+
+Public Sub RibbonStrip(control As IRibbonControl)
+    DoStrip
+End Sub
+
 Public Sub RibbonSizeCount(control As IRibbonControl, ByRef count)
     count = modSpec.LadderCount()
 End Sub

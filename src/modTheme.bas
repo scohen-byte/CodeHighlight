@@ -75,6 +75,13 @@ Public Function ThemeBackColor() As Long
     ThemeBackColor = RGB(31, 31, 31)                            ' 1F1F1F
 End Function
 
+' The band drawn behind emphasised lines. Light enough to read as deliberate
+' from the back of a room, dark enough that the code on top stays legible -
+' every token colour still clears WCAG AAA against it.
+Public Function ThemeEmphasisColor() As Long
+    ThemeEmphasisColor = RGB(58, 68, 82)                        ' 3A4452
+End Function
+
 Public Function ThemeGutterColor() As Long
     ThemeGutterColor = RGB(133, 133, 133)                       ' 858585
 End Function

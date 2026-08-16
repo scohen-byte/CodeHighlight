@@ -11,6 +11,11 @@ param(
 )
 
 $ErrorActionPreference = 'Stop'
+
+# A UNIQUE scratch file per run. A shared name gets left locked by any run
+# that died badly, and then every later run fails on a file it cannot delete -
+# which looks like a fault in whatever is being tested.
+if (-not $Scratch) { $Scratch = "C:\Users\User\ppt-lab\slice-" + [guid]::NewGuid().ToString('N').Substring(0,8) + '.pptm' }
 $ppSaveAsOpenXMLPresentationMacroEnabled = 25
 
 # Dependency order: modLexer needs TokenClass from modTheme and LangDef from
@@ -65,4 +70,6 @@ finally {
     $pres.Saved = $true
     $pres.Close()
     $ppt.Quit()
+    Start-Sleep -Milliseconds 500
+    Remove-Item $Scratch -Force -ErrorAction SilentlyContinue
 }
