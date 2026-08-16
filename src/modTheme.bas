@@ -38,7 +38,16 @@ Public Const THEME_FONT As String = "Consolas"
 
 Public Function ThemeColor(ByVal kind As TokenClass) As Long
     Select Case kind
-        Case tkComment:      ThemeColor = RGB(106, 153, 85)     ' 6A9955
+        ' Brightened from VS Code's 6A9955 for projection, and the ONE
+        ' deliberate divergence from Dark+ in this palette. Measured against the
+        ' block background: 4.95:1 becomes 8.17:1. Comments were the weakest
+        ' colour here and are the first thing a washed-out projector loses.
+        '
+        ' Lifted in saturation, not merely in lightness. A simply-lighter green
+        ' (8EB67C, 7.17:1) drifts toward the number green B5CEA8 - separation
+        ' falls from 124 to 64 - and comments start reading as numbers. This
+        ' keeps 77.
+        Case tkComment:      ThemeColor = RGB(135, 199, 107)     ' 87C76B
         Case tkString:       ThemeColor = RGB(206, 145, 120)    ' CE9178
         Case tkNumber:       ThemeColor = RGB(181, 206, 168)    ' B5CEA8
         Case tkKeywordCtrl:  ThemeColor = RGB(197, 134, 192)    ' C586C0

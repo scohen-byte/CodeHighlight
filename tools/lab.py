@@ -37,7 +37,11 @@ SNIPPET = SAMPLES / "lab_snippet.py"
 PALETTE = {
     "bg":       "1F1F1F",   # editor background
     "default":  "D4D4D4",   # operators, punctuation
-    "comment":  "6A9955",
+    # Brightened from VS Code's 6A9955 for projection: 4.95:1 -> 8.17:1 against
+    # the block background. Kept saturated rather than merely lighter, so it
+    # stays clearly distinct from the number green. The one deliberate
+    # divergence from Dark+ in this palette.
+    "comment":  "87C76B",
     "string":   "CE9178",
     "number":   "B5CEA8",
     "kw_ctrl":  "C586C0",   # if / for / return / import
