@@ -18,6 +18,12 @@ Public Const TAG_BLOCK As String = "CODEBLOCK"
 Public Const TAG_ID    As String = "CODEBLOCK_ID"
 Public Const TAG_LANG  As String = "CODEBLOCK_LANG"
 
+' Why the last GroupParts did nothing, for the test harness to report.
+Public LastGroupError As String
+
+' Marks the group holding a block and its parts.
+Public Const TAG_GROUP_OF As String = "CODEBLOCK_GROUP_OF"
+
 ' PowerPoint separates paragraphs with CR. Text arriving from a file has LF or
 ' CRLF, and assigning that directly produces either one giant paragraph or
 ' stray vertical tabs, both of which wreck the line count and the height.
@@ -109,10 +115,13 @@ Public Function CreateBlock(ByVal sld As Slide, ByVal code As String, _
     h = modSpec.SpecHeight(size, lineCount)
     pad = modSpec.SpecPad(size)
 
-    ' Centred in the content area, the way the lab renders it.
+    ' Placed at the top-left of the content area, and below anything already
+    ' there, rather than centred. Centring looks tidy for one block and is
+    ' useless the moment you want two, or want to put one somewhere specific -
+    ' every new block landed on top of the last. The block is selected on
+    ' creation, so dragging it is one gesture.
     Set shp = sld.Shapes.AddShape(msoShapeRoundedRectangle, _
-                                  modSpec.CONTENT_L, _
-                                  modSpec.CONTENT_T + (modSpec.CONTENT_H - h) / 2, _
+                                  modSpec.CONTENT_L, NextFreeTop(sld), _
                                   modSpec.CONTENT_W, h)
 
     With shp
@@ -154,6 +163,23 @@ Public Function CreateBlock(ByVal sld As Slide, ByVal code As String, _
     shp.Tags.Add TAG_LANG, langId
 
     Set CreateBlock = shp
+End Function
+
+' Just below the lowest code block on the slide, or the top of the content area
+' when there is none.
+Private Function NextFreeTop(ByVal sld As Slide) As Single
+    Dim i As Long, lowest As Single, bottom As Single
+
+    Dim shp As Shape
+    lowest = modSpec.CONTENT_T
+    For Each shp In AllShapes(sld)
+        If shp.Tags(TAG_BLOCK) = "1" Then
+            bottom = shp.Top + shp.Height + 12
+            If bottom > lowest Then lowest = bottom
+        End If
+    Next shp
+    If lowest > modSpec.SLIDE_H - 60 Then lowest = modSpec.CONTENT_T
+    NextFreeTop = lowest
 End Function
 
 ' Font, alignment and paragraph spacing. Separated out because resizing has to
@@ -218,7 +244,16 @@ Public Function SelectedBlock(ByRef problem As String) As Shape
     End Select
 
     If shp.Type = msoGroup Then
-        problem = "That is a group. Ungroup it, or select the block inside it."
+        ' A group holding one of our blocks is the normal case now, not an
+        ' error: Highlight groups the block with its numbers and guides so the
+        ' whole thing can be dragged as one.
+        Dim inner As Shape
+        Set inner = BlockInGroup(shp)
+        If inner Is Nothing Then
+            problem = "That is a group with no code block in it."
+            Exit Function
+        End If
+        Set SelectedBlock = inner
         Exit Function
     End If
     If shp.HasTextFrame = msoFalse Then
@@ -236,6 +271,119 @@ Public Function SelectedBlock(ByRef problem As String) As Shape
 NoWindow:
     problem = "Open a slide in Normal view first."
 End Function
+
+'------------------------------------------------------------------------------
+' Grouping
+'------------------------------------------------------------------------------
+' PLAN.md section 9 says not to group, on the grounds that it makes editing
+' awkward. In use it turned out the opposite way round: without a group, moving
+' a block means selecting three or more shapes and dragging them together, every
+' time. Text is still editable - clicking twice enters the shape inside a group.
+'
+' Highlight ungroups, does its work, and regroups, so nothing downstream has to
+' understand groups. SelectedBlock looks inside a selected group, so pressing
+' Highlight with the group selected does the right thing.
+
+' Every shape on the slide, descending INTO groups.
+'
+' Needed because grouping hides the parts: a gutter or a guide inside a group is
+' not in sld.Shapes any more, so anything that finds parts by tag has to look
+' inside groups or it will conclude they were deleted.
+Public Function AllShapes(ByVal sld As Slide) As Collection
+    Dim c As Collection, i As Long
+    Set c = New Collection
+    For i = 1 To sld.Shapes.count
+        CollectDeep c, sld.Shapes(i)
+    Next i
+    Set AllShapes = c
+End Function
+
+Private Sub CollectDeep(ByVal c As Collection, ByVal shp As Shape)
+    Dim i As Long
+    c.Add shp
+    If shp.Type = msoGroup Then
+        For i = 1 To shp.GroupItems.count
+            CollectDeep c, shp.GroupItems(i)
+        Next i
+    End If
+End Sub
+
+Public Function ParentGroup(ByVal shp As Shape) As Shape
+    On Error Resume Next
+    Set ParentGroup = shp.ParentGroup
+    On Error GoTo 0
+End Function
+
+' The code block inside a group, or Nothing.
+Public Function BlockInGroup(ByVal grp As Shape) As Shape
+    Dim i As Long
+    On Error Resume Next
+    For i = 1 To grp.GroupItems.count
+        If grp.GroupItems(i).Tags(TAG_BLOCK) = "1" Then
+            Set BlockInGroup = grp.GroupItems(i)
+            Exit Function
+        End If
+    Next i
+    On Error GoTo 0
+End Function
+
+' Breaks the block out of its group so the parts can be redrawn. Returns True
+' if it was grouped, so the caller knows to put it back.
+Public Function UngroupParts(ByVal shp As Shape) As Boolean
+    Dim g As Shape
+    Set g = ParentGroup(shp)
+    If g Is Nothing Then Exit Function
+    g.Ungroup
+    UngroupParts = True
+End Function
+
+' Groups the block with its gutter and guides. Does nothing when there are no
+' parts to group, so a bare block stays a plain shape.
+Public Sub GroupParts(ByVal shp As Shape)
+    Dim sld As Slide, i As Long, blockId As String
+    Dim v() As Variant, n As Long, grp As Shape
+
+    LastGroupError = ""
+    blockId = shp.Tags(TAG_ID)
+    If Len(blockId) = 0 Then
+        LastGroupError = "block has no id"
+        Exit Sub
+    End If
+    Set sld = shp.Parent
+
+    ' Shapes.Range wants a ONE-BASED Variant array. Handed a zero-based String
+    ' array inside a Variant it neither groups nor raises - it just quietly does
+    ' nothing, which is the worst of both.
+    ReDim v(1 To sld.Shapes.count)
+    For i = 1 To sld.Shapes.count
+        With sld.Shapes(i)
+            If .Tags(TAG_ID) = blockId Or _
+               .Tags(modGutter.TAG_GUTTER_OF) = blockId Or _
+               .Tags(modGuides.TAG_GUIDE_OF) = blockId Then
+                n = n + 1
+                v(n) = .Name
+            End If
+        End With
+    Next i
+
+    If n < 2 Then
+        LastGroupError = "only " & n & " shape(s) to group"
+        Exit Sub
+    End If
+    ReDim Preserve v(1 To n)
+
+    On Error Resume Next
+    Set grp = sld.Shapes.Range(v).Group
+    If Err.Number <> 0 Then
+        LastGroupError = "Group failed: " & Err.Description
+        Err.Clear
+    ElseIf grp Is Nothing Then
+        LastGroupError = "Group returned nothing for " & n & " shapes"
+    Else
+        grp.Tags.Add TAG_GROUP_OF, blockId
+    End If
+    On Error GoTo 0
+End Sub
 
 Public Function IsCodeBlock(ByVal shp As Shape) As Boolean
     IsCodeBlock = (shp.Tags(TAG_BLOCK) = "1")

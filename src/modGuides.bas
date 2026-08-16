@@ -47,9 +47,19 @@ End Sub
 ' Removes every guide belonging to a block. Iterates backwards, because
 ' deleting from a Shapes collection while walking it forwards skips shapes.
 Public Sub ClearGuides(ByVal sld As Slide, ByVal blockId As String)
-    Dim i As Long
-    For i = sld.Shapes.count To 1 Step -1
-        If sld.Shapes(i).Tags(TAG_GUIDE_OF) = blockId Then sld.Shapes(i).Delete
+    Dim doomed As Collection, shp As Shape, i As Long
+
+    If Len(blockId) = 0 Then Exit Sub      ' "" would match every untagged shape
+
+    ' Collect first, delete after. Deleting while walking a collection that
+    ' descends into groups is a good way to skip shapes or trip over a group
+    ' that dissolves when its second-to-last child goes.
+    Set doomed = New Collection
+    For Each shp In modBlock.AllShapes(sld)
+        If shp.Tags(TAG_GUIDE_OF) = blockId Then doomed.Add shp
+    Next shp
+    For i = doomed.count To 1 Step -1
+        doomed(i).Delete
     Next i
 End Sub
 
@@ -63,7 +73,7 @@ Public Function DrawGuides(ByVal shp As Shape) As Long
     Dim x As Single, y0 As Single, y1 As Single
     Dim maxLevel As Long
 
-    Set sld = shp.Parent
+    Set sld = modGutter.OwningSlide(shp)
     blockId = shp.Tags(modBlock.TAG_ID)
     If Len(blockId) = 0 Then Exit Function
 

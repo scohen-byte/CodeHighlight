@@ -26,18 +26,31 @@ Option Explicit
 Public Const TAG_GUTTER_OF As String = "CODEBLOCK_GUTTER_OF"
 
 Public Function FindGutter(ByVal shp As Shape) As Shape
-    Dim sld As Slide, i As Long, blockId As String
+    Dim sld As Slide, g As Shape, blockId As String
 
     blockId = shp.Tags(modBlock.TAG_ID)
     If Len(blockId) = 0 Then Exit Function
 
-    Set sld = shp.Parent
-    For i = 1 To sld.Shapes.count
-        If sld.Shapes(i).Tags(TAG_GUTTER_OF) = blockId Then
-            Set FindGutter = sld.Shapes(i)
+    Set sld = OwningSlide(shp)
+    ' Descends into groups: once Highlight has grouped the block with its parts,
+    ' the gutter is no longer a top-level shape.
+    For Each g In modBlock.AllShapes(sld)
+        If g.Tags(TAG_GUTTER_OF) = blockId Then
+            Set FindGutter = g
             Exit Function
         End If
-    Next i
+    Next g
+End Function
+
+' A shape inside a group has the GROUP as its Parent, not the slide, so walk up
+' until a Slide is reached.
+Public Function OwningSlide(ByVal shp As Shape) As Slide
+    Dim o As Object
+    Set o = shp.Parent
+    Do While TypeName(o) = "Shape"
+        Set o = o.Parent
+    Loop
+    Set OwningSlide = o
 End Function
 
 Public Function HasGutter(ByVal shp As Shape) As Boolean
@@ -75,7 +88,7 @@ Public Sub SyncGutter(ByVal shp As Shape, Optional ByVal create As Boolean = Fal
     Set g = FindGutter(shp)
     If g Is Nothing And Not create Then Exit Sub
 
-    Set sld = shp.Parent
+    Set sld = OwningSlide(shp)
     size = modBlock.BlockFontSize(shp)
     pad = modSpec.SpecPad(size)
     lineCount = modBlock.CountLines(shp.TextFrame.TextRange.text)
@@ -127,9 +140,15 @@ Public Sub SyncGutter(ByVal shp As Shape, Optional ByVal create As Boolean = Fal
         End With
     End With
 
-    ' Re-align last, once the block has settled at its final size.
+    ' Size the gutter from the CONTENT, not from shp.Height.
+    '
+    ' Autofit recalculates the block's height lazily, so reading it here can
+    ' return the height from BEFORE the last edit. A gutter sized from a stale
+    ' height is too short, and PowerPoint then clips the final number - which
+    ' looks exactly like an off-by-one in the numbering and is not one.
     g.Left = shp.Left
     g.Top = shp.Top
     g.Width = pad + gutterW
-    g.Height = shp.Height
+    g.Height = modSpec.SpecHeight(size, lineCount)
+    If shp.Height > g.Height Then g.Height = shp.Height
 End Sub

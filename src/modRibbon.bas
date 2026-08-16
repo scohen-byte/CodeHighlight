@@ -76,6 +76,9 @@ Public Sub DoHighlight()
         Exit Sub
     End If
 
+    ' Out of the group before anything is redrawn, back into it at the end.
+    modBlock.UngroupParts shp
+
     ' Repair autocorrect damage first, so the lexer sees code rather than
     ' typography. Rewriting the text drops run formatting, so the block
     ' formatting is reapplied before colouring.
@@ -98,6 +101,8 @@ Public Sub DoHighlight()
     ' placed from that margin.
     modGutter.SyncGutter shp
     modGuides.DrawGuides shp
+    ' Back into a group, so the block and its numbers and guides drag as one.
+    modBlock.GroupParts shp
     Exit Sub
 Failed:
     Warn "DoHighlight failed: " & Err.Description
@@ -113,12 +118,14 @@ Public Sub DoHighlightAll()
         Exit Sub
     End If
 
-    For Each shp In sld.Shapes
+    For Each shp In modBlock.AllShapes(sld)
         If modBlock.IsCodeBlock(shp) And shp.HasTextFrame Then
+            modBlock.UngroupParts shp
             modRender.ApplyHighlight shp, modBlock.BlockLangId(shp, CurrentLangId())
             modBlock.ResizeToContent shp
             modGutter.SyncGutter shp
             modGuides.DrawGuides shp
+            modBlock.GroupParts shp
             count = count + 1
         End If
     Next shp
@@ -141,10 +148,12 @@ Public Sub DoToggleGutter()
         Exit Sub
     End If
 
+    modBlock.UngroupParts shp
     modGutter.ToggleGutter shp
     modBlock.ResizeToContent shp
     modGutter.SyncGutter shp
     modGuides.DrawGuides shp
+    modBlock.GroupParts shp
     RefreshRibbon
     Exit Sub
 Failed:
@@ -161,8 +170,10 @@ Public Sub DoToggleGuides()
         Exit Sub
     End If
 
+    modBlock.UngroupParts shp
     modGuides.SetGuidesEnabled shp, Not modGuides.GuidesEnabled(shp)
     modGuides.DrawGuides shp
+    modBlock.GroupParts shp
     RefreshRibbon
     Exit Sub
 Failed:
@@ -190,9 +201,7 @@ Public Sub DoFit()
     End If
 
     best = FitSizeFor(shp)
-    modBlock.ApplySize shp, best
-    modGutter.SyncGutter shp
-    modGuides.DrawGuides shp
+    Resize shp, best
 
     If best < modSpec.MIN_TEACHING_SIZE Then
         slides = SlidesNeededFor(shp)
@@ -233,9 +242,19 @@ Private Sub StepSize(ByVal direction As Long)
         End If
     End If
 
+    Resize shp, newSize
+End Sub
+
+' Changing size RESETS every run to the default colour, because the font has to
+' be reapplied across the whole range. So re-highlighting is not a nicety here,
+' it is the other half of the operation.
+Private Sub Resize(ByVal shp As Shape, ByVal newSize As Single)
+    modBlock.UngroupParts shp
     modBlock.ApplySize shp, newSize
+    modRender.ApplyHighlight shp, modBlock.BlockLangId(shp, CurrentLangId())
     modGutter.SyncGutter shp
     modGuides.DrawGuides shp
+    modBlock.GroupParts shp
 End Sub
 
 Private Function FitSizeFor(ByVal shp As Shape) As Single

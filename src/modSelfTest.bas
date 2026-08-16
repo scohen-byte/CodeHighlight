@@ -259,7 +259,9 @@ Public Function RibbonSliceTest(ByVal srcPath As String, ByVal pngPath As String
 
     ' --- Highlight all --------------------------------------------------------
     modRibbon.DoHighlightAll
-    For Each shp In sld.Shapes
+    ' AllShapes, not sld.Shapes: Highlight groups a block with its numbers and
+    ' guides, so the block is no longer a top-level shape.
+    For Each shp In modBlock.AllShapes(sld)
         If modBlock.IsCodeBlock(shp) Then blocks = blocks + 1
     Next shp
     r = r & "highlight_all_blocks=" & blocks & vbLf
@@ -278,7 +280,7 @@ Public Function ReportTags() As String
     Dim sld As Slide, shp As Shape, r As String
     On Error GoTo Failed
     For Each sld In Application.ActivePresentation.Slides
-        For Each shp In sld.Shapes
+        For Each shp In modBlock.AllShapes(sld)
             r = r & sld.SlideIndex & " " & shp.Name & _
                     " block=" & shp.Tags(modBlock.TAG_BLOCK) & _
                     " lang=" & shp.Tags(modBlock.TAG_LANG) & _
@@ -483,6 +485,88 @@ Private Sub Trace(ByVal path As String, ByVal msg As String)
     Print #f, msg
     Close #f
 End Sub
+
+' The flow that actually breaks things: build a block, turn the gutter on,
+' THEN edit the text and press Highlight again. Reported symptoms were a missing
+' last number and misplaced guides, both of which only appear on the second
+' pass, not on a block built in one go.
+Public Function EditFlowTest(ByVal srcPath As String, ByVal pngPath As String) As String
+    Dim pres As Presentation, sld As Slide, shp As Shape, g As Shape
+    Dim r As String, code As String, grp As Shape
+
+    On Error GoTo Failed
+    modRibbon.SetQuiet True
+    code = ReadTextFile(srcPath)
+
+    Set pres = Application.ActivePresentation
+    pres.PageSetup.SlideWidth = modSpec.SLIDE_W
+    pres.PageSetup.SlideHeight = modSpec.SLIDE_H
+    Set sld = pres.Slides.Add(pres.Slides.count + 1, ppLayoutBlank)
+    sld.Select
+
+    ' Start from THREE lines only.
+    Set shp = modBlock.CreateBlock(sld, "x = 1" & vbCr & "y = 2" & vbCr & "z = 3", _
+                                   modSpec.BASE_SIZE, "python")
+    shp.Select
+    modRibbon.DoHighlight
+    shp.Select
+    modRibbon.DoToggleGutter
+    r = "start_lines=3 gutter=" & Abs(CLng(modGutter.HasGutter(shp))) & vbLf
+
+    ' Now edit it to the full sample and Highlight again - the reported flow.
+    modBlock.UngroupParts shp
+    shp.TextFrame.TextRange.text = modBlock.NormalizeParagraphs(code)
+    shp.Select
+    modRibbon.DoHighlight
+
+    Set g = modGutter.FindGutter(shp)
+    r = r & "code_lines=" & modBlock.CountLines(shp.TextFrame.TextRange.text) & vbLf
+    If g Is Nothing Then
+        r = r & "gutter LOST" & vbLf
+    Else
+        r = r & "gutter_numbers=" & modBlock.CountLines(g.TextFrame.TextRange.text) & vbLf
+        r = r & "gutter_h=" & Format$(g.Height, "0.0") & _
+                " needed=" & Format$(modSpec.SpecHeight(modBlock.BlockFontSize(shp), _
+                     modBlock.CountLines(shp.TextFrame.TextRange.text)), "0.0") & vbLf
+        r = r & "gutter_tall_enough=" & Abs(CLng(g.Height >= _
+                modSpec.SpecHeight(modBlock.BlockFontSize(shp), _
+                modBlock.CountLines(shp.TextFrame.TextRange.text)) - 0.5)) & vbLf
+    End If
+
+    ' Grouped?
+    Dim k As Long
+    r = r & "toplevel_shapes=" & sld.Shapes.count & vbLf
+    For k = 1 To sld.Shapes.count
+        r = r & "  [" & k & "] type=" & sld.Shapes(k).Type & _
+                " name=" & sld.Shapes(k).Name
+        If sld.Shapes(k).Type = msoGroup Then r = r & " items=" & sld.Shapes(k).GroupItems.count
+        r = r & vbLf
+    Next k
+    Set grp = modBlock.ParentGroup(shp)
+    r = r & "grouped=" & Abs(CLng(Not grp Is Nothing)) & _
+            " why=" & Quoted(modBlock.LastGroupError) & vbLf
+    If Not grp Is Nothing Then
+        r = r & "group_items=" & grp.GroupItems.count & vbLf
+        ' Selecting the GROUP must still find the block.
+        grp.Select
+        Dim problem As String, found As Shape
+        Set found = modBlock.SelectedBlock(problem)
+        r = r & "group_resolves=" & Abs(CLng(Not found Is Nothing)) & vbLf
+    End If
+
+    ' Resizing must keep the colours.
+    shp.Select
+    modRibbon.DoSizeDown
+    r = r & "after_smaller_size=" & Format$(modBlock.BlockFontSize(shp), "0") & vbLf
+    r = r & "still_coloured=" & Abs(CLng(modLexer.MaskOf(shp.TextFrame.TextRange.text, _
+            RunLang()) <> "")) & vbLf
+
+    sld.Export pngPath, "PNG", 1920, 1080
+    EditFlowTest = r
+    Exit Function
+Failed:
+    EditFlowTest = r & "ERROR " & Err.Number & ": " & Err.Description
+End Function
 
 ' Isolates the indent-level computation from the drawing, so a failure in one
 ' cannot be mistaken for the other.
