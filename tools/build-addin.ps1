@@ -18,8 +18,15 @@ $ppSaveAsOpenXMLPresentationMacroEnabled = 25
 
 # Dependency order, and SHIPPING modules only. modSelfTest is test scaffolding -
 # it reads and writes files by path and has no business in a distributed add-in.
+#
+# EVERY OTHER src/*.bas MUST BE LISTED. A module left out does not fail to
+# build: it builds an add-in whose remaining modules call a module that is not
+# there, and PowerPoint reports "Compile error in hidden module: modRibbon" on
+# the first click. The tests import from src/ directly, so they never see it.
+# tools/check-vba.sh compares this list against the directory for that reason.
 $MODULES = @('modTheme', 'modSpec', 'modLangRegistry', 'modLangPython',
-             'modLexer', 'modBlock', 'modRender', 'modGutter', 'modGuides', 'modRibbon')
+             'modLexer', 'modBlock', 'modRender', 'modGutter', 'modGuides',
+             'modNote', 'modRibbon')
 
 if (Test-Path $Out) { Remove-Item $Out -Force }
 New-Item -ItemType Directory -Path (Split-Path $Out -Parent) -Force | Out-Null

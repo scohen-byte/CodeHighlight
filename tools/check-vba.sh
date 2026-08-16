@@ -60,6 +60,24 @@ if [[ -f "$RIBBON" ]]; then
     done
 fi
 
+# 6. Every shipping module must be in the build's module list. Leaving one out
+#    builds an add-in whose other modules call a module that is not in it, and
+#    PowerPoint reports it as "Compile error in hidden module: modRibbon" on the
+#    first click. Nothing else catches it: the tests import from src/ directly,
+#    so they compile against a set that the shipped add-in does not have.
+BUILD="$REPO/tools/build-addin.ps1"
+if [[ -f "$BUILD" ]]; then
+    listed=$(grep -oE "'mod[A-Za-z]+'" "$BUILD" | tr -d "'" | sort -u)
+    for f in *.bas; do
+        m="${f%.bas}"
+        # modSelfTest is test scaffolding and is excluded on purpose.
+        [[ "$m" == "modSelfTest" ]] && continue
+        if ! grep -qx "$m" <<< "$listed"; then
+            echo "$m is in src/ but missing from \$MODULES in tools/build-addin.ps1"; fail=1
+        fi
+    done
+fi
+
 if [[ $fail -eq 0 ]]; then
     echo "vba checks passed ($(ls *.bas | wc -l) modules, $(grep -coE '(onAction|getText|getPressed|getItemCount|getItemLabel|getSelectedItemIndex|onChange|onLoad)="' "$RIBBON" 2>/dev/null || echo 0) ribbon callbacks)"
 fi
