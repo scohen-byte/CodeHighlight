@@ -110,6 +110,10 @@ End Sub
 ' created.
 Public Sub StyleBlock(ByVal shp As Shape, Optional ByVal langId As String = "")
     If Len(langId) = 0 Then langId = modBlock.BlockLangId(shp, CurrentLangId())
+    ' FIRST, before anything moves: this is the only moment at which a note that
+    ' the user dragged can be told apart from one that came along with the block.
+    ' modNote's header explains why.
+    modNote.CaptureDrags shp
     modBlock.UngroupParts shp
     modRender.ApplyHighlight shp, langId
     modBlock.ResizeToContent shp
@@ -117,8 +121,11 @@ Public Sub StyleBlock(ByVal shp As Shape, Optional ByVal langId As String = "")
     ' placed from that margin.
     modGutter.SyncGutter shp
     modGuides.DrawGuides shp
-    ' Covers last: they have to sit above everything to hide anything.
+    ' Covers next: they have to sit above everything to hide anything.
     modRender.DrawCovers shp
+    ' Notes after the block has reached its final size and position, since they
+    ' are placed from its edge.
+    modNote.PlaceNotes shp
     ' Back into a group, so the block and its parts drag as one.
     modBlock.GroupParts shp
 End Sub
@@ -133,14 +140,11 @@ Public Sub DoStylizeAll()
         Exit Sub
     End If
 
+    ' The same pipeline as one block, deliberately. Repeating the steps here is
+    ' what left Stylize all behind every time the pipeline gained a stage.
     For Each shp In modBlock.AllShapes(sld)
         If modBlock.IsCodeBlock(shp) And shp.HasTextFrame Then
-            modBlock.UngroupParts shp
-            modRender.ApplyHighlight shp, modBlock.BlockLangId(shp, CurrentLangId())
-            modBlock.ResizeToContent shp
-            modGutter.SyncGutter shp
-            modGuides.DrawGuides shp
-            modBlock.GroupParts shp
+            StyleBlock shp
             count = count + 1
         End If
     Next shp
@@ -287,6 +291,11 @@ Public Sub DoStrip()
     modRender.ClearCovers shp
 
     modBlock.ResizeToContent shp
+    ' Notes SURVIVE a strip. Everything else this removes can be rebuilt by
+    ' pressing Stylize, and the words in a note cannot - so they are content,
+    ' not styling. They are re-placed rather than left pointing at where the
+    ' block used to be.
+    modNote.PlaceNotes shp
     Reselect shp
     RefreshRibbon
     Exit Sub
@@ -333,6 +342,73 @@ Public Sub DoHide()
     Exit Sub
 Failed:
     Warn "DoHide failed: " & Err.Description
+End Sub
+
+' Attaches a note to the line the cursor is on, or opens the one already there.
+'
+' The cursor is enough - no selection needed - because a note is about one line,
+' and asking someone to select the line first would be a step for nothing.
+'
+' With the block itself selected rather than text there is no line to attach to,
+' so the gesture means the other thing you might want: clear them. That one asks
+' first. Every other clear in this add-in is silent, because everything else can
+' be rebuilt by pressing Stylize, and typed words cannot.
+Public Sub DoNote()
+    On Error GoTo Failed
+    Dim shp As Shape, problem As String, sel As Selection
+    Dim ln As Long, note As Shape, n As Long
+
+    Set shp = modBlock.SelectedBlock(problem)
+    If shp Is Nothing Then
+        Warn problem
+        Exit Sub
+    End If
+
+    Set sel = Application.ActiveWindow.Selection
+    If sel.Type = ppSelectionText Then
+        ln = modBlock.LineOfChar(shp.TextFrame.TextRange.text, sel.TextRange.Start)
+    End If
+
+    If ln < 1 Then
+        n = modNote.NoteCount(shp)
+        If n = 0 Then
+            Warn "Click into the block, put the cursor on the line you want to " & _
+                 "explain, and press Note."
+            Exit Sub
+        End If
+        If Confirm("Remove all " & n & " note(s) from this block? " & _
+                   "What you typed in them is lost.") Then
+            modBlock.UngroupParts shp
+            modNote.ClearNotes shp
+            StyleBlock shp
+            Reselect shp
+        End If
+        Exit Sub
+    End If
+
+    modBlock.UngroupParts shp
+    If modNote.FindNote(shp, ln) Is Nothing Then modNote.AddNote shp, ln
+    StyleBlock shp
+
+    ' Straight into the note's text, the way New block does: the placeholder is
+    ' selected, so the first keystroke replaces it.
+    Set note = modNote.FindNote(shp, ln)
+    If Not note Is Nothing Then
+        On Error Resume Next
+        note.Select
+        note.TextFrame.TextRange.Select
+        On Error GoTo 0
+        ' A block too wide for a margin puts its notes below it, and the slide
+        ' runs out after two or three. Say so rather than leave one hanging off
+        ' the bottom edge where it will not be noticed until the lecture.
+        If modNote.NoteOffSlide(note) Then
+            Warn "There is no room left on this slide for another note. " & _
+                 "Make the block smaller, or drag this note where you want it."
+        End If
+    End If
+    Exit Sub
+Failed:
+    Warn "DoNote failed: " & Err.Description
 End Sub
 
 ' Duplicates the slide with nothing hidden, so the answer follows the question.
@@ -544,12 +620,14 @@ End Sub
 ' be reapplied across the whole range. So re-highlighting is not a nicety here,
 ' it is the other half of the operation.
 Private Sub Resize(ByVal shp As Shape, ByVal newSize As Single)
+    ' Before ApplySize, which moves the block. StyleBlock's own capture then
+    ' becomes a no-op - modNote's header says why it has to.
+    modNote.CaptureDrags shp
     modBlock.UngroupParts shp
     modBlock.ApplySize shp, newSize
-    modRender.ApplyHighlight shp, modBlock.BlockLangId(shp, CurrentLangId())
-    modGutter.SyncGutter shp
-    modGuides.DrawGuides shp
-    modBlock.GroupParts shp
+    ' The rest is the ordinary pipeline. It used to be copied out here, and the
+    ' copy fell behind: a resized block lost its covers and its notes.
+    StyleBlock shp
     Reselect shp
     RefreshRibbon
 End Sub
@@ -656,6 +734,10 @@ End Sub
 
 Public Sub RibbonReveal(control As IRibbonControl)
     DoReveal
+End Sub
+
+Public Sub RibbonNote(control As IRibbonControl)
+    DoNote
 End Sub
 
 Public Sub RibbonStepThrough(control As IRibbonControl)

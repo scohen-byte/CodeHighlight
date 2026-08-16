@@ -78,6 +78,13 @@
                   onAction="RibbonEmphasize"
                   screentip="Emphasize the selected lines"
                   supertip="Select text inside the block and press this to band those lines. With the block itself selected rather than text, it clears the emphasis. The choice is stored on the block, so duplicating the slide and moving the emphasis down a line is two clicks."/>
+          <button id="btnNote"
+                  label="Note"
+                  size="large"
+                  imageMso="ReviewNewComment"
+                  onAction="RibbonNote"
+                  screentip="Attach a note to the line the cursor is on"
+                  supertip="Puts a note beside the block with a line pointing at the code, so you can say what a line does without cramming it into a comment. It stays anchored: change the size or edit the code above it and Stylize keeps it level with its line. With the block itself selected rather than text, it offers to remove them all."/>
           <button id="btnCopyCode"
                   label="Copy code"
                   imageMso="Copy"

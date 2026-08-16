@@ -1,7 +1,10 @@
-# CodeHighlight — installing and using it
+# CodeHighlight — installing it
 
 A PowerPoint add-in that renders source code with VS Code's colours, entirely
 offline. You type code into a block on the slide and press **Stylize**.
+
+This file covers getting it onto a machine and set up correctly. **`README.md`
+covers using it.**
 
 Decks made with it open and edit correctly on any machine, with or without the
 add-in. Someone without it sees exactly what you see — an ordinary rounded
@@ -81,79 +84,7 @@ cannot repair the two capitalisation problems** — nothing can tell a variable
 you meant to call `X` from one autocorrect changed, so if either slips through
 you have to correct the letter by hand.
 
-## 4. Using it
-
-| Button | What it does |
-|---|---|
-| **New block** | Inserts an empty dark block. The placeholder text is selected, so just start typing |
-| **Stylize** | Colours the selected block, refits it, and re-syncs its line numbers and guides. The button you press constantly |
-| **Stylize all** | The same, for every code block on the slide |
-| **Language** | Which lexer to use. Stored per block |
-| **Line numbers** | Show or hide the numbers for the selected block. Off by default |
-| **Indent guides** | Show or hide the vertical nesting lines. Off by default |
-| **Emphasize** | Band the selected lines and fade the rest. See below |
-| **Copy code** | Put the block's code on the clipboard, ready to paste into an editor |
-| **Strip** | Back to plain uncoloured text. Stylize brings it all back |
-| **Step through** | Build a walkthrough: one slide per line. See below |
-| **Build up** | The same, but the emphasis grows downward instead of moving |
-| **Hide lines** | Cover the selected lines with a `?`, so the class can guess them. See below |
-| **Reveal next** | Add the answer slide: the same slide with nothing hidden |
-| **Size** | The block's size in points. Pick a rung or type any size |
-| **Larger / Smaller** | Step the font size. Larger stops where the code would stop fitting the slide |
-| **Fit** | Pick the largest size that fits. Warns rather than shrinking below readable |
-
-The block grows as you type. Press **Stylize** after editing to re-colour it —
-PowerPoint gives an add-in no way to notice that you changed the text.
-
-**Emphasising lines, for stepping through code.** Click into the block, select
-the lines you want to draw attention to, and press **Emphasize**. Those lines
-get a band behind them and everything else fades back. Press it again with the
-block itself selected — not text inside it — to clear.
-
-The choice is stored on the block and survives every Stylize, which is what
-makes a walkthrough cheap: duplicate the slide, select the next line, press
-Emphasize.
-
-**Building a walkthrough.** Select a block and press **Step through**. The slide
-is duplicated once per line of code, each copy emphasising the next line, and a
-final copy is added with nothing emphasised — so the sequence opens and closes on
-the whole code and you simply advance through the slides as you talk.
-
-**Build up** does the same except the emphasis grows downward: each slide shows
-everything covered so far rather than one line. Use Step through for tracing
-what runs next, Build up for assembling code piece by piece.
-
-Two things worth knowing:
-
-- **Blank lines get no slide of their own.** A slide emphasising an empty line is
-  a dead beat.
-- **Select text first to walk only part of a block.** Without a selection it
-  walks every line, which on a forty-line block means forty slides. Past twelve
-  it asks before going ahead.
-
-The generated slides are ordinary slides. Reorder, delete or edit any of them,
-and press Stylize on one if you change its code.
-
-**Hiding lines, to ask rather than tell.** Select lines inside the block and press
-**Hide lines**. They disappear behind a panel carrying a question mark, and the
-block keeps its exact size and shape — nothing shifts, so the audience can see
-precisely how much is missing and where. Press **Reveal next** and the slide is
-duplicated with nothing hidden, giving you the answer slide immediately after the
-question.
-
-To unhide without adding a slide, select the block itself — not text inside it —
-and press **Hide lines** again. **Strip** also clears it.
-
-The code is covered, not deleted. It is still in the file, and anyone who opens
-the deck can drag the panel aside. That is fine when you reveal in the room, but
-do not use it to withhold answers from a deck you hand out beforehand.
-
-**Fit will sometimes refuse to be helpful, on purpose.** If a snippet only fits
-at 12pt it tells you so, and says roughly how many slides it needs at 16pt
-instead. 16pt is the floor for reading from the back of a lecture hall. Splitting
-code across two slides beats shrinking it past legibility.
-
-## 5. If your IT policy blocks the add-in
+## 4. If your IT policy blocks the add-in
 
 Possible on a managed university machine, where macro settings come from Group
 Policy and cannot be changed by the user. `check-env.ps1` reports whether the
@@ -167,12 +98,6 @@ If add-ins are blocked outright, your decks still open and edit perfectly on
 that machine. Only re-styling is lost. That is a deliberate design goal,
 not a workaround.
 
-## 6. Sharing a deck
+---
 
-Nothing extra to do. The code block is a normal shape with normal text, so the
-deck is self-contained.
-
-The font is **Consolas**, which ships with Windows, so it is present on
-essentially any machine that can open the deck. On a Mac, or anywhere Consolas
-is missing, PowerPoint substitutes another font and the block's alignment will
-shift — the code remains readable and editable.
+Installed and set up? **`README.md`** has the buttons and the walkthroughs.

@@ -29,6 +29,8 @@ Public Const TAG_BAND_OF As String = "CODEBLOCK_BAND_OF"
 ' the cover shapes themselves.
 Public Const TAG_HIDDEN As String = "CODEBLOCK_HIDDEN"
 Public Const TAG_COVER_OF As String = "CODEBLOCK_COVER_OF"
+' Notes live in modNote, which owns their tags. Listed here only because
+' GroupParts has to know about every kind of part a block can have.
 
 ' Why the last GroupParts did nothing, for the test harness to report.
 Public LastGroupError As String
@@ -464,7 +466,9 @@ Public Sub GroupParts(ByVal shp As Shape)
                .Tags(modGutter.TAG_GUTTER_OF) = blockId Or _
                .Tags(modGuides.TAG_GUIDE_OF) = blockId Or _
                .Tags(TAG_BAND_OF) = blockId Or _
-               .Tags(TAG_COVER_OF) = blockId Then
+               .Tags(TAG_COVER_OF) = blockId Or _
+               .Tags(modNote.TAG_NOTE_OF) = blockId Or _
+               .Tags(modNote.TAG_LEADER_OF) = blockId Then
                 n = n + 1
                 v(n) = .Name
             End If

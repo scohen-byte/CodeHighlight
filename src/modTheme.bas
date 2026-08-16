@@ -111,6 +111,26 @@ Public Function ThemeCoverColor() As Long
     ThemeCoverColor = RGB(42, 42, 42)                           ' 2A2A2A
 End Function
 
+' A note attached to a line. The same slate as the emphasis band, at full
+' opacity: a note is an aside about the code, so it should read as part of the
+' same object rather than as a sticker dropped on the slide. Against it, the
+' note text below clears 9.8:1.
+Public Function ThemeNoteColor() As Long
+    ThemeNoteColor = RGB(58, 68, 82)                            ' 3A4452
+End Function
+
+' Brighter than the code default. A note is prose read from the back of a room,
+' and it is set smaller than the code, so it gets the contrast back.
+Public Function ThemeNoteTextColor() As Long
+    ThemeNoteTextColor = RGB(235, 235, 235)                     ' EBEBEB
+End Function
+
+' The line from a note back to its code. Quiet on purpose: it has to be
+' followable without competing with either end of it.
+Public Function ThemeLeaderColor() As Long
+    ThemeLeaderColor = RGB(133, 133, 133)                       ' 858585
+End Function
+
 Public Function ThemeGutterColor() As Long
     ThemeGutterColor = RGB(133, 133, 133)                       ' 858585
 End Function

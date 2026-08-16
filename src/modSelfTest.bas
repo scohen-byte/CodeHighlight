@@ -660,6 +660,97 @@ Failed:
     HideTest = r & "ERROR " & Err.Number & ": " & Err.Description
 End Function
 
+' Attach two notes, then check the three things that can go wrong with them:
+' they must not overlap, a note the user drags must stay where it was put, and
+' a note must follow its line when the block is resized.
+Public Function NoteTest(ByVal srcPath As String, ByVal pngPath As String) As String
+    Dim pres As Presentation, sld As Slide, shp As Shape, r As String
+    Dim code As String, a As Long, b As Long, s2 As Shape
+    Dim n1 As Shape, n2 As Shape, leaders As Long
+    Dim draggedX As Single, draggedY As Single
+    Dim size As Single, lineY As Single, beside As Boolean
+
+    On Error GoTo Failed
+    modRibbon.SetQuiet True
+    code = ReadTextFile(srcPath)
+
+    Set pres = Application.ActivePresentation
+    pres.PageSetup.SlideWidth = modSpec.SLIDE_W
+    pres.PageSetup.SlideHeight = modSpec.SLIDE_H
+    Set sld = pres.Slides.Add(pres.Slides.count + 1, ppLayoutBlank)
+    sld.Select
+
+    Set shp = modBlock.CreateBlock(sld, code, modSpec.BASE_SIZE, "python")
+    shp.Select
+    modRibbon.DoStylize
+
+    ' Two notes on ADJACENT lines, which is the case that makes them collide.
+    modBlock.LineCharRange shp.TextFrame.TextRange.text, 1, a, b
+    shp.TextFrame.TextRange.Characters(a, 1).Select
+    modRibbon.DoNote
+    modBlock.LineCharRange shp.TextFrame.TextRange.text, 2, a, b
+    shp.TextFrame.TextRange.Characters(a, 1).Select
+    modRibbon.DoNote
+
+    r = "notes=" & modNote.NoteCount(shp) & vbLf
+    Set n1 = modNote.FindNote(shp, 1)
+    Set n2 = modNote.FindNote(shp, 2)
+    If n1 Is Nothing Or n2 Is Nothing Then
+        NoteTest = r & "ERROR: a note is missing"
+        Exit Function
+    End If
+
+    For Each s2 In modBlock.AllShapes(sld)
+        If s2.Tags(modNote.TAG_LEADER_OF) = shp.Tags(modBlock.TAG_ID) Then leaders = leaders + 1
+    Next s2
+    r = r & "leaders=" & leaders & vbLf
+    r = r & "no_overlap=" & Abs(CLng(n2.Top >= n1.Top + n1.Height - 0.5)) & vbLf
+    ' A block too wide to leave a margin puts its notes below itself instead,
+    ' where they cannot be level with their line. Report which happened, so the
+    ' level check below is read against the right expectation.
+    beside = (n1.Left >= shp.Left + shp.Width) Or _
+             (n1.Left + n1.Width <= shp.Left)
+    r = r & "side=" & IIf(beside, "beside", "below") & vbLf
+
+    sld.Export pngPath, "PNG", 1920, 1080
+
+    ' A dragged note must survive the next Stylize.
+    n2.Left = n2.Left + 40
+    n2.Top = n2.Top - 60
+    draggedX = n2.Left
+    draggedY = n2.Top
+    shp.Select
+    modRibbon.DoStylize
+    Set n2 = modNote.FindNote(shp, 2)
+    r = r & "drag_kept=" & Abs(CLng(Abs(n2.Left - draggedX) < 2 And _
+                                    Abs(n2.Top - draggedY) < 2)) & vbLf
+
+    ' And an undragged note must stay LEVEL WITH ITS LINE when the size changes,
+    ' which is the property that matters - not merely that it moved.
+    shp.Select
+    modRibbon.DoSizeDown
+    Set n1 = modNote.FindNote(shp, 1)
+    size = modBlock.BlockFontSize(shp)
+    lineY = shp.Top + modSpec.SpecPad(size) + (1 - 0.5) * modSpec.SpecLine(size)
+    r = r & "size_after=" & Format$(size, "0") & vbLf
+    If beside Then
+        r = r & "level_with_line=" & _
+                Abs(CLng(Abs((n1.Top + n1.Height / 2) - lineY) < 2)) & vbLf
+    Else
+        r = r & "level_with_line=n/a (placed below the block)" & vbLf
+    End If
+
+    ' Strip must not eat the words.
+    shp.Select
+    modRibbon.DoStrip
+    r = r & "notes_after_strip=" & modNote.NoteCount(shp) & vbLf
+
+    NoteTest = r
+    Exit Function
+Failed:
+    NoteTest = r & "ERROR " & Err.Number & ": " & Err.Description
+End Function
+
 ' Compares three ways of showing an emphasised range, since the text highlight
 ' stops at the end of each line and looks ragged when several lines are banded.
 '   A  text highlight only, as now

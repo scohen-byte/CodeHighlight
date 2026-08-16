@@ -1,0 +1,469 @@
+Attribute VB_Name = "modNote"
+'==============================================================================
+' modNote - notes attached to a line of code.
+'
+' A note is an ORDINARY TEXT SHAPE, tagged with the block it belongs to and the
+' line it explains. It is never regenerated: the words in it are the user's, and
+' the one thing this module must never do is retype them. Everything else about
+' a note - where it sits, how wide it is, the leader line pointing at the code -
+' is redrawn on every Stylize, the same way the gutter and the guides are.
+'
+' WHY THE POSITION IS TRACKED RATHER THAN RECOMPUTED.
+'
+' Notes need both things at once. They have to FOLLOW the code: change the font
+' size and the line they point at moves, so the note must move with it. And they
+' have to STAY PUT: two notes on adjacent lines cannot both sit centred on their
+' own line, so the user drags one clear, and Stylize must not undo that.
+'
+' So each note stores the block's position and its own, as of the last time this
+' module placed it. On the next pass the two deltas are compared:
+'
+'   the block moved by D and the note moved by D   -> the group was dragged
+'   the block did not move and the note did        -> the user moved the note
+'
+' The difference is accumulated as the note's own offset from its anchor, and
+' the note is then placed at anchor + offset. That is why CaptureDrags has to run
+' BEFORE anything in the pipeline moves the block, and PlaceNotes after the block
+' has reached its final geometry. Splitting them is not tidiness - measuring at
+' either single moment gives the wrong answer for one of the two cases.
+'
+' Positions are stored rounded to whole points. A tag is a string, and CStr on a
+' Single writes the LOCALE decimal separator, so "12.5" becomes "12,5" on a
+' German machine and the comma-separated tag no longer parses. Whole points have
+' no separator to get wrong, and half a point is invisible.
+'==============================================================================
+Option Explicit
+
+Public Const TAG_NOTE_OF   As String = "CODEBLOCK_NOTE_OF"
+Public Const TAG_NOTE_LINE As String = "CODEBLOCK_NOTE_LINE"
+' The note's accumulated offset from its anchor, "dx,dy".
+Public Const TAG_NOTE_OFF  As String = "CODEBLOCK_NOTE_OFF"
+' Where the block and the note were when this module last placed it,
+' "blockLeft,blockTop,noteLeft,noteTop".
+Public Const TAG_NOTE_SEEN As String = "CODEBLOCK_NOTE_SEEN"
+' The thin line from the note back to its line of code.
+Public Const TAG_LEADER_OF As String = "CODEBLOCK_LEADER_OF"
+
+Public Const NOTE_PLACEHOLDER As String = "What this line does"
+
+Private Const GAP_PT    As Single = 24      ' block edge to note
+Private Const MARGIN_PT As Single = 18      ' slide edge the note keeps clear
+Private Const W_MAX     As Single = 260
+Private Const W_MIN     As Single = 150
+Private Const STACK_GAP As Single = 8       ' between two auto-placed notes
+
+' Rounding noise, not a drag. Positions are stored as whole points, so two
+' roundings can differ by a point without anything having moved.
+Private Const DRAG_MIN  As Single = 1.5
+
+' CaptureDrags must run EXACTLY ONCE per placement pass, and it must run while
+' the block is still where the user left it.
+'
+' Once is not a style point. The capture reads "the block moved and the note did
+' not" as a drag, and that is true only of a drag - Resize moves the block on
+' purpose, with the notes ungrouped, so a second capture after it would record
+' the resize as though the user had dragged every note backwards.
+'
+' Commands that move the block themselves therefore capture first and then call
+' the ordinary pipeline, whose own capture becomes a no-op. PlaceNotes closes
+' the pass.
+Private mCaptured As Boolean
+
+'------------------------------------------------------------------------------
+' Finding notes
+'------------------------------------------------------------------------------
+
+' Every note belonging to a block, in LINE order, 1-based. Returns the count.
+'
+' Line order is what makes the stacking deterministic: notes are placed top
+' down, and each one that has not been dragged is kept below the one before it.
+Public Function NoteArray(ByVal shp As Shape, ByRef arr() As Shape) As Long
+    Dim sld As Slide, s2 As Shape, blockId As String
+    Dim n As Long, i As Long, j As Long, tmp As Shape
+
+    blockId = shp.Tags(modBlock.TAG_ID)
+    If Len(blockId) = 0 Then Exit Function
+    Set sld = modGutter.OwningSlide(shp)
+
+    ReDim arr(1 To 1)
+    For Each s2 In modBlock.AllShapes(sld)
+        If s2.Tags(TAG_NOTE_OF) = blockId Then
+            n = n + 1
+            ReDim Preserve arr(1 To n)
+            Set arr(n) = s2
+        End If
+    Next s2
+
+    For i = 2 To n
+        Set tmp = arr(i)
+        j = i - 1
+        Do While j >= 1
+            If NoteLine(arr(j)) <= NoteLine(tmp) Then Exit Do
+            Set arr(j + 1) = arr(j)
+            j = j - 1
+        Loop
+        Set arr(j + 1) = tmp
+    Next i
+
+    NoteArray = n
+End Function
+
+Public Function NoteLine(ByVal note As Shape) As Long
+    NoteLine = CLng(Val(note.Tags(TAG_NOTE_LINE)))
+End Function
+
+Public Function NoteCount(ByVal shp As Shape) As Long
+    Dim arr() As Shape
+    NoteCount = NoteArray(shp, arr)
+End Function
+
+Public Function FindNote(ByVal shp As Shape, ByVal lineNo As Long) As Shape
+    Dim arr() As Shape, n As Long, i As Long
+    n = NoteArray(shp, arr)
+    For i = 1 To n
+        If NoteLine(arr(i)) = lineNo Then
+            Set FindNote = arr(i)
+            Exit Function
+        End If
+    Next i
+End Function
+
+'------------------------------------------------------------------------------
+' Creating and removing
+'------------------------------------------------------------------------------
+
+' Adds a note for one line, carrying placeholder text. Position is left to
+' PlaceNotes, which the caller reaches through StyleBlock.
+Public Function AddNote(ByVal shp As Shape, ByVal lineNo As Long) As Shape
+    Dim sld As Slide, r As Shape
+    Dim nSize As Single, w As Single, pad As Single
+
+    Set sld = modGutter.OwningSlide(shp)
+    nSize = NoteFontSize(modBlock.BlockFontSize(shp))
+    pad = modSpec.SpecPad(nSize)
+    w = NoteWidth(shp)
+
+    Set r = sld.Shapes.AddShape(msoShapeRoundedRectangle, _
+                                shp.Left + shp.Width + GAP_PT, shp.Top, w, nSize * 3)
+    With r
+        .Fill.Solid
+        .Fill.ForeColor.RGB = ThemeNoteColor()
+        .Fill.Transparency = 0
+        .Line.Visible = msoFalse
+        .Shadow.Visible = msoFalse
+        .Tags.Add TAG_NOTE_OF, shp.Tags(modBlock.TAG_ID)
+        .Tags.Add TAG_NOTE_LINE, CStr(lineNo)
+    End With
+
+    With r.TextFrame
+        ' Wrap ON, unlike the code block: a note is prose, and its width is
+        ' fixed so that it fits beside the block. Autofit then grows the height.
+        .WordWrap = msoTrue
+        .VerticalAnchor = msoAnchorMiddle
+        .MarginLeft = pad
+        .MarginRight = pad
+        .MarginTop = Round(pad * 0.6, 1)
+        .MarginBottom = Round(pad * 0.6, 1)
+        .TextRange.text = NOTE_PLACEHOLDER
+        With .TextRange
+            ' The font is deliberately NOT the code font. A note is not code,
+            ' and leaving the name alone inherits the deck's own body font, so
+            ' it looks like the rest of the presentation rather than like this
+            ' add-in. Only size and colour are ours.
+            .Font.size = nSize
+            .Font.Color.RGB = ThemeNoteTextColor()
+            .ParagraphFormat.Alignment = ppAlignLeft
+        End With
+        ' Autofit last, so the first height is measured from the real text and
+        ' the real margins rather than from the placeholder box.
+        .AutoSize = ppAutoSizeShapeToFitText
+    End With
+
+    r.Width = w
+    r.Adjustments(1) = modSpec.SpecCornerAdjust(nSize, ShorterSide(r))
+
+    Set AddNote = r
+End Function
+
+Public Sub RemoveNote(ByVal shp As Shape, ByVal lineNo As Long)
+    Dim note As Shape
+    Set note = FindNote(shp, lineNo)
+    If Not note Is Nothing Then note.Delete
+End Sub
+
+' Deletes every note on the block. Destructive of typed text, so the caller asks
+' first - this is the one thing in the add-in that can lose words.
+Public Sub ClearNotes(ByVal shp As Shape)
+    Dim arr() As Shape, n As Long, i As Long
+    ClearLeaders shp
+    n = NoteArray(shp, arr)
+    For i = n To 1 Step -1
+        arr(i).Delete
+    Next i
+End Sub
+
+Public Sub ClearLeaders(ByVal shp As Shape)
+    Dim sld As Slide, blockId As String, doomed As Collection, s2 As Shape, i As Long
+
+    blockId = shp.Tags(modBlock.TAG_ID)
+    If Len(blockId) = 0 Then Exit Sub
+    Set sld = modGutter.OwningSlide(shp)
+
+    Set doomed = New Collection
+    For Each s2 In modBlock.AllShapes(sld)
+        If s2.Tags(TAG_LEADER_OF) = blockId Then doomed.Add s2
+    Next s2
+    For i = doomed.count To 1 Step -1
+        doomed(i).Delete
+    Next i
+End Sub
+
+'------------------------------------------------------------------------------
+' Placement
+'------------------------------------------------------------------------------
+
+' Works out which notes the user has dragged since the last pass, and records
+' that as each note's offset from where this module would otherwise put it.
+' MUST run before the block moves - see the module header.
+'
+' The offset is REPLACED, not accumulated. It is measured against the raw
+' auto-placed base that PlaceNotes stored, so one subtraction gives the whole
+' answer; accumulating deltas instead makes every rounding error permanent.
+Public Sub CaptureDrags(ByVal shp As Shape)
+    Dim arr() As Shape, n As Long, i As Long, v() As String
+    Dim dx As Single, dy As Single, offX As Single, offY As Single
+    Dim bdx As Single, bdy As Single
+
+    If mCaptured Then Exit Sub
+    mCaptured = True
+
+    On Error GoTo Done
+    n = NoteArray(shp, arr)
+    For i = 1 To n
+        v = Split(arr(i).Tags(TAG_NOTE_SEEN), ",")
+        If UBound(v) = 3 Then
+            ' Whatever the block did, the note did too if they moved together.
+            ' Subtracting the block's own movement is what separates "the group
+            ' was dragged" from "this note was dragged".
+            bdx = shp.Left - Val(v(0))
+            bdy = shp.Top - Val(v(1))
+            If Abs(bdx) < DRAG_MIN Then bdx = 0
+            If Abs(bdy) < DRAG_MIN Then bdy = 0
+
+            dx = (arr(i).Left - Val(v(2))) - bdx
+            dy = (arr(i).Top - Val(v(3))) - bdy
+
+            ParseOffset arr(i), offX, offY
+            ' Below the threshold nothing moved: the difference is the half
+            ' point lost to storing positions as whole numbers.
+            If Abs(dx - offX) < DRAG_MIN Then dx = offX
+            If Abs(dy - offY) < DRAG_MIN Then dy = offY
+            arr(i).Tags.Add TAG_NOTE_OFF, PtStr(dx) & "," & PtStr(dy)
+        End If
+    Next i
+Done:
+End Sub
+
+' Puts every note where it belongs and redraws its leader line.
+'
+' A note is placed at BASE + OFFSET, where the base is worked out afresh from
+' the block's geometry and the offset is whatever the note has drifted from it.
+' The base is rounded to whole points before use, so that it matches the copy
+' stored in the tag exactly - otherwise half a point of rounding is added to the
+' offset on every Stylize, and a note walks slowly across the slide.
+Public Sub PlaceNotes(ByVal shp As Shape)
+    Dim sld As Slide, arr() As Shape, n As Long, i As Long
+    Dim size As Single, lineH As Single, pad As Single
+    Dim ax As Single, ay As Single, ln As Long
+    Dim baseX As Single, baseY As Single, x As Single, y As Single
+    Dim floorY As Single, offX As Single, offY As Single
+    Dim free As Boolean, stacked As Boolean
+
+    On Error GoTo Done
+    ClearLeaders shp
+    n = NoteArray(shp, arr)
+    If n = 0 Then GoTo Done
+
+    Set sld = modGutter.OwningSlide(shp)
+    size = modBlock.BlockFontSize(shp)
+    lineH = modSpec.SpecLine(size)
+    pad = modSpec.SpecPad(size)
+    floorY = -10000
+
+    For i = 1 To n
+        ln = NoteLine(arr(i))
+        If ln < 1 Then ln = 1
+
+        ' The anchor is the block's right edge, level with the middle of the
+        ' line. Everything else is measured from there.
+        ax = shp.Left + shp.Width
+        ay = shp.Top + pad + (ln - 0.5) * lineH
+
+        If ax + GAP_PT + arr(i).Width <= modSpec.SLIDE_W - MARGIN_PT Then
+            baseX = ax + GAP_PT
+            baseY = ay - arr(i).Height / 2
+        ElseIf shp.Left - GAP_PT - arr(i).Width >= MARGIN_PT Then
+            ' No room on the right. The left margin is the next best place: it
+            ' still lets the note sit level with its line.
+            baseX = shp.Left - GAP_PT - arr(i).Width
+            baseY = ay - arr(i).Height / 2
+        Else
+            ' A block this wide leaves no margin at all, so the note goes below
+            ' it, right-aligned, and the leader carries the whole burden of
+            ' saying which line is meant.
+            baseX = ax - arr(i).Width
+            baseY = shp.Top + shp.Height + GAP_PT
+        End If
+
+        baseX = CSng(CLng(baseX))
+        baseY = CSng(CLng(baseY))
+
+        free = Not ParseOffset(arr(i), offX, offY)
+        x = baseX + offX
+        y = baseY + offY
+        stacked = False
+
+        If free Then
+            ' Two notes on nearby lines would land on top of each other. The
+            ' lower one gives way, which keeps both readable without the user
+            ' having to drag anything.
+            If y < floorY Then
+                y = floorY
+                stacked = True
+            End If
+
+            ' Only a note that is still where this module put it gets pulled
+            ' back onto the slide. Once it carries an offset from a drag, its
+            ' position is the answer and nudging it would fight the user.
+            If x < MARGIN_PT Then x = MARGIN_PT
+            If x + arr(i).Width > modSpec.SLIDE_W - MARGIN_PT Then
+                x = modSpec.SLIDE_W - MARGIN_PT - arr(i).Width
+            End If
+            If y < MARGIN_PT Then y = MARGIN_PT
+
+            ' The bottom edge does NOT win against the stack. Pulling the last
+            ' note up to fit puts it on top of the one above, which reads as a
+            ' rendering fault; letting it hang over the edge reads as a slide
+            ' with too much on it, which is what it is. DoNote says so.
+            If Not stacked Then
+                If y + arr(i).Height > modSpec.SLIDE_H - MARGIN_PT Then
+                    y = modSpec.SLIDE_H - MARGIN_PT - arr(i).Height
+                End If
+            End If
+        End If
+
+        arr(i).Left = x
+        arr(i).Top = y
+        floorY = y + arr(i).Height + STACK_GAP
+
+        ' The base, not the final position: CaptureDrags measures against this.
+        arr(i).Tags.Add TAG_NOTE_SEEN, _
+                        PtStr(shp.Left) & "," & PtStr(shp.Top) & "," & _
+                        PtStr(baseX) & "," & PtStr(baseY)
+
+        AddLeader sld, shp, arr(i), ax, ay
+    Next i
+Done:
+    ' Closes the pass, on the error path too - a pass left open would make the
+    ' NEXT Stylize skip its capture and quietly lose a drag.
+    mCaptured = False
+End Sub
+
+' True when the note would sit off the bottom of the slide, which is the one
+' placement failure the user has to be told about - a wide block leaves room for
+' only two or three notes below it, and after that they run off the edge.
+Public Function NoteOffSlide(ByVal note As Shape) As Boolean
+    NoteOffSlide = (note.Top + note.Height > modSpec.SLIDE_H) Or (note.Top < 0)
+End Function
+
+Private Sub AddLeader(ByVal sld As Slide, ByVal shp As Shape, ByVal note As Shape, _
+                      ByVal ax As Single, ByVal ay As Single)
+    Dim px As Single, py As Single, lin As Shape
+
+    NearestEdgePoint note, ax, ay, px, py
+    ' A note sitting on its anchor needs no line, and a zero-length one is a
+    ' shape PowerPoint handles badly.
+    If Abs(px - ax) < 2 And Abs(py - ay) < 2 Then Exit Sub
+
+    Set lin = sld.Shapes.AddLine(ax, ay, px, py)
+    With lin
+        .Line.Visible = msoTrue
+        .Line.ForeColor.RGB = ThemeLeaderColor()
+        .Line.Weight = 1.25
+        .Tags.Add TAG_LEADER_OF, shp.Tags(modBlock.TAG_ID)
+        ' Behind everything: the leader starts ON the block's edge, so it has
+        ' nothing to cover, and in front it would draw across the note's corner.
+        .ZOrder msoSendToBack
+    End With
+End Sub
+
+' The point on the note's outline that faces the code. Trying the four edge
+' midpoints and keeping the nearest handles every placement - right, left, below
+' or dragged anywhere - without a special case for each.
+Private Sub NearestEdgePoint(ByVal s As Shape, ByVal ax As Single, ByVal ay As Single, _
+                             ByRef px As Single, ByRef py As Single)
+    Dim cx(1 To 4) As Single, cy(1 To 4) As Single
+    Dim i As Long, d As Double, best As Double
+
+    cx(1) = s.Left:                cy(1) = s.Top + s.Height / 2
+    cx(2) = s.Left + s.Width:      cy(2) = s.Top + s.Height / 2
+    cx(3) = s.Left + s.Width / 2:  cy(3) = s.Top
+    cx(4) = s.Left + s.Width / 2:  cy(4) = s.Top + s.Height
+
+    best = -1
+    For i = 1 To 4
+        d = (cx(i) - ax) * (cx(i) - ax) + (cy(i) - ay) * (cy(i) - ay)
+        If best < 0 Then
+            best = d: px = cx(i): py = cy(i)
+        ElseIf d < best Then
+            best = d: px = cx(i): py = cy(i)
+        End If
+    Next i
+End Sub
+
+'------------------------------------------------------------------------------
+
+Public Function NoteFontSize(ByVal blockSize As Single) As Single
+    Dim s As Single
+    ' Smaller than the code, because a note is an aside. Floored at the teaching
+    ' size, because an aside nobody can read is worse than no aside.
+    s = Round(blockSize * 0.8, 0)
+    If s < modSpec.MIN_TEACHING_SIZE Then s = modSpec.MIN_TEACHING_SIZE
+    If s > 20 Then s = 20
+    NoteFontSize = s
+End Function
+
+' How wide a new note can be: the room to the right of the block, then the room
+' to its left, and failing both the full slide width for a note placed below.
+Private Function NoteWidth(ByVal shp As Shape) As Single
+    Dim avail As Single
+
+    avail = modSpec.SLIDE_W - MARGIN_PT - (shp.Left + shp.Width + GAP_PT)
+    If avail < W_MIN Then avail = shp.Left - MARGIN_PT - GAP_PT
+    If avail < W_MIN Then avail = modSpec.SLIDE_W - 2 * MARGIN_PT
+    If avail > W_MAX Then avail = W_MAX
+    NoteWidth = avail
+End Function
+
+Private Function ShorterSide(ByVal shp As Shape) As Single
+    ShorterSide = shp.Height
+    If shp.Width < ShorterSide Then ShorterSide = shp.Width
+End Function
+
+' True when the note carries an offset, i.e. the user has moved it.
+Private Function ParseOffset(ByVal note As Shape, ByRef dx As Single, ByRef dy As Single) As Boolean
+    Dim v() As String
+    dx = 0
+    dy = 0
+    v = Split(note.Tags(TAG_NOTE_OFF), ",")
+    If UBound(v) <> 1 Then Exit Function
+    dx = CSng(Val(v(0)))
+    dy = CSng(Val(v(1)))
+    ParseOffset = True
+End Function
+
+' Whole points, so the string has no decimal separator to be mangled by a
+' locale. See the module header.
+Private Function PtStr(ByVal v As Single) As String
+    PtStr = CStr(CLng(v))
+End Function
