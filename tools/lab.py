@@ -68,6 +68,27 @@ CONTROL_KW = {
     "try", "except", "finally", "raise", "with", "as", "yield", "pass",
     "assert", "del", "import", "from", "global", "nonlocal", "async",
     "await", "match", "case",
+    # Measured against real VS Code: these render purple with the control
+    # keywords, not blue. pygments files them under Operator.Word, which is
+    # what led this reference astray in the first place.
+    "and", "or", "not", "in", "is",
+}
+
+# Builtin CLASSES, coloured as types even when called - VS Code's Pylance knows
+# list() is a class, pygments does not. Kept in step with L.TypeNames in
+# src/modLangPython.bas; the two are separate files and will not warn you.
+PY_TYPES = {
+    "int", "str", "float", "bool", "complex", "bytes", "bytearray",
+    "memoryview", "list", "tuple", "dict", "set", "frozenset", "range",
+    "slice", "object", "type", "enumerate", "zip", "map", "filter",
+    "reversed", "property", "staticmethod", "classmethod", "super",
+    "Exception", "BaseException", "ValueError", "TypeError", "KeyError",
+    "IndexError", "AttributeError", "RuntimeError", "StopIteration",
+    "NotImplementedError", "ZeroDivisionError", "FileNotFoundError",
+    "OSError", "IOError", "ImportError", "NameError", "SyntaxError",
+    "IndentationError", "KeyboardInterrupt", "MemoryError", "OverflowError",
+    "RecursionError", "AssertionError", "ArithmeticError", "LookupError",
+    "PermissionError", "UnicodeDecodeError", "UnicodeEncodeError",
 }
 
 # --------------------------------------------------------------------------
@@ -232,6 +253,8 @@ def classify(tokens: list[tuple]) -> list[tuple[str, str]]:
             key = "kw_ctrl" if value in CONTROL_KW else "kw_decl"
         elif ttype in Name.Class:
             key = "cls"
+        elif ttype in Name and value in PY_TYPES:
+            key = "cls"
         elif ttype in Name.Function or ttype in Name.Decorator:
             key = "func"
         elif ttype in Name.Builtin:
@@ -240,9 +263,10 @@ def classify(tokens: list[tuple]) -> list[tuple[str, str]]:
             # a bare name followed by '(' is a call, otherwise a variable
             key = "func" if nxt.startswith("(") else "var"
         elif ttype in Operator.Word:
-            # and / or / not / in / is - VS Code renders these blue, but
-            # pygments files them under Operator rather than Keyword.
-            key = "kw_decl"
+            # and / or / not / in / is. pygments files these under Operator
+            # rather than Keyword, and VS Code renders them purple with the
+            # control keywords.
+            key = "kw_ctrl"
         elif ttype in Operator or ttype in Token.Punctuation:
             key = "default"
         else:
