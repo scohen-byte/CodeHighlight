@@ -75,12 +75,14 @@ Public Function SpecHeight(ByVal size As Single, ByVal lineCount As Long) As Sin
     SpecHeight = lineCount * SpecLine(size) + 2 * SpecPad(size)
 End Function
 
-' PowerPoint's rounded-rectangle adjustment is a fraction of the shorter side,
-' so holding the radius visually constant means dividing by the actual height.
-Public Function SpecCornerAdjust(ByVal size As Single, ByVal heightPt As Single) As Single
+' PowerPoint's rounded-rectangle adjustment is a fraction of the SHORTER side,
+' so holding the radius visually constant means dividing by whichever of width
+' and height is smaller. A block that hugs its code can be narrower than it is
+' tall, which is why this cannot just use the height.
+Public Function SpecCornerAdjust(ByVal size As Single, ByVal shorterPt As Single) As Single
     Dim adj As Single
-    If heightPt < 1 Then heightPt = 1
-    adj = SpecRadius(size) / heightPt
+    If shorterPt < 1 Then shorterPt = 1
+    adj = SpecRadius(size) / shorterPt
     If adj > 0.5 Then adj = 0.5
     SpecCornerAdjust = adj
 End Function

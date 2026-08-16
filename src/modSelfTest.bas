@@ -222,9 +222,15 @@ Public Function RibbonSliceTest(ByVal srcPath As String, ByVal pngPath As String
                                modBlock.CountLines(shp.TextFrame.TextRange.text))
     gotH = shp.Height
     r = r & "lines=" & modBlock.CountLines(shp.TextFrame.TextRange.text) & vbLf
+    ' Autofit owns the height now, and computes it a few points tighter than
+    ' SpecHeight because it adds no line spacing below the last line. So this
+    ' checks the block HUGS - within one line of the predicted height - rather
+    ' than matching it exactly.
     r = r & "height_want=" & Format$(wantH, "0.0") & vbLf
     r = r & "height_got=" & Format$(gotH, "0.0") & vbLf
-    r = r & "height_ok=" & Abs(CLng(Abs(gotH - wantH) < 0.5)) & vbLf
+    r = r & "hugs_ok=" & Abs(CLng(Abs(gotH - wantH) <= modSpec.SpecLine(modSpec.BASE_SIZE))) & vbLf
+    r = r & "width=" & Format$(shp.Width, "0.0") & _
+            " (content " & Format$(modSpec.CONTENT_W, "0.0") & ")" & vbLf
     ' Position matters as much as height. A block can be exactly the right size
     ' and still hang off the bottom of the slide.
     r = r & "top=" & Format$(shp.Top, "0.0") & vbLf
@@ -287,40 +293,34 @@ Private Function Quoted(ByVal s As String) As String
     Quoted = Chr$(34) & s & Chr$(34)
 End Function
 
-' What does PowerPoint's autofit actually do to a code block? The plan rules it
-' out, but the reason given was gutter alignment, and it is worth measuring
-' rather than inheriting. Reports width and height for each combination.
+' Does autofit keep the shape's left and top anchored while it resizes, or does
+' it grow around the centre? Determines whether a hugging block stays put.
 Public Function AutofitProbe(ByVal dummy As String) As String
-    Dim pres As Presentation, sld As Slide, shp As Shape
-    Dim r As String, i As Long, code As String
+    Dim pres As Presentation, sld As Slide, shp As Shape, r As String
 
     On Error GoTo Failed
-    code = "x = 1" & vbCr & "y = 2" & vbCr & _
-           "print(some_rather_longer_line_here)" & vbCr & "z = 3"
-
     Set pres = Application.ActivePresentation
     pres.PageSetup.SlideWidth = modSpec.SLIDE_W
     pres.PageSetup.SlideHeight = modSpec.SLIDE_H
     Set sld = pres.Slides.Add(pres.Slides.count + 1, ppLayoutBlank)
 
-    For i = 0 To 2
-        Set shp = sld.Shapes.AddShape(msoShapeRoundedRectangle, 40, 40 + i * 120, _
-                                      modSpec.CONTENT_W, 100)
-        shp.TextFrame.WordWrap = IIf(i = 2, msoTrue, msoFalse)
-        Select Case i
-            Case 0: shp.TextFrame.AutoSize = ppAutoSizeNone
-            Case 1: shp.TextFrame.AutoSize = ppAutoSizeShapeToFitText   ' wrap off
-            Case 2: shp.TextFrame.AutoSize = ppAutoSizeShapeToFitText   ' wrap on
-        End Select
-        shp.TextFrame.TextRange.text = code
-        modBlock.FormatBlockText shp, modSpec.BASE_SIZE
-        r = r & "case" & i & " wrap=" & IIf(i = 2, "on", "off") & _
-                " autofit=" & IIf(i = 0, "none", "fit") & _
-                " w=" & Format$(shp.Width, "0.0") & _
-                " h=" & Format$(shp.Height, "0.0") & vbLf
-    Next i
+    Set shp = sld.Shapes.AddShape(msoShapeRoundedRectangle, 200, 200, 400, 100)
+    shp.TextFrame.WordWrap = msoFalse
+    shp.TextFrame.AutoSize = ppAutoSizeShapeToFitText
+    shp.TextFrame.VerticalAnchor = msoAnchorTop
+    r = "before  L=" & Format$(shp.Left, "0.0") & " T=" & Format$(shp.Top, "0.0") & _
+        " W=" & Format$(shp.Width, "0.0") & " H=" & Format$(shp.Height, "0.0") & vbLf
 
-    r = r & "expected_h_for_4_lines=" & Format$(modSpec.SpecHeight(modSpec.BASE_SIZE, 4), "0.0")
+    shp.TextFrame.TextRange.text = "x = 1" & vbCr & "y = 2" & vbCr & "print(a_much_longer_line)"
+    modBlock.FormatBlockText shp, modSpec.BASE_SIZE
+    r = r & "after3  L=" & Format$(shp.Left, "0.0") & " T=" & Format$(shp.Top, "0.0") & _
+        " W=" & Format$(shp.Width, "0.0") & " H=" & Format$(shp.Height, "0.0") & vbLf
+
+    shp.TextFrame.TextRange.text = shp.TextFrame.TextRange.text & vbCr & "z = 3" & vbCr & "w = 4"
+    r = r & "after5  L=" & Format$(shp.Left, "0.0") & " T=" & Format$(shp.Top, "0.0") & _
+        " W=" & Format$(shp.Width, "0.0") & " H=" & Format$(shp.Height, "0.0") & vbLf
+
+    r = r & "spec_h_5_lines=" & Format$(modSpec.SpecHeight(modSpec.BASE_SIZE, 5), "0.0")
     AutofitProbe = r
     Exit Function
 Failed:

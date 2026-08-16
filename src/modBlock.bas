@@ -97,14 +97,19 @@ Public Function CreateBlock(ByVal sld As Slide, ByVal code As String, _
         .Fill.ForeColor.RGB = ThemeBackColor()
         .Line.Visible = msoFalse
         .Shadow.Visible = msoFalse
-        .Adjustments(1) = modSpec.SpecCornerAdjust(size, h)
     End With
 
     With shp.TextFrame
-        ' Wrap and autofit both off. Either one would misalign the gutter later,
-        ' and wrapped code is unreadable anyway.
+        ' WRAP STAYS OFF. That is the property the line-number gutter depends on:
+        ' one paragraph must be one visual line, or every number below a wrapped
+        ' line drifts. Autofit is safe precisely because wrap is off.
+        '
+        ' Autofit ON so the block grows as you type instead of waiting for the
+        ' next Highlight. With wrap off it grows in BOTH directions, so the block
+        ' hugs its code rather than spanning the slide - which is what you want
+        ' for a short snippet.
         .WordWrap = msoFalse
-        .AutoSize = ppAutoSizeNone
+        .AutoSize = ppAutoSizeShapeToFitText
         .VerticalAnchor = msoAnchorTop
         .MarginLeft = pad
         .MarginRight = pad
@@ -114,6 +119,12 @@ Public Function CreateBlock(ByVal sld As Slide, ByVal code As String, _
     End With
 
     FormatBlockText shp, size
+
+    ' Autofit has sized the shape by now, so position it from what it actually
+    ' became rather than from the predicted height.
+    shp.Left = modSpec.CONTENT_L
+    shp.Top = modSpec.CONTENT_T + (modSpec.CONTENT_H - shp.Height) / 2
+    shp.Adjustments(1) = modSpec.SpecCornerAdjust(size, ShorterSide(shp))
 
     shp.Tags.Add TAG_BLOCK, "1"
     shp.Tags.Add TAG_ID, NewBlockId()
@@ -248,31 +259,32 @@ End Function
 ' Re-hugs the block to its content. Autofit is off, so a block does not grow as
 ' you type - this is what makes the flow work: insert, type, press Highlight,
 ' and the block fits again. It is also the recovery path if anything drifts.
+' Autofit already keeps the block hugging its code, so this no longer sets the
+' height - PowerPoint owns that now, and its computed height is a few points
+' tighter than SpecHeight because it does not add full line spacing below the
+' last line. What this still owns is the margins, the position and the radius.
 Public Sub ResizeToContent(ByVal shp As Shape)
     Dim size As Single, h As Single, pad As Single, centreY As Single
 
     size = BlockFontSize(shp)
-    h = modSpec.SpecHeight(size, CountLines(shp.TextFrame.TextRange.text))
     pad = modSpec.SpecPad(size)
+    centreY = shp.Top + shp.Height / 2
 
     With shp.TextFrame
+        .WordWrap = msoFalse
+        .AutoSize = ppAutoSizeShapeToFitText
         .MarginLeft = pad
         .MarginRight = pad
         .MarginTop = pad
         .MarginBottom = pad
     End With
+    h = shp.Height
 
-    ' Grow around the block's CENTRE, not its top edge. Growing downward from a
-    ' fixed top sends a block that started one line tall off the bottom of the
-    ' slide as soon as real code is typed into it - and the height is correct
-    ' the whole time, so only looking at a render catches it.
-    '
-    ' Preserving the centre also does the right thing for a block the user has
-    ' deliberately moved: it stays put instead of jumping back to the middle.
-    ' And a block created centred in the content area stays exactly where the
-    ' reference puts it.
-    centreY = shp.Top + shp.Height / 2
-    shp.Height = h
+    ' Re-centre on the block's own centre rather than the slide's. Autofit grows
+    ' downward from the top, so a block that started short would otherwise creep
+    ' off the bottom as lines are added - and its height is correct the whole
+    ' time, so only a render shows it. Preserving the centre also leaves a block
+    ' the user has deliberately moved where they put it.
     shp.Top = centreY - h / 2
 
     ' Only clamp when the block can actually fit. When it cannot, leave it
@@ -283,8 +295,13 @@ Public Sub ResizeToContent(ByVal shp As Shape)
         If shp.Top + h > modSpec.SLIDE_H Then shp.Top = modSpec.SLIDE_H - h
     End If
 
-    shp.Adjustments(1) = modSpec.SpecCornerAdjust(size, h)
+    shp.Adjustments(1) = modSpec.SpecCornerAdjust(size, ShorterSide(shp))
 End Sub
+
+Private Function ShorterSide(ByVal shp As Shape) As Single
+    ShorterSide = shp.Height
+    If shp.Width < ShorterSide Then ShorterSide = shp.Width
+End Function
 
 Private Function NewBlockId() As String
     ' Good enough to tell two blocks on a slide apart, which is all the gutter
