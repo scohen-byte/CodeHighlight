@@ -1,0 +1,135 @@
+Attribute VB_Name = "modGutter"
+'==============================================================================
+' modGutter - the line-number gutter.
+'
+' A SEPARATE text box, not numbers inside the code text. The block's text has to
+' stay pure source: it is what the lexer reads and what gets copied out, and a
+' "1 " on the front of every line would break both.
+'
+' The gutter sits INSIDE the dark block rather than beside it, which is what
+' makes it look like an editor. That is done by giving the code text frame a
+' left margin of padding + gutter width, and overlaying the numbers on the
+' block's left edge - the same arrangement tools/lab.py renders.
+'
+' Alignment needs three things to hold, and all three are already true:
+'   line spacing is set in EXACT points, so both shapes step identically
+'   word wrap is off, so one paragraph is one visual line
+'   paragraph spacing is zero on both
+' If the two ever drift apart, pressing Highlight re-syncs them. That is the
+' recovery path, and it means alignment need not be perfect first time.
+'
+' The shapes are deliberately NOT grouped: grouping makes editing the text
+' awkward and complicates every other operation.
+'==============================================================================
+Option Explicit
+
+Public Const TAG_GUTTER_OF As String = "CODEBLOCK_GUTTER_OF"
+
+Public Function FindGutter(ByVal shp As Shape) As Shape
+    Dim sld As Slide, i As Long, blockId As String
+
+    blockId = shp.Tags(modBlock.TAG_ID)
+    If Len(blockId) = 0 Then Exit Function
+
+    Set sld = shp.Parent
+    For i = 1 To sld.Shapes.count
+        If sld.Shapes(i).Tags(TAG_GUTTER_OF) = blockId Then
+            Set FindGutter = sld.Shapes(i)
+            Exit Function
+        End If
+    Next i
+End Function
+
+Public Function HasGutter(ByVal shp As Shape) As Boolean
+    HasGutter = Not (FindGutter(shp) Is Nothing)
+End Function
+
+' Creates the gutter if absent, removes it if present. Returns True when the
+' gutter is on afterwards.
+Public Function ToggleGutter(ByVal shp As Shape) As Boolean
+    If HasGutter(shp) Then
+        RemoveGutter shp
+        ToggleGutter = False
+    Else
+        SyncGutter shp, True
+        ToggleGutter = True
+    End If
+End Function
+
+Public Sub RemoveGutter(ByVal shp As Shape)
+    Dim g As Shape
+    Set g = FindGutter(shp)
+    If Not g Is Nothing Then g.Delete
+    ' Hand the space back to the code.
+    shp.TextFrame.MarginLeft = modSpec.SpecPad(modBlock.BlockFontSize(shp))
+End Sub
+
+' Renumbers and re-aligns. Called on every Highlight, so the gutter follows the
+' block's size, position and line count without the user thinking about it.
+' create=False leaves a block without a gutter alone.
+Public Sub SyncGutter(ByVal shp As Shape, Optional ByVal create As Boolean = False)
+    Dim sld As Slide, g As Shape
+    Dim size As Single, pad As Single, gutterW As Single, gap As Single
+    Dim lineCount As Long, i As Long, numbers As String
+
+    Set g = FindGutter(shp)
+    If g Is Nothing And Not create Then Exit Sub
+
+    Set sld = shp.Parent
+    size = modBlock.BlockFontSize(shp)
+    pad = modSpec.SpecPad(size)
+    lineCount = modBlock.CountLines(shp.TextFrame.TextRange.text)
+    gutterW = modSpec.SpecGutter(size, lineCount)
+    gap = Round(size * 0.45, 1)                 ' the gutter-to-code gap
+
+    ' The code makes room for the numbers. With autofit on, widening this margin
+    ' widens the block, so the gutter never overlaps the code.
+    shp.TextFrame.MarginLeft = pad + gutterW
+
+    If g Is Nothing Then
+        Set g = sld.Shapes.AddTextbox(msoTextOrientationHorizontal, _
+                                      shp.Left, shp.Top, pad + gutterW, shp.Height)
+        g.Tags.Add TAG_GUTTER_OF, shp.Tags(modBlock.TAG_ID)
+        g.Line.Visible = msoFalse
+        g.Fill.Visible = msoFalse
+    End If
+
+    numbers = ""
+    For i = 1 To lineCount
+        If i > 1 Then numbers = numbers & vbCr
+        numbers = numbers & CStr(i)
+    Next i
+
+    With g.TextFrame
+        .WordWrap = msoFalse
+        .AutoSize = ppAutoSizeNone
+        .VerticalAnchor = msoAnchorTop
+        .MarginLeft = 0
+        .MarginRight = gap
+        .MarginTop = pad
+        .MarginBottom = pad
+        .TextRange.text = numbers
+        With .TextRange
+            .Font.Name = THEME_FONT
+            .Font.size = size
+            .Font.Color.RGB = ThemeGutterColor()
+            With .ParagraphFormat
+                ' Right-aligned so the digits line up on their units column,
+                ' the way an editor shows them.
+                .Alignment = ppAlignRight
+                .LineRuleWithin = msoFalse
+                .SpaceWithin = modSpec.SpecLine(size)
+                .LineRuleBefore = msoFalse
+                .SpaceBefore = 0
+                .LineRuleAfter = msoFalse
+                .SpaceAfter = 0
+            End With
+        End With
+    End With
+
+    ' Re-align last, once the block has settled at its final size.
+    g.Left = shp.Left
+    g.Top = shp.Top
+    g.Width = pad + gutterW
+    g.Height = shp.Height
+End Sub

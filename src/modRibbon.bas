@@ -66,6 +66,7 @@ Public Sub DoNewBlock()
 End Sub
 
 Public Sub DoHighlight()
+    On Error GoTo Failed
     Dim shp As Shape, problem As String, langId As String
     Dim before As String, after As String, size As Single
 
@@ -93,11 +94,17 @@ Public Sub DoHighlight()
 
     modRender.ApplyHighlight shp, langId
     modBlock.ResizeToContent shp
-    ' After the resize, so the guides are drawn against final geometry.
+    ' Gutter before guides: it changes the left margin, and the guides are
+    ' placed from that margin.
+    modGutter.SyncGutter shp
     modGuides.DrawGuides shp
+    Exit Sub
+Failed:
+    Warn "DoHighlight failed: " & Err.Description
 End Sub
 
 Public Sub DoHighlightAll()
+    On Error GoTo Failed
     Dim sld As Slide, shp As Shape, count As Long
 
     Set sld = ActiveSlide()
@@ -110,6 +117,7 @@ Public Sub DoHighlightAll()
         If modBlock.IsCodeBlock(shp) And shp.HasTextFrame Then
             modRender.ApplyHighlight shp, modBlock.BlockLangId(shp, CurrentLangId())
             modBlock.ResizeToContent shp
+            modGutter.SyncGutter shp
             modGuides.DrawGuides shp
             count = count + 1
         End If
@@ -118,6 +126,47 @@ Public Sub DoHighlightAll()
     If count = 0 Then
         Warn "No code blocks on this slide. Highlight one first, which tags it."
     End If
+    Exit Sub
+Failed:
+    Warn "DoHighlightAll failed: " & Err.Description
+End Sub
+
+Public Sub DoToggleGutter()
+    On Error GoTo Failed
+    Dim shp As Shape, problem As String
+
+    Set shp = modBlock.SelectedBlock(problem)
+    If shp Is Nothing Then
+        Warn problem
+        Exit Sub
+    End If
+
+    modGutter.ToggleGutter shp
+    modBlock.ResizeToContent shp
+    modGutter.SyncGutter shp
+    modGuides.DrawGuides shp
+    RefreshRibbon
+    Exit Sub
+Failed:
+    Warn "DoToggleGutter failed: " & Err.Description
+End Sub
+
+Public Sub DoToggleGuides()
+    On Error GoTo Failed
+    Dim shp As Shape, problem As String
+
+    Set shp = modBlock.SelectedBlock(problem)
+    If shp Is Nothing Then
+        Warn problem
+        Exit Sub
+    End If
+
+    modGuides.SetGuidesEnabled shp, Not modGuides.GuidesEnabled(shp)
+    modGuides.DrawGuides shp
+    RefreshRibbon
+    Exit Sub
+Failed:
+    Warn "DoToggleGuides failed: " & Err.Description
 End Sub
 
 Public Sub DoSizeUp()
@@ -131,6 +180,7 @@ End Sub
 ' Picks the largest rung the code fits at, and says so when that is too small
 ' to read from the back of a room rather than silently shrinking it.
 Public Sub DoFit()
+    On Error GoTo Failed
     Dim shp As Shape, problem As String, best As Single, slides As Long
 
     Set shp = modBlock.SelectedBlock(problem)
@@ -141,6 +191,7 @@ Public Sub DoFit()
 
     best = FitSizeFor(shp)
     modBlock.ApplySize shp, best
+    modGutter.SyncGutter shp
     modGuides.DrawGuides shp
 
     If best < modSpec.MIN_TEACHING_SIZE Then
@@ -150,6 +201,9 @@ Public Sub DoFit()
              "At " & Format$(modSpec.MIN_TEACHING_SIZE, "0") & "pt it needs about " & _
              slides & " slide" & IIf(slides = 1, "", "s") & ". Consider splitting it."
     End If
+    Exit Sub
+Failed:
+    Warn "DoFit failed: " & Err.Description
 End Sub
 
 ' Larger is CAPPED at the fitting size. The lab showed what happens without
@@ -180,6 +234,7 @@ Private Sub StepSize(ByVal direction As Long)
     End If
 
     modBlock.ApplySize shp, newSize
+    modGutter.SyncGutter shp
     modGuides.DrawGuides shp
 End Sub
 
@@ -197,13 +252,12 @@ Private Function SlidesNeededFor(ByVal shp As Shape) As Long
                                                modBlock.LongestLine(txt), HasGutter(shp))
 End Function
 
-' Phase 3 will answer this from the gutter shape. Until then a block never has
-' one, and Fit is very slightly generous with the width as a result.
 Private Function HasGutter(ByVal shp As Shape) As Boolean
-    HasGutter = False
+    HasGutter = modGutter.HasGutter(shp)
 End Function
 
 Public Sub DoSetLanguage(ByVal index As Long)
+    On Error GoTo Failed
     Dim shp As Shape, problem As String
 
     mLangIndex = index
@@ -214,6 +268,9 @@ Public Sub DoSetLanguage(ByVal index As Long)
 
     modBlock.SetBlockLang shp, CurrentLangId()
     modRender.ApplyHighlight shp, CurrentLangId()
+    Exit Sub
+Failed:
+    Warn "DoSetLanguage failed: " & Err.Description
 End Sub
 
 '------------------------------------------------------------------------------
@@ -249,11 +306,31 @@ Public Sub RibbonLangChanged(control As IRibbonControl, id As String, index As I
 End Sub
 
 Public Sub RibbonGutterPressed(control As IRibbonControl, ByRef returnedVal)
-    returnedVal = False                ' Phase 3
+    Dim shp As Shape, problem As String
+    Set shp = modBlock.SelectedBlock(problem)
+    If shp Is Nothing Then
+        returnedVal = False
+    Else
+        returnedVal = modGutter.HasGutter(shp)
+    End If
 End Sub
 
 Public Sub RibbonToggleGutter(control As IRibbonControl, pressed As Boolean)
-    NotYet "Line numbers"              ' Phase 3
+    DoToggleGutter
+End Sub
+
+Public Sub RibbonGuidesPressed(control As IRibbonControl, ByRef returnedVal)
+    Dim shp As Shape, problem As String
+    Set shp = modBlock.SelectedBlock(problem)
+    If shp Is Nothing Then
+        returnedVal = True          ' the default for a new block
+    Else
+        returnedVal = modGuides.GuidesEnabled(shp)
+    End If
+End Sub
+
+Public Sub RibbonToggleGuides(control As IRibbonControl, pressed As Boolean)
+    DoToggleGuides
 End Sub
 
 Public Sub RibbonSizeUp(control As IRibbonControl)

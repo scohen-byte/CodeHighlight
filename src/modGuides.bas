@@ -19,6 +19,10 @@ Attribute VB_Name = "modGuides"
 Option Explicit
 
 Public Const TAG_GUIDE_OF As String = "CODEBLOCK_GUIDE_OF"
+' Guides are on unless a block says otherwise, so an untagged block - one
+' pasted in from elsewhere - gets them.
+Public Const TAG_GUIDES_OFF As String = "CODEBLOCK_GUIDES_OFF"
+
 
 ' VS Code Dark+ draws indent guides in 404040 - dark enough to recede, light
 ' enough to follow. Deliberately NOT in modTheme's token palette: this is
@@ -27,6 +31,18 @@ Private Const GUIDE_R As Long = 64
 Private Const GUIDE_G As Long = 64
 Private Const GUIDE_B As Long = 64
 Private Const GUIDE_WEIGHT As Single = 0.75
+
+' ALL module-level declarations must come before ANY procedure. Putting these
+' two functions above the constants left GUIDE_R and friends stranded after a
+' procedure, and VBA reports that as "Compile error: Variable not defined" in
+' AddGuideLine - naming the USE site, not the declaration that is misplaced.
+Public Function GuidesEnabled(ByVal shp As Shape) As Boolean
+    GuidesEnabled = (shp.Tags(TAG_GUIDES_OFF) <> "1")
+End Function
+
+Public Sub SetGuidesEnabled(ByVal shp As Shape, ByVal enabled As Boolean)
+    shp.Tags.Add TAG_GUIDES_OFF, IIf(enabled, "0", "1")
+End Sub
 
 ' Removes every guide belonging to a block. Iterates backwards, because
 ' deleting from a Shapes collection while walking it forwards skips shapes.
@@ -52,6 +68,7 @@ Public Function DrawGuides(ByVal shp As Shape) As Long
     If Len(blockId) = 0 Then Exit Function
 
     ClearGuides sld, blockId
+    If Not GuidesEnabled(shp) Then Exit Function
 
     lineCount = IndentLevels(shp.TextFrame.TextRange.text, levels)
     If lineCount = 0 Then Exit Function
@@ -69,7 +86,9 @@ Public Function DrawGuides(ByVal shp As Shape) As Long
     ' indented deeper than C, so consecutive such lines merge into a single
     ' shape instead of one per line.
     For col = 0 To maxLevel - 1
-        x = shp.Left + pad + col * modSpec.TAB_CHARS * charW
+        ' The block's ACTUAL left margin, not the padding: with a line-number
+        ' gutter the text starts further right, and guides must follow it.
+        x = shp.Left + shp.TextFrame.MarginLeft + col * modSpec.TAB_CHARS * charW
         runStart = -1
         ' Runs to lineCount INCLUSIVE, so a run reaching the last line still
         ' gets closed. The guard has to be nested rather than written as

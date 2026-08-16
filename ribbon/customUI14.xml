@@ -59,7 +59,15 @@
                         imageMso="NumberingGallery"
                         getPressed="RibbonGutterPressed"
                         onAction="RibbonToggleGutter"
-                        screentip="Show or hide line numbers"/>
+                        screentip="Show or hide line numbers"
+                        supertip="Numbers live in their own shape, so the code text stays pure source."/>
+          <toggleButton id="tglGuides"
+                        label="Indent guides"
+                        imageMso="ViewGridlines"
+                        getPressed="RibbonGuidesPressed"
+                        onAction="RibbonToggleGuides"
+                        screentip="Show or hide the indent guides"
+                        supertip="The vertical lines marking each level of nesting. On by default."/>
         </group>
 
         <group id="grpSize" label="Size">

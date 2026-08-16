@@ -329,6 +329,62 @@ Failed:
     AutofitProbe = "ERROR " & Err.Number & ": " & Err.Description
 End Function
 
+' Turns the gutter on, renders, and reports whether the numbers line up with
+' the code. Alignment is the whole risk here, so it is measured rather than
+' eyeballed: the gutter's own line boxes must step identically to the block's.
+Public Function GutterTest(ByVal srcPath As String, ByVal pngPath As String) As String
+    Dim pres As Presentation, sld As Slide, shp As Shape, g As Shape
+    Dim r As String, code As String, size As Single
+
+    On Error GoTo Failed
+    modRibbon.SetQuiet True
+    code = ReadTextFile(srcPath)
+
+    Set pres = Application.ActivePresentation
+    pres.PageSetup.SlideWidth = modSpec.SLIDE_W
+    pres.PageSetup.SlideHeight = modSpec.SLIDE_H
+    Set sld = pres.Slides.Add(pres.Slides.count + 1, ppLayoutBlank)
+    sld.Select
+
+    Set shp = modBlock.CreateBlock(sld, code, modSpec.BASE_SIZE, "python")
+    shp.Select
+    modRibbon.DoHighlight
+    r = "gutter_before=" & Abs(CLng(modGutter.HasGutter(shp))) & vbLf
+
+    shp.Select
+    modRibbon.DoToggleGutter
+    r = r & "gutter_after=" & Abs(CLng(modGutter.HasGutter(shp))) & vbLf
+
+    Set g = modGutter.FindGutter(shp)
+    If g Is Nothing Then
+        GutterTest = r & "no gutter shape"
+        Exit Function
+    End If
+
+    size = modBlock.BlockFontSize(shp)
+    r = r & "lines=" & modBlock.CountLines(shp.TextFrame.TextRange.text) & vbLf
+    r = r & "gutter_lines=" & modBlock.CountLines(g.TextFrame.TextRange.text) & vbLf
+    r = r & "top_match=" & Abs(CLng(Abs(g.Top - shp.Top) < 0.5)) & _
+            " left_match=" & Abs(CLng(Abs(g.Left - shp.Left) < 0.5)) & vbLf
+    r = r & "margins_match=" & Abs(CLng(Abs(g.TextFrame.MarginTop - shp.TextFrame.MarginTop) < 0.5)) & vbLf
+    r = r & "code_margin_left=" & Format$(shp.TextFrame.MarginLeft, "0.0") & _
+            " gutter_width=" & Format$(g.Width, "0.0") & vbLf
+    r = r & "block_width=" & Format$(shp.Width, "0.0") & vbLf
+
+    sld.Export pngPath, "PNG", 1920, 1080
+
+    ' Toggling off must hand the space back.
+    shp.Select
+    modRibbon.DoToggleGutter
+    r = r & "gutter_off=" & Abs(CLng(modGutter.HasGutter(shp))) & _
+            " margin_restored=" & Format$(shp.TextFrame.MarginLeft, "0.0") & vbLf
+
+    GutterTest = r
+    Exit Function
+Failed:
+    GutterTest = r & "ERROR " & Err.Number & ": " & Err.Description
+End Function
+
 ' Drives the size ladder through the real commands, including both guards from
 ' PLAN.md section 5a: Larger capped at the fitting size, and Fit warning rather
 ' than silently shrinking below the teaching floor.
@@ -378,6 +434,55 @@ Public Function SizeTest(ByVal srcPath As String) As String
 Failed:
     SizeTest = r & "ERROR " & Err.Number & ": " & Err.Description
 End Function
+
+' Writes a trace line after each step. A trace FILE survives a hang, which a
+' return value does not - so this shows where execution stops rather than only
+' that it stopped.
+Public Function MiniTest(ByVal srcPath As String, ByVal tracePath As String) As String
+    Dim pres As Presentation, sld As Slide, shp As Shape, code As String
+
+    modRibbon.SetQuiet True
+    Trace tracePath, "start"
+    code = ReadTextFile(srcPath)
+    Trace tracePath, "read " & Len(code)
+
+    Set pres = Application.ActivePresentation
+    pres.PageSetup.SlideWidth = modSpec.SLIDE_W
+    pres.PageSetup.SlideHeight = modSpec.SLIDE_H
+    Set sld = pres.Slides.Add(pres.Slides.count + 1, ppLayoutBlank)
+    Trace tracePath, "slide added"
+
+    Set shp = modBlock.CreateBlock(sld, code, modSpec.BASE_SIZE, "python")
+    Trace tracePath, "block created"
+
+    modRender.ApplyHighlight shp, "python"
+    Trace tracePath, "highlighted"
+
+    modBlock.ResizeToContent shp
+    Trace tracePath, "resized"
+
+    modGutter.SyncGutter shp
+    Trace tracePath, "gutter synced (no-op)"
+
+    modGuides.DrawGuides shp
+    Trace tracePath, "guides drawn"
+
+    modGutter.SyncGutter shp, True
+    Trace tracePath, "gutter created"
+
+    modGuides.DrawGuides shp
+    Trace tracePath, "guides redrawn"
+
+    MiniTest = "done"
+End Function
+
+Private Sub Trace(ByVal path As String, ByVal msg As String)
+    Dim f As Integer
+    f = FreeFile
+    Open path For Append As #f
+    Print #f, msg
+    Close #f
+End Sub
 
 ' Isolates the indent-level computation from the drawing, so a failure in one
 ' cannot be mistaken for the other.
