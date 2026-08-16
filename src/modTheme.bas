@@ -125,11 +125,18 @@ Public Function ThemeNoteTextColor() As Long
     ThemeNoteTextColor = RGB(235, 235, 235)                     ' EBEBEB
 End Function
 
-' The colours a note can be set to. A short list rather than a full colour
-' picker: every one of these is checked against the text colour it gets, and an
-' arbitrary colour is not. Slate is first because it is the default.
+' The colours a note can be set to. A fixed list rather than a full colour
+' picker, because every one of these is checked against the text colour it gets
+' and an arbitrary colour is not - OptionsTest asserts each clears 4.5:1.
+'
+' Two halves. The first six are quiet, and belong beside a dark code block: they
+' read as an aside about the code. The rest are saturated, for a note that is
+' meant to be the loudest thing on the slide - a warning, a gotcha, the answer.
+' The quiet six alone turned out to be too close to tell apart in the gallery.
+'
+' Slate is first because it is the default.
 Public Function ThemeNotePresetCount() As Long
-    ThemeNotePresetCount = 6
+    ThemeNotePresetCount = 12
 End Function
 
 Public Function ThemeNotePresetName(ByVal i As Long) As String
@@ -139,7 +146,13 @@ Public Function ThemeNotePresetName(ByVal i As Long) As String
         Case 2: ThemeNotePresetName = "Teal"
         Case 3: ThemeNotePresetName = "Plum"
         Case 4: ThemeNotePresetName = "Ink"
-        Case Else: ThemeNotePresetName = "Paper"
+        Case 5: ThemeNotePresetName = "Paper"
+        Case 6: ThemeNotePresetName = "Crimson"
+        Case 7: ThemeNotePresetName = "Rose"
+        Case 8: ThemeNotePresetName = "Amber"
+        Case 9: ThemeNotePresetName = "Emerald"
+        Case 10: ThemeNotePresetName = "Royal"
+        Case Else: ThemeNotePresetName = "Violet"
     End Select
 End Function
 
@@ -150,8 +163,49 @@ Public Function ThemeNotePreset(ByVal i As Long) As Long
         Case 2: ThemeNotePreset = RGB(30, 70, 69)               ' 1E4645
         Case 3: ThemeNotePreset = RGB(74, 51, 80)               ' 4A3350
         Case 4: ThemeNotePreset = RGB(43, 43, 43)               ' 2B2B2B
-        Case Else: ThemeNotePreset = RGB(242, 242, 239)         ' F2F2EF
+        Case 5: ThemeNotePreset = RGB(242, 242, 239)            ' F2F2EF
+        Case 6: ThemeNotePreset = RGB(198, 40, 40)              ' C62828
+        Case 7: ThemeNotePreset = RGB(194, 24, 91)              ' C2185B
+        ' Light enough to take dark text, which is what makes it usable at all:
+        ' a saturated amber with white words on it fails contrast outright.
+        Case 8: ThemeNotePreset = RGB(255, 179, 0)              ' FFB300
+        Case 9: ThemeNotePreset = RGB(0, 121, 80)               ' 007950
+        Case 10: ThemeNotePreset = RGB(29, 78, 216)             ' 1D4ED8
+        Case Else: ThemeNotePreset = RGB(109, 40, 217)          ' 6D28D9
     End Select
+End Function
+
+' WCAG relative luminance, with the sRGB gamma curve. Used to check that every
+' preset above is actually readable with the text colour it is given, rather
+' than to make that claim and hope.
+Public Function ThemeLuminance(ByVal rgbColor As Long) As Double
+    Dim r As Long, g As Long, b As Long
+    r = rgbColor And &HFF&
+    g = (rgbColor \ &H100&) And &HFF&
+    b = (rgbColor \ &H10000) And &HFF&
+    ThemeLuminance = 0.2126 * Linearize(r) + 0.7152 * Linearize(g) + 0.0722 * Linearize(b)
+End Function
+
+Private Function Linearize(ByVal channel As Long) As Double
+    Dim c As Double
+    c = channel / 255
+    If c <= 0.03928 Then
+        Linearize = c / 12.92
+    Else
+        Linearize = ((c + 0.055) / 1.055) ^ 2.4
+    End If
+End Function
+
+Public Function ThemeContrast(ByVal a As Long, ByVal b As Long) As Double
+    Dim la As Double, lb As Double, hi As Double, lo As Double
+    la = ThemeLuminance(a)
+    lb = ThemeLuminance(b)
+    If la > lb Then
+        hi = la: lo = lb
+    Else
+        hi = lb: lo = la
+    End If
+    ThemeContrast = (hi + 0.05) / (lo + 0.05)
 End Function
 
 ' The fonts a note can be set to. Item 0 is the deck's own body font, which is
@@ -200,21 +254,18 @@ Public Function ThemeNotePresetIndexOf(ByVal rgbColor As Long) As Long
     Next i
 End Function
 
-' Rec. 709 luma. Close enough to tell a light fill from a dark one, and it needs
-' no gamma work to do that.
 Public Function ThemeIsLight(ByVal rgbColor As Long) As Boolean
-    Dim r As Long, g As Long, b As Long
-    r = rgbColor And &HFF&
-    g = (rgbColor \ &H100&) And &HFF&
-    b = (rgbColor \ &H10000) And &HFF&
-    ThemeIsLight = ((0.2126 * r + 0.7152 * g + 0.0722 * b) / 255 > 0.5)
+    ThemeIsLight = (ThemeLuminance(rgbColor) > 0.5)
 End Function
 
-' The text colour for a given note fill, so a light preset does not end up with
-' near-white text on it.
+' The text colour for a given note fill: whichever of the two reads better on
+' it. Picking by MEASURED contrast rather than by a lightness threshold is what
+' makes a saturated preset safe - amber is light enough to need dark words and
+' crimson is not, and no single cutoff gets both right by luck.
 Public Function ThemeTextOn(ByVal rgbColor As Long) As Long
-    If ThemeIsLight(rgbColor) Then
-        ThemeTextOn = RGB(26, 26, 26)                           ' 1A1A1A
+    Const DARK As Long = 1710618                                ' RGB(26,26,26)
+    If ThemeContrast(rgbColor, DARK) >= ThemeContrast(rgbColor, ThemeNoteTextColor()) Then
+        ThemeTextOn = DARK
     Else
         ThemeTextOn = ThemeNoteTextColor()
     End If

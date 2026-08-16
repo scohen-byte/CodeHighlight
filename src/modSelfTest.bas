@@ -886,12 +886,40 @@ Public Function OptionsTest(ByVal srcPath As String, ByVal pngPath As String) As
     ' --- a swatch for the ribbon -------------------------------------------
     Set pic = modSwatch.Swatch(ThemeNotePreset(1))
     r = r & "swatch_made=" & Abs(CLng(Not pic Is Nothing)) & vbLf
+    ' One per preset, since the gallery asks for all of them.
+    Dim made As Long, p As Long
+    For p = 0 To ThemeNotePresetCount() - 1
+        If Not modSwatch.Swatch(ThemeNotePreset(p)) Is Nothing Then made = made + 1
+    Next p
+    r = r & "swatches=" & made & "/" & ThemeNotePresetCount() & vbLf
+
+    ' --- every preset must be readable --------------------------------------
+    ' The claim that a fixed list beats a colour picker rests entirely on this,
+    ' so it is measured rather than asserted. 4.5:1 is WCAG AA for body text;
+    ' notes are never below 16pt, so this is the strict reading.
+    Dim worst As Double, worstName As String, c As Double
+    worst = 999
+    For p = 0 To ThemeNotePresetCount() - 1
+        c = ThemeContrast(ThemeNotePreset(p), ThemeTextOn(ThemeNotePreset(p)))
+        If c < worst Then
+            worst = c
+            worstName = ThemeNotePresetName(p)
+        End If
+    Next p
+    r = r & "worst_contrast=" & Format$(worst, "0.00") & " (" & worstName & ")" & vbLf
+    r = r & "all_presets_readable=" & Abs(CLng(worst >= 4.5)) & vbLf
 
     ' --- a note per walkthrough step ---------------------------------------
     ' Bold back on, since the render below is what the two options look like
     ' together, which is how they will actually be used.
     modOptions.SetEmphasisBold True
     modOptions.SetStepNote True
+    ' A vibrant preset for the render, since the quiet ones are what the
+    ' vibrant half was added to relieve. Through the COMMAND, not the setting:
+    ' setting the colour alone leaves notes that already exist as they were,
+    ' and the walkthrough would then inherit the old ones.
+    shp.Select
+    modRibbon.DoNoteColor 6                             ' Crimson
     modBlock.SetEmphasis shp, ""
     shp.Select
     modRibbon.DoStylize

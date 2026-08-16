@@ -40,7 +40,7 @@ editable.
 | **Emphasize** | Band the selected lines and fade the rest |
 | **Note** | Attach an explanation to a line of code |
 | **Note size** | Font size for notes. Auto sizes each one from its block |
-| **Note color** | One of six presets, each shown as its own swatch |
+| **Note color** | Twelve presets, each shown as its own swatch |
 | **Note font** | Deck default, or one of four that ship with Windows |
 | **Copy code** | Put the block's code on the clipboard, ready to paste into an editor |
 | **Strip** | Back to plain uncoloured text. Stylize brings it all back |
@@ -140,10 +140,15 @@ the deck rather than in the add-in, so they travel with the file.
 
 - **Size.** Auto sizes each note from the block it belongs to, which is usually
   what you want. Any rung, or any typed size, pins it instead.
-- **Color.** Six presets, each shown as a swatch of itself, rather than a full
-  picker — every one is checked against the text colour it gets, and an
-  arbitrary colour is not. The text colour follows the fill, so the light preset
-  gets dark words and a faint edge instead of dissolving into a white slide.
+- **Color.** Twelve presets, each shown as a swatch of itself, and the control
+  carries the one in use. A fixed list rather than a full picker, because every
+  one of them is checked against the text colour it gets and an arbitrary colour
+  is not — the test asserts all twelve clear 4.5:1, and the worst is Emerald at
+  4.57. The first six are quiet, for a note that is an aside about the code; the
+  rest are saturated, for one that should be the loudest thing on the slide. The
+  text colour is whichever of light or dark reads better on the fill, so amber
+  gets dark words and crimson gets white ones, and a light preset also gets a
+  faint edge so it does not dissolve into a white slide.
 - **Font.** Deck default inherits your presentation's own body font, so a note
   looks like the rest of the deck rather than like code. That is the default and
   is usually right. The four alternatives all ship with Windows or Office, so a

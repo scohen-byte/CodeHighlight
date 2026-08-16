@@ -49,20 +49,21 @@
                   onAction="RibbonStylize"
                   screentip="Stylize the selected block"
                   supertip="Re-colors the selected code block from scratch. Safe to press as often as you like."/>
-          <toggleButton id="tglGutter"
-                        label="Line numbers"
-                        imageMso="NumberingGallery"
-                        getPressed="RibbonGutterPressed"
-                        onAction="RibbonToggleGutter"
-                        screentip="Show or hide line numbers"
-                        supertip="Numbers live in their own shape, so the code text stays pure source."/>
-          <toggleButton id="tglGuides"
-                        label="Indent guides"
-                        imageMso="ViewGridlines"
-                        getPressed="RibbonGuidesPressed"
-                        onAction="RibbonToggleGuides"
-                        screentip="Show or hide the indent guides"
-                        supertip="The vertical lines marking each level of nesting. Off by default."/>
+          <!-- checkBox, not toggleButton. These are settings with an on and an
+               off state, and a tick box says so at a glance where a pressed-in
+               button has to be looked at. -->
+          <checkBox id="chkGutter"
+                    label="Line numbers"
+                    getPressed="RibbonGutterPressed"
+                    onAction="RibbonToggleGutter"
+                    screentip="Show or hide line numbers"
+                    supertip="Numbers live in their own shape, so the code text stays pure source."/>
+          <checkBox id="chkGuides"
+                    label="Indent guides"
+                    getPressed="RibbonGuidesPressed"
+                    onAction="RibbonToggleGuides"
+                    screentip="Show or hide the indent guides"
+                    supertip="The vertical lines marking each level of nesting. Off by default."/>
         </group>
 
         <group id="grpTools" label="Emphasis and text">
@@ -109,16 +110,17 @@
                colour is not the colour. modSwatch makes them. -->
           <gallery id="galNoteColor"
                    label="Note color"
-                   columns="2"
+                   columns="3"
                    itemWidth="16"
                    itemHeight="16"
+                   getImage="RibbonNoteColorFace"
                    getItemCount="RibbonNoteColorCount"
                    getItemLabel="RibbonNoteColorLabel"
                    getItemImage="RibbonNoteColorImage"
                    getSelectedItemIndex="RibbonNoteColorSelected"
                    onAction="RibbonNoteColorChanged"
                    screentip="Color for notes"
-                   supertip="Applies to the selected block's notes at once, and to every note made afterwards. The text color follows the fill, so the light preset gets dark words rather than near-white ones."/>
+                   supertip="The control shows the color in use. The first six are quiet, for a note that is an aside about the code; the rest are saturated, for one that should be the loudest thing on the slide. Applies to the selected block's notes at once, and to every note made afterwards - the text color follows the fill, so a light preset gets dark words."/>
           <dropDown id="ddNoteFont"
                     label="Note font"
                     sizeString="Deck default"
@@ -145,28 +147,34 @@
                   onAction="RibbonBuildUp"
                   screentip="One slide per line, emphasis growing downward"
                   supertip="The same, except each slide emphasises everything up to the current line rather than just that line. For building code up rather than tracing it."/>
-          <toggleButton id="tglStepNote"
-                        label="Note per step"
-                        imageMso="ReviewNewComment"
-                        getPressed="RibbonStepNotePressed"
-                        onAction="RibbonToggleStepNote"
-                        screentip="Give every generated slide a note"
-                        supertip="Each slide the walkthrough builds arrives with a note already attached to the line it emphasises, so you fill them in rather than clicking to create them. Build up attaches it to the newest line."/>
-          <toggleButton id="tglEmphBold"
-                        label="Bold the line"
-                        imageMso="Bold"
-                        getPressed="RibbonEmphasisBoldPressed"
-                        onAction="RibbonToggleEmphasisBold"
-                        screentip="Render the emphasised line in bold"
-                        supertip="The band changes the background; bold changes the letters, which is the strongest signal available without moving anything. Applies to the newest emphasised line wherever emphasis is used, not only in a generated walkthrough."/>
+          <checkBox id="chkStepNote"
+                    label="Note per step"
+                    getPressed="RibbonStepNotePressed"
+                    onAction="RibbonToggleStepNote"
+                    screentip="Give every generated slide a note"
+                    supertip="Each slide the walkthrough builds arrives with a note already attached to the line it emphasises, so you fill them in rather than clicking to create them. Build up attaches it to the newest line."/>
+          <checkBox id="chkEmphBold"
+                    label="Bold the line"
+                    getPressed="RibbonEmphasisBoldPressed"
+                    onAction="RibbonToggleEmphasisBold"
+                    screentip="Render the emphasised line in bold"
+                    supertip="The band changes the background; bold changes the letters, which is the strongest signal available without moving anything. Applies to the newest emphasised line wherever emphasis is used, not only in a generated walkthrough."/>
+        </group>
+
+        <!-- Its own group. Hiding a line and asking the room what goes there is
+             a different move from stepping through code, and sitting in the
+             Walkthrough group made it read as part of building one. -->
+        <group id="grpAsk" label="Hide and reveal">
           <button id="btnHide"
                   label="Hide lines"
+                  size="large"
                   imageMso="BlackAndWhiteBlack"
                   onAction="RibbonHide"
                   screentip="Hide the selected lines behind a question mark"
                   supertip="Select lines inside the block and press this to cover them, keeping their space. Ask the class what belongs there. With the block itself selected rather than text, it reveals them again."/>
           <button id="btnReveal"
                   label="Reveal next"
+                  size="large"
                   imageMso="VisibilityVisible"
                   onAction="RibbonReveal"
                   screentip="Add the answer on the next slide"

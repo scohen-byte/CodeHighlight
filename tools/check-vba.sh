@@ -78,6 +78,15 @@ if [[ -f "$BUILD" ]]; then
     done
 fi
 
+# 7. The ribbon XML must parse. Office does not report a malformed customUI as
+#    an error - it silently drops the whole tab, which looks exactly like a
+#    failed install and sends you to the relationship types and the packaging.
+if [[ -f "$RIBBON" ]]; then
+    if ! python3 -c "import sys,xml.etree.ElementTree as E; E.parse(sys.argv[1])" "$RIBBON" 2>/dev/null; then
+        echo "ribbon/customUI14.xml is not well-formed XML"; fail=1
+    fi
+fi
+
 if [[ $fail -eq 0 ]]; then
     echo "vba checks passed ($(ls *.bas | wc -l) modules, $(grep -coE '(onAction|getText|getPressed|getItemCount|getItemLabel|getSelectedItemIndex|onChange|onLoad)="' "$RIBBON" 2>/dev/null || echo 0) ribbon callbacks)"
 fi

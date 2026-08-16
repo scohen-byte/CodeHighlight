@@ -399,9 +399,12 @@ Public Sub DoNoteSize(ByVal pts As Long)
     Dim shp As Shape, problem As String
 
     modOptions.SetNoteSize pts
+    ' Before the early exit below. The control shows the current choice, so it
+    ' has to be re-read whether or not there was a block to restyle.
+    RefreshRibbon
 
     Set shp = modBlock.SelectedBlock(problem)
-    If shp Is Nothing Then Exit Sub          ' the default is set either way
+    If shp Is Nothing Then Exit Sub          ' the choice is stored either way
     ApplyNoteStyle shp
     Exit Sub
 Failed:
@@ -413,9 +416,12 @@ Public Sub DoNoteColor(ByVal presetIndex As Long)
     Dim shp As Shape, problem As String
 
     modOptions.SetNoteColor ThemeNotePreset(presetIndex)
+    ' Before the early exit below. The control shows the current choice, so it
+    ' has to be re-read whether or not there was a block to restyle.
+    RefreshRibbon
 
     Set shp = modBlock.SelectedBlock(problem)
-    If shp Is Nothing Then Exit Sub
+    If shp Is Nothing Then Exit Sub          ' the choice is stored either way
     ApplyNoteStyle shp
     Exit Sub
 Failed:
@@ -427,9 +433,12 @@ Public Sub DoNoteFont(ByVal presetIndex As Long)
     Dim shp As Shape, problem As String
 
     modOptions.SetNoteFont ThemeNoteFontValue(presetIndex)
+    ' Before the early exit below. The control shows the current choice, so it
+    ' has to be re-read whether or not there was a block to restyle.
+    RefreshRibbon
 
     Set shp = modBlock.SelectedBlock(problem)
-    If shp Is Nothing Then Exit Sub
+    If shp Is Nothing Then Exit Sub          ' the choice is stored either way
     ApplyNoteStyle shp
     Exit Sub
 Failed:
@@ -867,6 +876,15 @@ Public Sub RibbonNoteColorImage(control As IRibbonControl, index As Integer, ByR
     Set p = modSwatch.Swatch(ThemeNotePreset(CLng(index)))
     ' No image is a working gallery with labels only. A failed swatch must not
     ' take the control down with it.
+    If Not p Is Nothing Then Set image = p
+End Sub
+
+' The gallery's own face carries the colour currently in use. A gallery shows
+' its button image, not its selected item, so without this the control gives no
+' clue what the notes are set to.
+Public Sub RibbonNoteColorFace(control As IRibbonControl, ByRef image)
+    Dim p As Object
+    Set p = modSwatch.Swatch(modOptions.NoteColor())
     If Not p Is Nothing Then Set image = p
 End Sub
 
