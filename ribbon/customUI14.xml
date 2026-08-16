@@ -71,6 +71,15 @@
         </group>
 
         <group id="grpSize" label="Size">
+          <comboBox id="cboSize"
+                    label="Size"
+                    sizeString="00"
+                    getText="RibbonSizeText"
+                    onChange="RibbonSizeChanged"
+                    getItemCount="RibbonSizeCount"
+                    getItemLabel="RibbonSizeLabel"
+                    screentip="Font size in points"
+                    supertip="Pick a rung or type any size. Refused if the block would stop fitting the slide."/>
           <button id="btnBigger"
                   label="Larger"
                   imageMso="FontSizeIncrease"

@@ -103,6 +103,8 @@ Public Sub DoHighlight()
     modGuides.DrawGuides shp
     ' Back into a group, so the block and its numbers and guides drag as one.
     modBlock.GroupParts shp
+    Reselect shp
+    RefreshRibbon
     Exit Sub
 Failed:
     Warn "DoHighlight failed: " & Err.Description
@@ -154,6 +156,7 @@ Public Sub DoToggleGutter()
     modGutter.SyncGutter shp
     modGuides.DrawGuides shp
     modBlock.GroupParts shp
+    Reselect shp
     RefreshRibbon
     Exit Sub
 Failed:
@@ -174,6 +177,7 @@ Public Sub DoToggleGuides()
     modGuides.SetGuidesEnabled shp, Not modGuides.GuidesEnabled(shp)
     modGuides.DrawGuides shp
     modBlock.GroupParts shp
+    Reselect shp
     RefreshRibbon
     Exit Sub
 Failed:
@@ -255,6 +259,8 @@ Private Sub Resize(ByVal shp As Shape, ByVal newSize As Single)
     modGutter.SyncGutter shp
     modGuides.DrawGuides shp
     modBlock.GroupParts shp
+    Reselect shp
+    RefreshRibbon
 End Sub
 
 Private Function FitSizeFor(ByVal shp As Shape) As Single
@@ -352,6 +358,54 @@ Public Sub RibbonToggleGuides(control As IRibbonControl, pressed As Boolean)
     DoToggleGuides
 End Sub
 
+' The size box: shows the selected block's size, and accepts a typed one.
+Public Sub RibbonSizeCount(control As IRibbonControl, ByRef count)
+    count = modSpec.LadderCount()
+End Sub
+
+Public Sub RibbonSizeLabel(control As IRibbonControl, index As Integer, ByRef label)
+    label = Format$(modSpec.LadderAt(CLng(index)), "0")
+End Sub
+
+Public Sub RibbonSizeText(control As IRibbonControl, ByRef text)
+    Dim shp As Shape, problem As String
+    Set shp = modBlock.SelectedBlock(problem)
+    If shp Is Nothing Then
+        text = Format$(modSpec.BASE_SIZE, "0")
+    Else
+        text = Format$(modBlock.BlockFontSize(shp), "0")
+    End If
+End Sub
+
+' Accepts any size, not only a rung - typing 23 is a reasonable thing to do.
+' Still capped at what fits, for the same reason Larger is.
+Public Sub RibbonSizeChanged(control As IRibbonControl, text As String)
+    Dim shp As Shape, problem As String, want As Single, capSize As Single
+
+    Set shp = modBlock.SelectedBlock(problem)
+    If shp Is Nothing Then
+        Warn problem
+        Exit Sub
+    End If
+
+    want = Val(text)
+    If want < 6 Or want > 96 Then
+        Warn "Enter a size between 6 and 96 points."
+        RefreshRibbon
+        Exit Sub
+    End If
+
+    capSize = FitSizeFor(shp)
+    If want > capSize Then
+        Warn "At " & Format$(want, "0") & "pt this block would not fit the slide." & _
+             vbCrLf & "The largest that fits is " & Format$(capSize, "0") & "pt."
+        RefreshRibbon
+        Exit Sub
+    End If
+
+    Resize shp, want
+End Sub
+
 Public Sub RibbonSizeUp(control As IRibbonControl)
     DoSizeUp
 End Sub
@@ -389,6 +443,26 @@ End Sub
 
 Private Sub NotYet(ByVal what As String)
     Warn what & " is not built yet."
+End Sub
+
+' Puts the selection back on the block after a command.
+'
+' Without this every action costs a re-selection: press Larger, lose the
+' selection, click the block, press Larger again. Worse, it makes the add-in
+' look broken - you type a line, press Highlight, and nothing happens, because
+' nothing was selected any more.
+'
+' Selects the GROUP when there is one, so the next drag moves the whole thing.
+Private Sub Reselect(ByVal shp As Shape)
+    Dim g As Shape
+    On Error Resume Next
+    Set g = modBlock.ParentGroup(shp)
+    If g Is Nothing Then
+        shp.Select
+    Else
+        g.Select
+    End If
+    On Error GoTo 0
 End Sub
 
 Private Function ActiveSlide() As Slide

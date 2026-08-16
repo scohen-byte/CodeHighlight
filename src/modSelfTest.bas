@@ -293,6 +293,15 @@ Failed:
     ReportTags = "ERROR " & Err.Number & ": " & Err.Description
 End Function
 
+' 1 when the current selection resolves to a code block, 0 otherwise.
+Private Function SelectionResolves() As Long
+    Dim problem As String, found As Shape
+    On Error Resume Next
+    Set found = modBlock.SelectedBlock(problem)
+    On Error GoTo 0
+    SelectionResolves = Abs(CLng(Not found Is Nothing))
+End Function
+
 Private Function Quoted(ByVal s As String) As String
     Quoted = Chr$(34) & s & Chr$(34)
 End Function
@@ -553,6 +562,18 @@ Public Function EditFlowTest(ByVal srcPath As String, ByVal pngPath As String) A
         Set found = modBlock.SelectedBlock(problem)
         r = r & "group_resolves=" & Abs(CLng(Not found Is Nothing)) & vbLf
     End If
+
+    ' Focus must survive a command, or every action costs a re-selection - and
+    ' worse, the NEXT command silently does nothing because nothing is selected.
+    r = r & "sel_after_highlight=" & SelectionResolves() & vbLf
+
+    ' Two size steps WITHOUT re-selecting in between. This is the reported
+    ' complaint: pressing Larger twice should not need a click between.
+    modRibbon.DoSizeDown
+    r = r & "size_after_1=" & Format$(modBlock.BlockFontSize(shp), "0") & vbLf
+    modRibbon.DoSizeDown
+    r = r & "size_after_2_no_reselect=" & Format$(modBlock.BlockFontSize(shp), "0") & vbLf
+    r = r & "sel_after_resize=" & SelectionResolves() & vbLf
 
     ' Resizing must keep the colours.
     shp.Select
