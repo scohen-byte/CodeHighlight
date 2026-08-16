@@ -161,12 +161,12 @@ Public Sub DoToggleGutter()
         Exit Sub
     End If
 
+    ' Style first. Toggling numbers on a block that was never styled would
+    ' otherwise add them to uncoloured code, and the numbers would be laid out
+    ' against geometry that has not been settled.
     modBlock.UngroupParts shp
     modGutter.ToggleGutter shp
-    modBlock.ResizeToContent shp
-    modGutter.SyncGutter shp
-    modGuides.DrawGuides shp
-    modBlock.GroupParts shp
+    StyleBlock shp
     Reselect shp
     RefreshRibbon
     Exit Sub
@@ -184,10 +184,12 @@ Public Sub DoToggleGuides()
         Exit Sub
     End If
 
+    ' Style first, for the same reason as the numbers: guides are placed from
+    ' the settled text geometry, so they need the block rendered before they can
+    ' land in the right place.
     modBlock.UngroupParts shp
     modGuides.SetGuidesEnabled shp, Not modGuides.GuidesEnabled(shp)
-    modGuides.DrawGuides shp
-    modBlock.GroupParts shp
+    StyleBlock shp
     Reselect shp
     RefreshRibbon
     Exit Sub
@@ -368,6 +370,19 @@ Public Sub DoStepThrough(ByVal cumulative As Boolean)
             StyleBlock target
         End If
     Next k
+
+    ' Spotlight ends on a clean slide, so the walk finishes by handing the whole
+    ' code back rather than leaving the last line singled out. Build up already
+    ' ends with everything lit, so it needs no such slide.
+    If Not cumulative Then
+        Set dup = sld.Duplicate(1)
+        dup.MoveTo base + n + 1
+        Set target = BlockOnSlide(dup, shp.Tags(modBlock.TAG_ID))
+        If Not target Is Nothing Then
+            modBlock.SetEmphasis target, ""
+            StyleBlock target
+        End If
+    End If
 
     sld.Select
     Exit Sub
