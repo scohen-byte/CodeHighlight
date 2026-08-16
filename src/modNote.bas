@@ -49,8 +49,10 @@ Public Const TAG_NOTE_OFF  As String = "CODEBLOCK_NOTE_OFF"
 ' was stacked with a note that was dragged, and a stacked note then freezes and
 ' stops restacking when the note above it grows.
 Public Const TAG_NOTE_SEEN As String = "CODEBLOCK_NOTE_SEEN"
-' The thin line from the note back to its line of code.
+' The thin connector from the note back to its line of code, and the invisible
+' one-point shape at that line which gives the connector something to attach to.
 Public Const TAG_LEADER_OF As String = "CODEBLOCK_LEADER_OF"
+Public Const TAG_ANCHOR_OF As String = "CODEBLOCK_ANCHOR_OF"
 
 Public Const NOTE_PLACEHOLDER As String = "What this line does"
 
@@ -63,6 +65,7 @@ Private Const MARGIN_PT As Single = 18      ' slide edge the note keeps clear
 Private Const W_MAX     As Single = 260
 Private Const W_MIN     As Single = 150
 Private Const STACK_GAP As Single = 8       ' between two auto-placed notes
+Private Const ANCHOR_PT As Single = 1       ' the invisible target on the line
 
 ' Rounding noise, not a drag. Positions are stored as whole points, so two
 ' roundings can differ by a point without anything having moved.
@@ -236,9 +239,16 @@ Public Sub ClearLeaders(ByVal shp As Shape)
     If Len(blockId) = 0 Then Exit Sub
     Set sld = modGutter.OwningSlide(shp)
 
+    ' Connectors BEFORE anchors. Deleting a shape a connector is attached to
+    ' leaves the connector behind with a dangling end, so the order is not
+    ' arbitrary - and AllShapes is a snapshot, so both are collected first and
+    ' deleted afterwards either way.
     Set doomed = New Collection
     For Each s2 In modBlock.AllShapes(sld)
         If s2.Tags(TAG_LEADER_OF) = blockId Then doomed.Add s2
+    Next s2
+    For Each s2 In modBlock.AllShapes(sld)
+        If s2.Tags(TAG_ANCHOR_OF) = blockId Then doomed.Add s2
     Next s2
     For i = doomed.count To 1 Step -1
         doomed(i).Delete
@@ -408,49 +418,52 @@ Public Function NoteOffSlide(ByVal note As Shape) As Boolean
     NoteOffSlide = (note.Top + note.Height > modSpec.SLIDE_H) Or (note.Top < 0)
 End Function
 
+' The leader is a real CONNECTOR, not a drawn line.
+'
+' A drawn line has fixed endpoints, so dragging a note left it pointing at
+' nothing until the next Stylize. A connector attached to two shapes is rerouted
+' by PowerPoint itself, live, as either end moves - which is the whole of what
+' was wanted, and it is native rather than something to reimplement.
+'
+' Connecting it needs something AT THE LINE to connect to. A rectangle offers
+' connection sites at its edge midpoints and corners, so connecting to the block
+' would anchor the leader to the middle of the block's right edge rather than to
+' line 7. So each leader gets a one-point invisible anchor placed at its line,
+' and the connector runs anchor to note.
+'
+' RerouteConnections then picks the closest pair of sites on its own, which is
+' exactly what the hand-rolled nearest-edge-point search used to do.
 Private Sub AddLeader(ByVal sld As Slide, ByVal shp As Shape, ByVal note As Shape, _
                       ByVal ax As Single, ByVal ay As Single)
-    Dim px As Single, py As Single, lin As Shape
+    Dim anchor As Shape, lin As Shape, blockId As String
 
-    NearestEdgePoint note, ax, ay, px, py
-    ' A note sitting on its anchor needs no line, and a zero-length one is a
-    ' shape PowerPoint handles badly.
-    If Abs(px - ax) < 2 And Abs(py - ay) < 2 Then Exit Sub
+    On Error GoTo Done
+    blockId = shp.Tags(modBlock.TAG_ID)
 
-    Set lin = sld.Shapes.AddLine(ax, ay, px, py)
+    Set anchor = sld.Shapes.AddShape(msoShapeRectangle, ax, ay - ANCHOR_PT / 2, _
+                                     ANCHOR_PT, ANCHOR_PT)
+    With anchor
+        .fill.Visible = msoFalse
+        .Line.Visible = msoFalse
+        .Shadow.Visible = msoFalse
+        .Tags.Add TAG_ANCHOR_OF, blockId
+    End With
+
+    Set lin = sld.Shapes.AddConnector(msoConnectorStraight, ax, ay, ax + 10, ay)
     With lin
+        .ConnectorFormat.BeginConnect anchor, 1
+        .ConnectorFormat.EndConnect note, 1
+        ' Only now, with both ends attached, can PowerPoint choose sites.
+        .RerouteConnections
         .Line.Visible = msoTrue
         .Line.ForeColor.RGB = ThemeLeaderColor()
         .Line.Weight = 1.25
-        .Tags.Add TAG_LEADER_OF, shp.Tags(modBlock.TAG_ID)
+        .Tags.Add TAG_LEADER_OF, blockId
         ' Behind everything: the leader starts ON the block's edge, so it has
         ' nothing to cover, and in front it would draw across the note's corner.
         .ZOrder msoSendToBack
     End With
-End Sub
-
-' The point on the note's outline that faces the code. Trying the four edge
-' midpoints and keeping the nearest handles every placement - right, left, below
-' or dragged anywhere - without a special case for each.
-Private Sub NearestEdgePoint(ByVal s As Shape, ByVal ax As Single, ByVal ay As Single, _
-                             ByRef px As Single, ByRef py As Single)
-    Dim cx(1 To 4) As Single, cy(1 To 4) As Single
-    Dim i As Long, d As Double, best As Double
-
-    cx(1) = s.Left:                cy(1) = s.Top + s.Height / 2
-    cx(2) = s.Left + s.Width:      cy(2) = s.Top + s.Height / 2
-    cx(3) = s.Left + s.Width / 2:  cy(3) = s.Top
-    cx(4) = s.Left + s.Width / 2:  cy(4) = s.Top + s.Height
-
-    best = -1
-    For i = 1 To 4
-        d = (cx(i) - ax) * (cx(i) - ax) + (cy(i) - ay) * (cy(i) - ay)
-        If best < 0 Then
-            best = d: px = cx(i): py = cy(i)
-        ElseIf d < best Then
-            best = d: px = cx(i): py = cy(i)
-        End If
-    Next i
+Done:
 End Sub
 
 '------------------------------------------------------------------------------

@@ -485,7 +485,8 @@ Public Sub GroupParts(ByVal shp As Shape)
                .Tags(TAG_BAND_OF) = blockId Or _
                .Tags(TAG_COVER_OF) = blockId Or _
                .Tags(modNote.TAG_NOTE_OF) = blockId Or _
-               .Tags(modNote.TAG_LEADER_OF) = blockId Then
+               .Tags(modNote.TAG_LEADER_OF) = blockId Or _
+               .Tags(modNote.TAG_ANCHOR_OF) = blockId Then
                 n = n + 1
                 v(n) = .Name
             End If

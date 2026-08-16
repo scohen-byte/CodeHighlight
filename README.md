@@ -39,6 +39,7 @@ editable.
 | **Indent guides** | Show or hide the vertical nesting lines, drawn as real shapes. Off by default |
 | **Emphasize** | Band the selected lines and fade the rest |
 | **Note** | Attach an explanation to a line of code |
+| **Delete note** | Remove the note you have singled out, and its connector |
 | **Note size** | Font size for notes. 24pt, or Auto to size each one from its block |
 | **Note color** | Twelve presets, each shown as its own swatch |
 | **Note font** | Deck default, or one of four that ship with Windows |
@@ -127,6 +128,16 @@ the cursor is enough.
 The note is anchored, not merely placed. Edit the code above it, change the
 size, or drag the whole block, and Stylize brings the note back level with its
 line. Drag a note somewhere you prefer and Stylize leaves it there.
+
+**The pointer is a real connector**, attached at one end to an invisible marker
+on its line and at the other to the note, so PowerPoint reroutes it itself as
+you drag. Move a note across the slide and the line stretches to follow, live,
+with no need to press anything.
+
+**Delete note** removes the note you have singled out, along with its connector.
+It does not ask — one note is a small loss and Undo takes it back. To clear
+every note on a block, press **Note** with the block itself selected; that one
+asks first.
 
 **On a walkthrough slide the block itself is enough.** With the block selected
 rather than text, the note attaches to the emphasised line — so annotating a

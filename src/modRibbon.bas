@@ -459,6 +459,38 @@ Failed:
     Warn "DoNoteColor failed: " & Err.Description
 End Sub
 
+' Deletes the note you have singled out - the one you have clicked into, or the
+' one on the line your cursor is on. Same targeting as the style controls, so
+' there is one rule for "which note do you mean" rather than two.
+'
+' Silent, unlike clearing them all. One note is a small enough loss, and Undo
+' takes it back; the all-notes clear on the Note button still asks.
+Public Sub DoDeleteNote()
+    On Error GoTo Failed
+    Dim notes As Collection, blk As Shape, i As Long
+
+    Set notes = NotesToStyle(blk)
+    If notes.count = 0 Then
+        Warn "Put the cursor on the line whose note you want to delete, or " & _
+             "click into the note itself, and press Delete note."
+        Exit Sub
+    End If
+
+    modNote.CaptureDrags blk
+    modBlock.UngroupParts blk
+    For i = notes.count To 1 Step -1
+        notes(i).Delete
+    Next i
+    ' StyleBlock clears the leaders and their anchors and redraws what is left,
+    ' so the deleted note's connector goes with it.
+    StyleBlock blk
+    Reselect blk
+    RefreshRibbon
+    Exit Sub
+Failed:
+    Warn "DoDeleteNote failed: " & Err.Description
+End Sub
+
 Public Sub DoNoteFont(ByVal presetIndex As Long)
     On Error GoTo Failed
     Dim notes As Collection, blk As Shape
@@ -1029,6 +1061,10 @@ End Sub
 
 Public Sub RibbonNoteColorApply(control As IRibbonControl)
     DoNoteColorApply
+End Sub
+
+Public Sub RibbonDeleteNote(control As IRibbonControl)
+    DoDeleteNote
 End Sub
 
 Private Function CurrentNoteColor() As Long

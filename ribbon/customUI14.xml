@@ -126,6 +126,13 @@
                   onAction="RibbonNote"
                   screentip="Attach a note to a line of code"
                   supertip="Puts a note beside the block with a line pointing at the code, so you can say what a line does without cramming it into a comment. Uses the line the cursor is on, or - with the block itself selected - the emphasised line, which makes annotating a walkthrough one click per slide. It stays anchored: change the size or edit the code above it and Stylize keeps it level with its line."/>
+          <button id="btnDeleteNote"
+                  label="Delete note"
+                  size="large"
+                  imageMso="ReviewDeleteComment"
+                  onAction="RibbonDeleteNote"
+                  screentip="Delete the note you have singled out"
+                  supertip="Removes the note on the line your cursor is on, or the note you have clicked into, along with its connector. Same rule as the color and size controls, so there is one answer to which note is meant. To remove every note on a block at once, press Note with the block itself selected - that one asks first."/>
           <comboBox id="cboNoteSize"
                     label="Note size"
                     sizeString="Auto"

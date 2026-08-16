@@ -748,6 +748,64 @@ Public Function NoteTest(ByVal srcPath As String, ByVal pngPath As String) As St
 
     sld.Export pngPath, "PNG", 1920, 1080
 
+    ' The leader must be a real connector, attached at both ends, and it must
+    ' stretch when the note moves - WITHOUT a Stylize. That is the whole reason
+    ' for using a connector instead of a drawn line.
+    '
+    ' BOTH shapes are re-found immediately before measuring. An earlier version
+    ' reused references from before the last regroup and measured nothing
+    ' moving, which read as the connector failing when it was the test.
+    ' Matched by what it is ATTACHED to, not just by tag. There are two notes
+    ' here and therefore two leaders, and taking whichever came last measured
+    ' the other note's connector against this note's movement.
+    Dim lead As Shape, s3 As Shape
+    Set n2 = modNote.FindNote(shp, 2)
+    For Each s3 In modBlock.AllShapes(sld)
+        If s3.Tags(modNote.TAG_LEADER_OF) = shp.Tags(modBlock.TAG_ID) Then
+            On Error Resume Next
+            If s3.ConnectorFormat.EndConnectedShape.Name = n2.Name Then Set lead = s3
+            On Error GoTo Failed
+        End If
+    Next s3
+
+    r = r & "leader_connected=" & _
+            Abs(CLng(lead.ConnectorFormat.BeginConnected = msoTrue And _
+                     lead.ConnectorFormat.EndConnected = msoTrue)) & vbLf
+
+    Dim wasW As Single, wasH As Single
+    wasW = lead.Width: wasH = lead.Height
+    n2.Left = n2.Left + 60
+    n2.Top = n2.Top + 90
+    ' The box has to change; ConnectorProbe pins down that it changes by exactly
+    ' the distance moved. Here the routing may pick a different pair of sites,
+    ' since this note has another one stacked above it.
+    r = r & "leader_stretched=" & _
+            Abs(CLng(Abs(lead.Width - wasW) > 2 Or Abs(lead.Height - wasH) > 2)) & vbLf
+    n2.Left = n2.Left - 60
+    n2.Top = n2.Top - 90
+
+    ' Deleting a note takes its connector and its anchor with it.
+    Dim before As Long, after As Long
+    before = modNote.NoteCount(shp)
+    modBlock.LineCharRange shp.TextFrame.TextRange.text, 2, a, b
+    shp.TextFrame.TextRange.Characters(a, 1).Select
+    modRibbon.DoDeleteNote
+    after = modNote.NoteCount(shp)
+    Dim leftovers As Long
+    For Each s3 In modBlock.AllShapes(sld)
+        If s3.Tags(modNote.TAG_LEADER_OF) = shp.Tags(modBlock.TAG_ID) Then leftovers = leftovers + 1
+        If s3.Tags(modNote.TAG_ANCHOR_OF) = shp.Tags(modBlock.TAG_ID) Then leftovers = leftovers + 1
+    Next s3
+    r = r & "deleted_one=" & Abs(CLng(after = before - 1)) & vbLf
+    ' One note left, so one connector and one anchor.
+    r = r & "no_orphan_parts=" & Abs(CLng(leftovers = after * 2)) & vbLf
+
+    ' Remake it, so the rest of the test has two notes again.
+    modBlock.LineCharRange shp.TextFrame.TextRange.text, 2, a, b
+    shp.TextFrame.TextRange.Characters(a, 1).Select
+    modRibbon.DoNote
+    Set n2 = modNote.FindNote(shp, 2)
+
     ' A dragged note must survive the next Stylize.
     ' Downward, the way someone actually drags a note clear of the one above it.
     n2.Left = n2.Left + 30
@@ -819,6 +877,77 @@ Public Function NoteTest(ByVal srcPath As String, ByVal pngPath As String) As St
     Exit Function
 Failed:
     NoteTest = r & "ERROR " & Err.Number & ": " & Err.Description
+End Function
+
+' A focused probe: does a connector attached to a note follow the note when the
+' note is moved from code? Everything else in NoteTest was too tangled to give a
+' clean answer.
+Public Function ConnectorProbe(ByVal srcPath As String, ByVal pngPath As String) As String
+    Dim pres As Presentation, sld As Slide, shp As Shape, r As String
+    Dim code As String, a As Long, b As Long, s3 As Shape
+    Dim note As Shape, lead As Shape
+
+    On Error GoTo Failed
+    modRibbon.SetQuiet True
+    code = ReadTextFile(srcPath)
+
+    Set pres = Application.ActivePresentation
+    pres.PageSetup.SlideWidth = modSpec.SLIDE_W
+    pres.PageSetup.SlideHeight = modSpec.SLIDE_H
+    Set sld = pres.Slides.Add(pres.Slides.count + 1, ppLayoutBlank)
+    sld.Select
+
+    Set shp = modBlock.CreateBlock(sld, code, modSpec.BASE_SIZE, "python")
+    shp.Select
+    modRibbon.DoStylize
+    modBlock.LineCharRange shp.TextFrame.TextRange.text, 2, a, b
+    shp.TextFrame.TextRange.Characters(a, 1).Select
+    modRibbon.DoNote
+
+    modBlock.UngroupParts shp
+    Set note = modNote.FindNote(shp, 2)
+    For Each s3 In modBlock.AllShapes(sld)
+        If s3.Tags(modNote.TAG_LEADER_OF) = shp.Tags(modBlock.TAG_ID) Then Set lead = s3
+    Next s3
+
+    r = "connected=" & Abs(CLng(lead.ConnectorFormat.BeginConnected = msoTrue And _
+                                lead.ConnectorFormat.EndConnected = msoTrue)) & vbLf
+    r = r & "note0=" & Format$(note.Left, "0") & "," & Format$(note.Top, "0") & vbLf
+    r = r & "lead0=" & Format$(lead.Left, "0") & "," & Format$(lead.Top, "0") & _
+            " " & Format$(lead.Width, "0") & "x" & Format$(lead.Height, "0") & vbLf
+
+    note.Left = note.Left + 60
+    note.Top = note.Top + 90
+
+    r = r & "note1=" & Format$(note.Left, "0") & "," & Format$(note.Top, "0") & vbLf
+    r = r & "lead1=" & Format$(lead.Left, "0") & "," & Format$(lead.Top, "0") & _
+            " " & Format$(lead.Width, "0") & "x" & Format$(lead.Height, "0") & vbLf
+
+    lead.RerouteConnections
+    r = r & "lead2=" & Format$(lead.Left, "0") & "," & Format$(lead.Top, "0") & _
+            " " & Format$(lead.Width, "0") & "x" & Format$(lead.Height, "0") & vbLf
+
+    ' And the same again GROUPED, which is the state a note actually lives in.
+    note.Left = note.Left - 60
+    note.Top = note.Top - 90
+    modBlock.GroupParts shp
+    Set note = modNote.FindNote(shp, 2)
+    Set lead = Nothing
+    For Each s3 In modBlock.AllShapes(sld)
+        If s3.Tags(modNote.TAG_LEADER_OF) = shp.Tags(modBlock.TAG_ID) Then Set lead = s3
+    Next s3
+    r = r & "grouped_note0=" & Format$(note.Left, "0") & "," & Format$(note.Top, "0") & vbLf
+    r = r & "grouped_lead0=" & Format$(lead.Width, "0") & "x" & Format$(lead.Height, "0") & vbLf
+    note.Left = note.Left + 60
+    note.Top = note.Top + 90
+    r = r & "grouped_note1=" & Format$(note.Left, "0") & "," & Format$(note.Top, "0") & vbLf
+    r = r & "grouped_lead1=" & Format$(lead.Width, "0") & "x" & Format$(lead.Height, "0") & vbLf
+
+    sld.Export pngPath, "PNG", 1920, 1080
+    ConnectorProbe = r
+    Exit Function
+Failed:
+    ConnectorProbe = r & "ERROR " & Err.Number & ": " & Err.Description
 End Function
 
 ' The deck-level options: bold emphasis, a note per walkthrough step, the note
