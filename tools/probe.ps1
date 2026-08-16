@@ -8,7 +8,7 @@ param(
 )
 $ErrorActionPreference = 'Stop'
 $MODULES = @('modTheme','modSpec','modLangRegistry','modLangPython',
-             'modLexer','modBlock','modRender','modRibbon','modSelfTest')
+             'modLexer','modBlock','modRender','modGuides','modRibbon','modSelfTest')
 if (Test-Path $Scratch) { Remove-Item $Scratch -Force }
 $ppt = New-Object -ComObject PowerPoint.Application
 $ppt.Visible = -1

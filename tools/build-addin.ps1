@@ -19,7 +19,7 @@ $ppSaveAsOpenXMLPresentationMacroEnabled = 25
 # Dependency order, and SHIPPING modules only. modSelfTest is test scaffolding -
 # it reads and writes files by path and has no business in a distributed add-in.
 $MODULES = @('modTheme', 'modSpec', 'modLangRegistry', 'modLangPython',
-             'modLexer', 'modBlock', 'modRender', 'modRibbon')
+             'modLexer', 'modBlock', 'modRender', 'modGuides', 'modRibbon')
 
 if (Test-Path $Out) { Remove-Item $Out -Force }
 New-Item -ItemType Directory -Path (Split-Path $Out -Parent) -Force | Out-Null

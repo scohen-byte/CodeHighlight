@@ -17,7 +17,7 @@ $ppSaveAsOpenXMLPresentationMacroEnabled = 25
 # modLangRegistry, modBlock needs modSpec and modTheme, modRender needs both.
 # modRibbon is excluded - it needs IRibbonUI and plays no part here.
 $MODULES = @('modTheme', 'modSpec', 'modLangRegistry', 'modLangPython',
-             'modLexer', 'modBlock', 'modRender', 'modSelfTest')
+             'modLexer', 'modBlock', 'modRender', 'modGuides', 'modSelfTest')
 
 if (Test-Path $Scratch) { Remove-Item $Scratch -Force }
 New-Item -ItemType Directory -Path (Split-Path $Png -Parent) -Force | Out-Null

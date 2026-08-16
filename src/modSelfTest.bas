@@ -116,7 +116,7 @@ Public Function BuildSlice(ByVal srcPath As String, ByVal pngPath As String) As 
     Dim pres As Presentation, sld As Slide, shp As Shape
     Dim code As String, shapeText As String, report As String
     Dim t0 As Single, buildMs As Long, colourMs As Long
-    Dim applied As Long, dot As Long
+    Dim applied As Long, dot As Long, guides As Long
 
     On Error GoTo Failed
 
@@ -134,6 +134,7 @@ Public Function BuildSlice(ByVal srcPath As String, ByVal pngPath As String) As 
     t0 = Timer
     applied = modRender.ApplyHighlight(shp, RunLangId())
     colourMs = CLng((Timer - t0) * 1000)
+    guides = modGuides.DrawGuides(shp)
 
     ' The mask of what is actually in the shape, not of what was in the file.
     shapeText = shp.TextFrame.TextRange.text
@@ -151,6 +152,7 @@ Public Function BuildSlice(ByVal srcPath As String, ByVal pngPath As String) As 
                  " applied=" & applied & _
                  " build_ms=" & buildMs & _
                  " colour_ms=" & colourMs & _
+                 " guides=" & guides & _
                  " height=" & Format$(shp.Height, "0.0") & _
                  " top=" & Format$(shp.Top, "0.0")
     Exit Function
@@ -325,6 +327,24 @@ Public Function AutofitProbe(ByVal dummy As String) As String
     Exit Function
 Failed:
     AutofitProbe = "ERROR " & Err.Number & ": " & Err.Description
+End Function
+
+' Isolates the indent-level computation from the drawing, so a failure in one
+' cannot be mistaken for the other.
+Public Function GuideProbe(ByVal dummy As String) As String
+    Dim levels() As Long, n As Long, i As Long, r As String, txt As String
+    On Error GoTo Failed
+    txt = "for i in range(10):" & vbCr & "    if i == 17:" & vbCr & _
+          "        print(1)" & vbCr & vbCr & "    total = 0"
+    n = modGuides.IndentLevels(txt, levels)
+    r = "lines=" & n & " levels="
+    For i = 0 To n - 1
+        r = r & levels(i)
+    Next i
+    GuideProbe = r
+    Exit Function
+Failed:
+    GuideProbe = "ERROR " & Err.Number & ": " & Err.Description
 End Function
 
 ' One file, for poking at a single sample from the VBA editor's Immediate

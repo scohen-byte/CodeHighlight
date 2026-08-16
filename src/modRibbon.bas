@@ -93,6 +93,8 @@ Public Sub DoHighlight()
 
     modRender.ApplyHighlight shp, langId
     modBlock.ResizeToContent shp
+    ' After the resize, so the guides are drawn against final geometry.
+    modGuides.DrawGuides shp
 End Sub
 
 Public Sub DoHighlightAll()
@@ -105,9 +107,10 @@ Public Sub DoHighlightAll()
     End If
 
     For Each shp In sld.Shapes
-        If modBlock.IsCodeBlock(shp) Then
+        If modBlock.IsCodeBlock(shp) And shp.HasTextFrame Then
             modRender.ApplyHighlight shp, modBlock.BlockLangId(shp, CurrentLangId())
             modBlock.ResizeToContent shp
+            modGuides.DrawGuides shp
             count = count + 1
         End If
     Next shp
