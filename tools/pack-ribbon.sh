@@ -42,14 +42,21 @@ RIBBON="${2:-$RIBBON_DEFAULT}"
 [[ -f "$RIBBON" ]] || die "no ribbon xml: $RIBBON"
 unzip -tqq "$TARGET" >/dev/null 2>&1 || die "not a valid zip (is it really a .ppam?): $TARGET"
 
+# The listing is captured ONCE and matched with bash rather than piped into
+# grep -q. Under `set -o pipefail`, grep -q exits at the first match, unzip gets
+# SIGPIPE, and the pipeline reports failure even though the match succeeded.
+# Small archives happen to finish before grep exits, so this only starts biting
+# once the package grows - which is a thoroughly confusing way to fail.
+LISTING="$(unzip -l "$TARGET")"
+
 # Fail early and loudly rather than producing an add-in with no macros in it.
-if ! unzip -l "$TARGET" | grep -q 'vbaProject.bin'; then
+if [[ "$LISTING" != *"vbaProject.bin"* ]]; then
     die "no vbaProject.bin inside $TARGET
      The .ppam must be created and saved from PowerPoint on Windows first, with
      at least one module in it. The VBA project binary cannot be built from WSL."
 fi
 
-VBA_BEFORE=$(unzip -l "$TARGET" | awk '/vbaProject.bin/ {print $1}')
+VBA_BEFORE=$(printf '%s\n' "$LISTING" | awk '/vbaProject.bin/ {print $1}')
 
 WORK="$(mktemp -d)"
 trap 'rm -rf "$WORK"' EXIT
@@ -112,10 +119,11 @@ cp -f "$OUT" "$TARGET"
 # Cheap, and it catches the one failure that matters: a repack that dropped the
 # VBA project would produce an add-in that loads a ribbon wired to nothing.
 unzip -tqq "$TARGET" >/dev/null || die "repacked file is not a valid zip"
-unzip -l "$TARGET" | grep -q 'customUI/customUI14.xml' || die "ribbon part missing after repack"
-FIRST=$(unzip -l "$TARGET" | awk 'NR==4 {print $NF}')
+AFTER_LISTING="$(unzip -l "$TARGET")"
+[[ "$AFTER_LISTING" == *"customUI/customUI14.xml"* ]] || die "ribbon part missing after repack"
+FIRST=$(printf '%s\n' "$AFTER_LISTING" | awk 'NR==4 {print $NF}')
 [[ "$FIRST" == "[Content_Types].xml" ]] || die "[Content_Types].xml is not the first entry (got: $FIRST)"
-VBA_AFTER=$(unzip -l "$TARGET" | awk '/vbaProject.bin/ {print $1}')
+VBA_AFTER=$(printf '%s\n' "$AFTER_LISTING" | awk '/vbaProject.bin/ {print $1}')
 [[ "$VBA_BEFORE" == "$VBA_AFTER" ]] || die "vbaProject.bin changed size ($VBA_BEFORE -> $VBA_AFTER) - aborting, restore from $TARGET.bak"
 
 echo "ok. backup at $(basename "$TARGET").bak"
