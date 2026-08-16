@@ -6,3 +6,4 @@ dist/*.pptx
 dist/*.ppam
 *.ppam.bak
 dist/lexer/
+dist/slice/

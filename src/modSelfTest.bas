@@ -22,6 +22,11 @@ Public Sub SetLanguage(ByVal langId As String)
     mLangId = langId
 End Sub
 
+Private Function RunLangId() As String
+    If Len(mLangId) = 0 Then mLangId = modLangRegistry.DefaultLangId()
+    RunLangId = mLangId
+End Function
+
 Private Function RunLang() As LangDef
     If Len(mLangId) = 0 Then mLangId = modLangRegistry.DefaultLangId()
     RunLang = modLangRegistry.GetLang(mLangId)
@@ -94,6 +99,64 @@ Private Function BaseName(ByVal fileName As String) As String
     Dim dot As Long
     dot = InStrRev(fileName, ".")
     If dot > 0 Then BaseName = Left$(fileName, dot - 1) Else BaseName = fileName
+End Function
+
+' THE THIN SLICE: insert one block on a fresh slide, highlight it, export a PNG.
+'
+' Everything in one macro call, both because repeated Application.Run calls
+' proved unreliable (section 4 of HANDOFF.md) and because the timings are only
+' meaningful measured inside VBA.
+'
+' Also writes the mask of the SHAPE'S OWN TEXT next to the PNG. That is the
+' check that matters here: if PowerPoint altered the text on the way in - line
+' endings, tabs, autocorrected quotes - the shape mask and the file mask
+' disagree, and every colour is shifted. Comparing renders by eye would not
+' catch a one-character shift, but a diff does.
+Public Function BuildSlice(ByVal srcPath As String, ByVal pngPath As String) As String
+    Dim pres As Presentation, sld As Slide, shp As Shape
+    Dim code As String, shapeText As String, report As String
+    Dim t0 As Single, buildMs As Long, colourMs As Long
+    Dim applied As Long, dot As Long
+
+    On Error GoTo Failed
+
+    code = ReadTextFile(srcPath)
+
+    Set pres = Application.ActivePresentation
+    pres.PageSetup.SlideWidth = modSpec.SLIDE_W
+    pres.PageSetup.SlideHeight = modSpec.SLIDE_H
+    Set sld = pres.Slides.Add(pres.Slides.count + 1, ppLayoutBlank)
+
+    t0 = Timer
+    Set shp = modBlock.CreateBlock(sld, code, modSpec.BASE_SIZE, RunLangId())
+    buildMs = CLng((Timer - t0) * 1000)
+
+    t0 = Timer
+    applied = modRender.ApplyHighlight(shp, RunLangId())
+    colourMs = CLng((Timer - t0) * 1000)
+
+    ' The mask of what is actually in the shape, not of what was in the file.
+    shapeText = shp.TextFrame.TextRange.text
+    dot = InStrRev(pngPath, ".")
+    If dot > 0 Then
+        WriteTextFile Left$(pngPath, dot - 1) & ".mask", _
+                      modLexer.MaskOf(shapeText, RunLang())
+    End If
+
+    sld.Export pngPath, "PNG", 1920, 1080
+
+    BuildSlice = "lines=" & modBlock.CountLines(shapeText) & _
+                 " shapechars=" & Len(shapeText) & _
+                 " filechars=" & Len(code) & _
+                 " applied=" & applied & _
+                 " build_ms=" & buildMs & _
+                 " colour_ms=" & colourMs & _
+                 " height=" & Format$(shp.Height, "0.0") & _
+                 " top=" & Format$(shp.Top, "0.0")
+    Exit Function
+
+Failed:
+    BuildSlice = "ERROR " & Err.Number & ": " & Err.Description
 End Function
 
 ' One file, for poking at a single sample from the VBA editor's Immediate
