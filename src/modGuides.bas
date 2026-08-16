@@ -153,8 +153,7 @@ Public Function IndentLevels(ByVal text As String, ByRef levels() As Long) As Lo
     Dim cols() As Long, blank() As Boolean
     Dim prevLevel As Long, nextLevel As Long
 
-    text = Replace(Replace(text, vbCrLf, vbCr), vbLf, vbCr)
-    lines = Split(text, vbCr)
+    lines = modBlock.SplitLines(text)
     n = UBound(lines) - LBound(lines) + 1
     If n <= 0 Then Exit Function
 

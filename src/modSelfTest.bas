@@ -523,8 +523,11 @@ Public Function EditFlowTest(ByVal srcPath As String, ByVal pngPath As String) A
     r = "start_lines=3 gutter=" & Abs(CLng(modGutter.HasGutter(shp))) & vbLf
 
     ' Now edit it to the full sample and Highlight again - the reported flow.
+    ' The last break is a SOFT one (vertical tab), which is what Shift+Enter and
+    ' pasted text produce, and what made the counts drift.
     modBlock.UngroupParts shp
-    shp.TextFrame.TextRange.text = modBlock.NormalizeParagraphs(code)
+    shp.TextFrame.TextRange.text = modBlock.NormalizeParagraphs(code) & _
+                                   Chr$(11) & "print(""help"")"
     shp.Select
     modRibbon.DoHighlight
 
@@ -587,6 +590,35 @@ Public Function EditFlowTest(ByVal srcPath As String, ByVal pngPath As String) A
     Exit Function
 Failed:
     EditFlowTest = r & "ERROR " & Err.Number & ": " & Err.Description
+End Function
+
+' The soft-line-break case. PowerPoint writes Shift+Enter, and often pasted
+' text, as VERTICAL TAB rather than CR. Every count in the add-in must see the
+' same visual lines the lexer does, or the numbers and guides drift.
+Public Function SoftBreakProbe(ByVal dummy As String) As String
+    Dim r As String, txt As String, vt As String
+    vt = Chr$(11)
+
+    ' Same six visual lines, written three ways.
+    r = r & "all CR      lines=" & modBlock.CountLines("a" & vbCr & "b" & vbCr & "c") & _
+            " numbers=[" & Replace(modGutter.NumberColumn("a" & vbCr & "b" & vbCr & "c"), vbCr, "|") & "]" & vbLf
+    r = r & "with VT     lines=" & modBlock.CountLines("a" & vt & "b" & vbCr & "c") & _
+            " numbers=[" & Replace(modGutter.NumberColumn("a" & vt & "b" & vbCr & "c"), vbCr, "|") & "]" & vbLf
+
+    ' The reported block, with a soft break before the last line.
+    txt = "print(1)" & vbCr & "print(2)" & vbCr & "" & vbCr & _
+          "for i in x:" & vbCr & "    if y:" & vbCr & "        z()" & vbCr & _
+          "print(3)" & vt & "print(4)"
+    r = r & "reported    lines=" & modBlock.CountLines(txt) & _
+            " numbers=[" & Replace(modGutter.NumberColumn(txt), vbCr, "|") & "]" & vbLf
+
+    Dim levels() As Long, n As Long, i As Long, lv As String
+    n = modGuides.IndentLevels(txt, levels)
+    For i = 0 To n - 1
+        lv = lv & levels(i)
+    Next i
+    r = r & "            indent levels=" & lv & " (guides must follow these)" & vbLf
+    SoftBreakProbe = r
 End Function
 
 ' Numbering rules, checked without PowerPoint doing any layout: leading and

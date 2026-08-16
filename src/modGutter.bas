@@ -88,13 +88,7 @@ Public Function NumberColumn(ByVal text As String) As String
     Dim lines() As String, i As Long, firstReal As Long, lastReal As Long
     Dim n As Long, out As String
 
-    text = Replace(Replace(text, vbCrLf, vbCr), vbLf, vbCr)
-    ' A trailing paragraph mark does not start a new paragraph.
-    Do While Len(text) > 0
-        If Right$(text, 1) <> vbCr Then Exit Do
-        text = Left$(text, Len(text) - 1)
-    Loop
-    lines = Split(text, vbCr)
+    lines = modBlock.SplitLines(text)
 
     firstReal = -1
     lastReal = -1

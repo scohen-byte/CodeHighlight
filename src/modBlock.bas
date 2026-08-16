@@ -34,6 +34,7 @@ Public Const TAG_GROUP_OF As String = "CODEBLOCK_GROUP_OF"
 Public Function NormalizeParagraphs(ByVal text As String) As String
     text = Replace(text, vbCrLf, vbCr)
     text = Replace(text, vbLf, vbCr)
+    text = Replace(text, Chr$(11), vbCr)
     Do While Len(text) > 0
         If Right$(text, 1) <> vbCr Then Exit Do
         text = Left$(text, Len(text) - 1)
@@ -71,6 +72,29 @@ Public Function NormalizeCodeText(ByVal text As String) As String
     NormalizeCodeText = text
 End Function
 
+' The VISUAL lines of a block. Everything that has to line up with the code -
+' the numbers, the indent guides, the width calculation - must agree on this.
+'
+' PowerPoint uses CR for a paragraph break and VERTICAL TAB (chr 11) for a SOFT
+' line break: Shift+Enter, and often text pasted in from elsewhere. Both start a
+' new visual line, and modLexer has always treated both as line breaks. The
+' numbering and the guides split on CR alone, so a single soft break anywhere
+' made them see one line fewer than the block renders - the last line lost its
+' number, and every guide below the break sat one line too high.
+'
+' Exactly ONE trailing paragraph mark is dropped, because PowerPoint absorbs it:
+' "a" & vbCr is one paragraph, not two. Any further trailing blanks are kept,
+' since they are deliberate padding.
+Public Function SplitLines(ByVal text As String) As String()
+    text = Replace(text, vbCrLf, vbCr)
+    text = Replace(text, vbLf, vbCr)
+    text = Replace(text, Chr$(11), vbCr)
+    If Len(text) > 0 Then
+        If Right$(text, 1) = vbCr Then text = Left$(text, Len(text) - 1)
+    End If
+    SplitLines = Split(text, vbCr)
+End Function
+
 ' Paragraph count, matching what PowerPoint itself reports.
 '
 ' A TRAILING paragraph mark does not start a new paragraph: PowerPoint counts
@@ -78,26 +102,16 @@ End Function
 ' at the bottom of the gutter, and made the numbers appear correct only when
 ' there happened to be a blank line at the end.
 Public Function CountLines(ByVal text As String) As Long
-    Dim n As Long, i As Long
-
-    Do While Len(text) > 0
-        If Right$(text, 1) <> vbCr Then Exit Do
-        text = Left$(text, Len(text) - 1)
-    Loop
-
-    n = 1
-    For i = 1 To Len(text)
-        If Mid$(text, i, 1) = vbCr Then n = n + 1
-    Next i
-    CountLines = n
+    Dim lines() As String
+    lines = SplitLines(text)
+    CountLines = UBound(lines) - LBound(lines) + 1
 End Function
 
 ' The longest line, in COLUMNS not characters, so a tab counts as a full tab
 ' stop. This is what decides whether the code fits the slide widthwise.
 Public Function LongestLine(ByVal text As String) As Long
     Dim lines() As String, i As Long, n As Long, w As Long
-    text = Replace(NormalizeParagraphs(text), vbTab, Space$(CLng(modSpec.TAB_CHARS)))
-    lines = Split(text, vbCr)
+    lines = SplitLines(Replace(text, vbTab, Space$(CLng(modSpec.TAB_CHARS))))
     For i = LBound(lines) To UBound(lines)
         w = Len(lines(i))
         If w > n Then n = w
