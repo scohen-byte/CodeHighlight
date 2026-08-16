@@ -605,6 +605,40 @@ Failed:
     EditFlowTest = r & "ERROR " & Err.Number & ": " & Err.Description
 End Function
 
+' Three New block presses in a row. They must not land on top of each other.
+Public Function CascadeProbe(ByVal dummy As String) As String
+    Dim pres As Presentation, sld As Slide, r As String, i As Long, shp As Shape
+    Dim n As Long
+
+    On Error GoTo Failed
+    modRibbon.SetQuiet True
+    Set pres = Application.ActivePresentation
+    pres.PageSetup.SlideWidth = modSpec.SLIDE_W
+    pres.PageSetup.SlideHeight = modSpec.SLIDE_H
+    Set sld = pres.Slides.Add(pres.Slides.count + 1, ppLayoutBlank)
+    sld.Select
+
+    For i = 1 To 3
+        modRibbon.DoNewBlock
+        n = 0
+        For Each shp In modBlock.AllShapes(sld)
+            If shp.Tags(modBlock.TAG_BLOCK) = "1" Then n = n + 1
+        Next shp
+        r = r & "after press " & i & ": blocks_seen=" & n & "  positions="
+        For Each shp In modBlock.AllShapes(sld)
+            If shp.Tags(modBlock.TAG_BLOCK) = "1" Then
+                r = r & "(" & Format$(shp.Left, "0") & "," & Format$(shp.Top, "0") & ")"
+            End If
+        Next shp
+        r = r & vbLf
+    Next i
+
+    CascadeProbe = r
+    Exit Function
+Failed:
+    CascadeProbe = r & "ERROR " & Err.Number & ": " & Err.Description
+End Function
+
 ' The soft-line-break case. PowerPoint writes Shift+Enter, and often pasted
 ' text, as VERTICAL TAB rather than CR. Every count in the add-in must see the
 ' same visual lines the lexer does, or the numbers and guides drift.

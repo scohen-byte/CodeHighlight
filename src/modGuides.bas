@@ -19,9 +19,9 @@ Attribute VB_Name = "modGuides"
 Option Explicit
 
 Public Const TAG_GUIDE_OF As String = "CODEBLOCK_GUIDE_OF"
-' Guides are on unless a block says otherwise, so an untagged block - one
-' pasted in from elsewhere - gets them.
-Public Const TAG_GUIDES_OFF As String = "CODEBLOCK_GUIDES_OFF"
+' Guides are OFF unless a block asks for them. They are an extra, and a block
+' that has never been told either way should look like plain code.
+Public Const TAG_GUIDES_ON As String = "CODEBLOCK_GUIDES_ON"
 
 
 ' VS Code Dark+ draws indent guides in 404040 - dark enough to recede, light
@@ -39,11 +39,11 @@ Private Const GUIDE_WEIGHT As Single = 1.25
 ' procedure, and VBA reports that as "Compile error: Variable not defined" in
 ' AddGuideLine - naming the USE site, not the declaration that is misplaced.
 Public Function GuidesEnabled(ByVal shp As Shape) As Boolean
-    GuidesEnabled = (shp.Tags(TAG_GUIDES_OFF) <> "1")
+    GuidesEnabled = (shp.Tags(TAG_GUIDES_ON) = "1")
 End Function
 
 Public Sub SetGuidesEnabled(ByVal shp As Shape, ByVal enabled As Boolean)
-    shp.Tags.Add TAG_GUIDES_OFF, IIf(enabled, "0", "1")
+    shp.Tags.Add TAG_GUIDES_ON, IIf(enabled, "1", "0")
 End Sub
 
 ' Removes every guide belonging to a block. Iterates backwards, because

@@ -134,7 +134,11 @@ End Sub
 Public Function CreateBlock(ByVal sld As Slide, ByVal code As String, _
                             ByVal size As Single, ByVal langId As String) As Shape
     Dim shp As Shape
-    Dim lineCount As Long, h As Single, pad As Single
+    Dim lineCount As Long, h As Single, pad As Single, off As Single
+
+    ' Worked out BEFORE the shape exists, so the new block does not count
+    ' itself and cancel its own offset.
+    off = CascadeOffset(sld)
 
     code = NormalizeParagraphs(code)
     lineCount = CountLines(code)
@@ -147,8 +151,7 @@ Public Function CreateBlock(ByVal sld As Slide, ByVal code As String, _
     ' every new block landed on top of the last. The block is selected on
     ' creation, so dragging it is one gesture.
     Set shp = sld.Shapes.AddShape(msoShapeRoundedRectangle, _
-                                  modSpec.CONTENT_L + CascadeOffset(sld), _
-                                  modSpec.CONTENT_T + CascadeOffset(sld), _
+                                  modSpec.CONTENT_L + off, modSpec.CONTENT_T + off, _
                                   modSpec.CONTENT_W, h)
 
     With shp
@@ -181,8 +184,12 @@ Public Function CreateBlock(ByVal sld As Slide, ByVal code As String, _
 
     ' Autofit has sized the shape by now, so position it from what it actually
     ' became rather than from the predicted height.
-    shp.Left = modSpec.CONTENT_L
-    shp.Top = modSpec.CONTENT_T + (modSpec.CONTENT_H - shp.Height) / 2
+    '
+    ' This has to REAPPLY the cascade. It used to centre the block instead,
+    ' left over from when blocks spanned the slide - which silently undid the
+    ' offset set above and dropped every new block in exactly the same place.
+    shp.Left = modSpec.CONTENT_L + off
+    shp.Top = modSpec.CONTENT_T + off
     shp.Adjustments(1) = modSpec.SpecCornerAdjust(size, ShorterSide(shp))
 
     shp.Tags.Add TAG_BLOCK, "1"

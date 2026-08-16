@@ -67,7 +67,7 @@
                         getPressed="RibbonGuidesPressed"
                         onAction="RibbonToggleGuides"
                         screentip="Show or hide the indent guides"
-                        supertip="The vertical lines marking each level of nesting. On by default."/>
+                        supertip="The vertical lines marking each level of nesting. Off by default."/>
         </group>
 
         <group id="grpSize" label="Size">

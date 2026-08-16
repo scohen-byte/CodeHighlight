@@ -348,7 +348,7 @@ Public Sub RibbonGuidesPressed(control As IRibbonControl, ByRef returnedVal)
     Dim shp As Shape, problem As String
     Set shp = modBlock.SelectedBlock(problem)
     If shp Is Nothing Then
-        returnedVal = True          ' the default for a new block
+        returnedVal = False         ' the default for a new block
     Else
         returnedVal = modGuides.GuidesEnabled(shp)
     End If
