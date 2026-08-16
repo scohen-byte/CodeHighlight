@@ -37,6 +37,81 @@ Public Const CONTENT_T As Single = 75.6        ' 1.05in
 Public Const CONTENT_W As Single = 880.56      ' 12.23in
 Public Const CONTENT_H As Single = 428.4       ' 5.95in
 
+'------------------------------------------------------------------------------
+' The size ladder
+'------------------------------------------------------------------------------
+' VBA has no array constants, so the ladder is a function. Kept in step with
+' SIZE_LADDER in tools/lab.py.
+Public Function LadderCount() As Long
+    LadderCount = 10
+End Function
+
+Public Function LadderAt(ByVal i As Long) As Single
+    Select Case i
+        Case 0: LadderAt = 10
+        Case 1: LadderAt = 12
+        Case 2: LadderAt = 14
+        Case 3: LadderAt = 16
+        Case 4: LadderAt = 18
+        Case 5: LadderAt = 20
+        Case 6: LadderAt = 22
+        Case 7: LadderAt = 24
+        Case 8: LadderAt = 28
+        Case Else: LadderAt = 32
+    End Select
+End Function
+
+' Nearest rung at or below the given size, so a block set to some off-ladder
+' size still steps sensibly rather than jumping.
+Public Function LadderIndexOf(ByVal size As Single) As Long
+    Dim i As Long, best As Long
+    For i = 0 To LadderCount() - 1
+        If LadderAt(i) <= size + 0.01 Then best = i
+    Next i
+    LadderIndexOf = best
+End Function
+
+' The width a block needs at a given size, and the height.
+Public Function SpecWidthFor(ByVal size As Single, ByVal maxChars As Long, _
+                             ByVal gutterW As Single) As Single
+    SpecWidthFor = maxChars * SpecCharW(size) + gutterW + 2 * SpecPad(size)
+End Function
+
+' Largest rung at which the code fits the content area, in BOTH directions.
+' Drives Fit, and also caps Larger so growing a block cannot push code off the
+' slide - the failure the lab showed at 32pt.
+Public Function SpecFitSize(ByVal lineCount As Long, ByVal maxChars As Long, _
+                            ByVal withGutter As Boolean) As Single
+    Dim i As Long, size As Single, gutterW As Single, best As Single
+
+    best = LadderAt(0)
+    For i = 0 To LadderCount() - 1
+        size = LadderAt(i)
+        gutterW = 0
+        If withGutter Then gutterW = SpecGutter(size, lineCount)
+        If SpecWidthFor(size, maxChars, gutterW) <= CONTENT_W Then
+            If SpecHeight(size, lineCount) <= CONTENT_H Then best = size
+        End If
+    Next i
+    SpecFitSize = best
+End Function
+
+' How many slides this code needs to stay readable, if the fitting size is
+' below the teaching floor. Returns 1 when it already fits legibly.
+Public Function SpecSlidesNeeded(ByVal lineCount As Long, ByVal maxChars As Long, _
+                                 ByVal withGutter As Boolean) As Long
+    Dim perSlide As Long
+
+    If SpecFitSize(lineCount, maxChars, withGutter) >= MIN_TEACHING_SIZE Then
+        SpecSlidesNeeded = 1
+        Exit Function
+    End If
+
+    perSlide = Int((CONTENT_H - 2 * SpecPad(MIN_TEACHING_SIZE)) / SpecLine(MIN_TEACHING_SIZE))
+    If perSlide < 1 Then perSlide = 1
+    SpecSlidesNeeded = -Int(-lineCount / perSlide)      ' ceiling division
+End Function
+
 ' Line spacing is set in EXACT points, never as a multiple. This is the single
 ' biggest simplification available to the gutter code later: it makes alignment
 ' deterministic instead of dependent on the font's internal line metrics.

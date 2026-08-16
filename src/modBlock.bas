@@ -74,6 +74,29 @@ Public Function CountLines(ByVal text As String) As Long
     CountLines = n
 End Function
 
+' The longest line, in COLUMNS not characters, so a tab counts as a full tab
+' stop. This is what decides whether the code fits the slide widthwise.
+Public Function LongestLine(ByVal text As String) As Long
+    Dim lines() As String, i As Long, n As Long, w As Long
+    text = Replace(NormalizeParagraphs(text), vbTab, Space$(CLng(modSpec.TAB_CHARS)))
+    lines = Split(text, vbCr)
+    For i = LBound(lines) To UBound(lines)
+        w = Len(lines(i))
+        If w > n Then n = w
+    Next i
+    LongestLine = n
+End Function
+
+' Moves a block to a new size. Resizing has to reapply EVERY derived quantity
+' together - font size, exact line spacing, all four margins, tab stops, the
+' height and the corner radius - and missing one is what makes a resized block
+' look subtly wrong. FormatBlockText owns the text properties, ResizeToContent
+' the geometry, so between them nothing is left behind.
+Public Sub ApplySize(ByVal shp As Shape, ByVal newSize As Single)
+    FormatBlockText shp, newSize
+    ResizeToContent shp
+End Sub
+
 ' Inserts a code block on sld and returns it. Geometry comes entirely from
 ' modSpec, so the only thing that varies is the size.
 Public Function CreateBlock(ByVal sld As Slide, ByVal code As String, _

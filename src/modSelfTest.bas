@@ -329,6 +329,56 @@ Failed:
     AutofitProbe = "ERROR " & Err.Number & ": " & Err.Description
 End Function
 
+' Drives the size ladder through the real commands, including both guards from
+' PLAN.md section 5a: Larger capped at the fitting size, and Fit warning rather
+' than silently shrinking below the teaching floor.
+Public Function SizeTest(ByVal srcPath As String) As String
+    Dim pres As Presentation, sld As Slide, shp As Shape
+    Dim r As String, code As String, i As Long, before As Single
+
+    On Error GoTo Failed
+    modRibbon.SetQuiet True
+    code = ReadTextFile(srcPath)
+
+    Set pres = Application.ActivePresentation
+    pres.PageSetup.SlideWidth = modSpec.SLIDE_W
+    pres.PageSetup.SlideHeight = modSpec.SLIDE_H
+    Set sld = pres.Slides.Add(pres.Slides.count + 1, ppLayoutBlank)
+    sld.Select
+
+    Set shp = modBlock.CreateBlock(sld, code, modSpec.BASE_SIZE, "python")
+    shp.Select
+    r = "start=" & Format$(modBlock.BlockFontSize(shp), "0") & vbLf
+    r = r & "lines=" & modBlock.CountLines(shp.TextFrame.TextRange.text) & _
+            " cols=" & modBlock.LongestLine(shp.TextFrame.TextRange.text) & vbLf
+
+    ' Smaller should walk down the ladder one rung at a time.
+    modRibbon.DoSizeDown
+    r = r & "after_smaller=" & Format$(modBlock.BlockFontSize(shp), "0") & vbLf
+
+    ' Larger repeatedly, until the cap stops it. Ten steps is more rungs than
+    ' the ladder has, so this must terminate at the fitting size.
+    For i = 1 To 10
+        modRibbon.DoSizeUp
+    Next i
+    r = r & "after_10x_larger=" & Format$(modBlock.BlockFontSize(shp), "0") & vbLf
+    r = r & "cap_warned=" & Quoted(modRibbon.LastWarning()) & vbLf
+    r = r & "fits_width=" & Abs(CLng(shp.Width <= modSpec.CONTENT_W + 0.5)) & _
+            " fits_height=" & Abs(CLng(shp.Height <= modSpec.CONTENT_H + 0.5)) & vbLf
+
+    ' Fit from a deliberately silly size.
+    modBlock.ApplySize shp, 10
+    shp.Select
+    modRibbon.DoFit
+    r = r & "fit_chose=" & Format$(modBlock.BlockFontSize(shp), "0") & vbLf
+    r = r & "fit_warning=" & Quoted(Replace(modRibbon.LastWarning(), vbCrLf, " ")) & vbLf
+
+    SizeTest = r
+    Exit Function
+Failed:
+    SizeTest = r & "ERROR " & Err.Number & ": " & Err.Description
+End Function
+
 ' Isolates the indent-level computation from the drawing, so a failure in one
 ' cannot be mistaken for the other.
 Public Function GuideProbe(ByVal dummy As String) As String

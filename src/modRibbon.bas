@@ -120,6 +120,89 @@ Public Sub DoHighlightAll()
     End If
 End Sub
 
+Public Sub DoSizeUp()
+    StepSize 1
+End Sub
+
+Public Sub DoSizeDown()
+    StepSize -1
+End Sub
+
+' Picks the largest rung the code fits at, and says so when that is too small
+' to read from the back of a room rather than silently shrinking it.
+Public Sub DoFit()
+    Dim shp As Shape, problem As String, best As Single, slides As Long
+
+    Set shp = modBlock.SelectedBlock(problem)
+    If shp Is Nothing Then
+        Warn problem
+        Exit Sub
+    End If
+
+    best = FitSizeFor(shp)
+    modBlock.ApplySize shp, best
+    modGuides.DrawGuides shp
+
+    If best < modSpec.MIN_TEACHING_SIZE Then
+        slides = SlidesNeededFor(shp)
+        Warn "This only fits at " & Format$(best, "0") & "pt, which will not read " & _
+             "from the back of a lecture hall." & vbCrLf & vbCrLf & _
+             "At " & Format$(modSpec.MIN_TEACHING_SIZE, "0") & "pt it needs about " & _
+             slides & " slide" & IIf(slides = 1, "", "s") & ". Consider splitting it."
+    End If
+End Sub
+
+' Larger is CAPPED at the fitting size. The lab showed what happens without
+' that guard: at 32pt a long line clipped off the right edge and the block
+' overran the top. Growth stops where the content stops fitting, not where the
+' ladder ends.
+Private Sub StepSize(ByVal direction As Long)
+    Dim shp As Shape, problem As String
+    Dim idx As Long, newSize As Single, capSize As Single
+
+    Set shp = modBlock.SelectedBlock(problem)
+    If shp Is Nothing Then
+        Warn problem
+        Exit Sub
+    End If
+
+    idx = modSpec.LadderIndexOf(modBlock.BlockFontSize(shp)) + direction
+    If idx < 0 Then idx = 0
+    If idx > modSpec.LadderCount() - 1 Then idx = modSpec.LadderCount() - 1
+    newSize = modSpec.LadderAt(idx)
+
+    If direction > 0 Then
+        capSize = FitSizeFor(shp)
+        If newSize > capSize Then
+            Warn "Already as large as this block can go and still fit the slide."
+            Exit Sub
+        End If
+    End If
+
+    modBlock.ApplySize shp, newSize
+    modGuides.DrawGuides shp
+End Sub
+
+Private Function FitSizeFor(ByVal shp As Shape) As Single
+    Dim txt As String
+    txt = shp.TextFrame.TextRange.text
+    FitSizeFor = modSpec.SpecFitSize(modBlock.CountLines(txt), _
+                                     modBlock.LongestLine(txt), HasGutter(shp))
+End Function
+
+Private Function SlidesNeededFor(ByVal shp As Shape) As Long
+    Dim txt As String
+    txt = shp.TextFrame.TextRange.text
+    SlidesNeededFor = modSpec.SpecSlidesNeeded(modBlock.CountLines(txt), _
+                                               modBlock.LongestLine(txt), HasGutter(shp))
+End Function
+
+' Phase 3 will answer this from the gutter shape. Until then a block never has
+' one, and Fit is very slightly generous with the width as a result.
+Private Function HasGutter(ByVal shp As Shape) As Boolean
+    HasGutter = False
+End Function
+
 Public Sub DoSetLanguage(ByVal index As Long)
     Dim shp As Shape, problem As String
 
@@ -174,15 +257,15 @@ Public Sub RibbonToggleGutter(control As IRibbonControl, pressed As Boolean)
 End Sub
 
 Public Sub RibbonSizeUp(control As IRibbonControl)
-    NotYet "Larger"                    ' Phase 4, capped at the fitting size
+    DoSizeUp
 End Sub
 
 Public Sub RibbonSizeDown(control As IRibbonControl)
-    NotYet "Smaller"                   ' Phase 4
+    DoSizeDown
 End Sub
 
 Public Sub RibbonFit(control As IRibbonControl)
-    NotYet "Fit"                       ' Phase 4, warns below MIN_TEACHING_SIZE
+    DoFit
 End Sub
 
 '------------------------------------------------------------------------------
