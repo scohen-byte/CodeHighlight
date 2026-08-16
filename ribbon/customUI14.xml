@@ -135,22 +135,21 @@
                     getItemLabel="RibbonNoteSizeLabel"
                     screentip="Font size for notes"
                     supertip="Auto sizes each note from the block it belongs to. Pick a rung or type any size to pin it instead. Applies to the note on the line your cursor is on, or the note you have clicked into, or - with the block itself selected - all of its notes. Each of the three note controls changes only what it is named after, so notes on one slide can differ. The choice is also remembered for notes made afterwards."/>
-          <!-- A gallery rather than a dropDown, because only a gallery can show
-               an image per item, and the swatch is the point: the name of a
-               colour is not the colour. modSwatch makes them. -->
-          <gallery id="galNoteColor"
-                   label="Note color"
-                   columns="3"
-                   itemWidth="16"
-                   itemHeight="16"
-                   getImage="RibbonNoteColorFace"
-                   getItemCount="RibbonNoteColorCount"
-                   getItemLabel="RibbonNoteColorLabel"
-                   getItemImage="RibbonNoteColorImage"
-                   getSelectedItemIndex="RibbonNoteColorSelected"
-                   onAction="RibbonNoteColorChanged"
-                   screentip="Color for notes"
-                   supertip="The control shows the color in use. The first six are quiet, for a note that is an aside about the code; the rest are saturated, for one that should be the loudest thing on the slide. Applies to the note on the line your cursor is on, or the note you have clicked into, or - with the block itself selected - all of its notes. Each of the three note controls changes only what it is named after, so notes on one slide can differ. The text color follows the fill, so a light preset gets dark words."/>
+          <!-- A dropDown rather than a gallery, so it reads the same way as
+               Note size and Note font: label on the left, control on the
+               right. dropDown items carry images too, which is what the
+               swatches need - the name of a colour is not the colour, and
+               modSwatch draws them. -->
+          <dropDown id="ddNoteColor"
+                    label="Note color"
+                    sizeString="Crimson"
+                    getItemCount="RibbonNoteColorCount"
+                    getItemLabel="RibbonNoteColorLabel"
+                    getItemImage="RibbonNoteColorImage"
+                    getSelectedItemIndex="RibbonNoteColorSelected"
+                    onAction="RibbonNoteColorChanged"
+                    screentip="Color for notes"
+                    supertip="The first six are quiet, for a note that is an aside about the code; the rest are saturated, for one that should be the loudest thing on the slide. Applies to the note on the line your cursor is on, or the note you have clicked into, or - with the block itself selected - all of its notes. Each of the three note controls changes only what it is named after, so notes on one slide can differ. The text color follows the fill, so a light preset gets dark words."/>
           <dropDown id="ddNoteFont"
                     label="Note font"
                     sizeString="Deck default"

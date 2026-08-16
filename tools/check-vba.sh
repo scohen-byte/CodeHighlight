@@ -87,6 +87,15 @@ if [[ -f "$RIBBON" ]]; then
     fi
 fi
 
+# 8. Qualified cross-module references must resolve. VBA compiles one procedure
+#    at a time, on demand, so a reference to a member that has moved or been
+#    renamed survives a full green test run and fails the first time a user
+#    calls that one procedure - as "Compile error in hidden module", naming the
+#    module and not the line. See tools/check-refs.py.
+if ! python3 "$REPO/tools/check-refs.py" *.bas; then
+    fail=1
+fi
+
 if [[ $fail -eq 0 ]]; then
     echo "vba checks passed ($(ls *.bas | wc -l) modules, $(grep -coE '(onAction|getText|getPressed|getItemCount|getItemLabel|getSelectedItemIndex|onChange|onLoad)="' "$RIBBON" 2>/dev/null || echo 0) ribbon callbacks)"
 fi

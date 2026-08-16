@@ -963,7 +963,7 @@ Public Sub RibbonNoteSizeChanged(control As IRibbonControl, text As String)
     Dim want As Long
 
     If LCase$(Trim$(text)) = "auto" Then
-        DoNoteSize modNote.NOTE_SIZE_AUTO
+        DoNoteSize modOptions.NOTE_SIZE_AUTO
         RefreshRibbon
         Exit Sub
     End If
@@ -1002,15 +1002,6 @@ Public Sub RibbonNoteColorImage(control As IRibbonControl, index As Integer, ByR
     Set p = modSwatch.Swatch(ThemeNotePreset(CLng(index)))
     ' No image is a working gallery with labels only. A failed swatch must not
     ' take the control down with it.
-    If Not p Is Nothing Then Set image = p
-End Sub
-
-' The gallery's own face carries the colour currently in use. A gallery shows
-' its button image, not its selected item, so without this the control gives no
-' clue what the notes are set to.
-Public Sub RibbonNoteColorFace(control As IRibbonControl, ByRef image)
-    Dim p As Object
-    Set p = modSwatch.Swatch(CurrentNoteColor())
     If Not p Is Nothing Then Set image = p
 End Sub
 
