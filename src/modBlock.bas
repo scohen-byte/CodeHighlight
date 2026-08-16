@@ -175,6 +175,23 @@ Public Sub SetEmphasis(ByVal shp As Shape, ByVal lineList As String)
     shp.Tags.Add TAG_EMPHASIS, lineList
 End Sub
 
+' The last line of an emphasis list, or 0 when there is none.
+'
+' The LAST, not the first. Step through emphasises one line, where the two are
+' the same. Build up emphasises everything so far, and there the last line is
+' the one the slide has just reached - the earlier ones are already explained.
+' Both the bold rendering and the walkthrough notes want that line.
+Public Function LastEmphasisedLine(ByVal spec As String) As Long
+    Dim parts() As String, i As Long, v As Long
+
+    If Len(spec) = 0 Then Exit Function
+    parts = Split(spec, ",")
+    For i = LBound(parts) To UBound(parts)
+        v = CLng(Val(parts(i)))
+        If v > LastEmphasisedLine Then LastEmphasisedLine = v
+    Next i
+End Function
+
 ' The longest line, in COLUMNS not characters, so a tab counts as a full tab
 ' stop. This is what decides whether the code fits the slide widthwise.
 Public Function LongestLine(ByVal text As String) As Long

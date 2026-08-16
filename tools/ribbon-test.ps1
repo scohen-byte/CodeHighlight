@@ -21,7 +21,8 @@ $ppSaveAsOpenXMLPresentationMacroEnabled = 25
 # modRibbon IS imported here, unlike in the lexer harness - it is the thing
 # under test. It needs IRibbonUI, which the Office library provides by default.
 $MODULES = @('modTheme', 'modSpec', 'modLangRegistry', 'modLangPython',
-             'modLexer', 'modBlock', 'modRender', 'modGutter', 'modGuides', 'modRibbon', 'modSelfTest')
+             'modLexer', 'modBlock', 'modRender', 'modGutter', 'modGuides',
+             'modOptions', 'modSwatch', 'modNote', 'modRibbon', 'modSelfTest')
 
 if (Test-Path $Scratch) { Remove-Item $Scratch -Force }
 New-Item -ItemType Directory -Path (Split-Path $Png -Parent) -Force | Out-Null

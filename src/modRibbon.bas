@@ -130,33 +130,6 @@ Public Sub StyleBlock(ByVal shp As Shape, Optional ByVal langId As String = "")
     modBlock.GroupParts shp
 End Sub
 
-Public Sub DoStylizeAll()
-    On Error GoTo Failed
-    Dim sld As Slide, shp As Shape, count As Long
-
-    Set sld = ActiveSlide()
-    If sld Is Nothing Then
-        Warn "Open a slide in Normal view first."
-        Exit Sub
-    End If
-
-    ' The same pipeline as one block, deliberately. Repeating the steps here is
-    ' what left Stylize all behind every time the pipeline gained a stage.
-    For Each shp In modBlock.AllShapes(sld)
-        If modBlock.IsCodeBlock(shp) And shp.HasTextFrame Then
-            StyleBlock shp
-            count = count + 1
-        End If
-    Next shp
-
-    If count = 0 Then
-        Warn "No code blocks on this slide. Stylize one first, which tags it."
-    End If
-    Exit Sub
-Failed:
-    Warn "DoStylizeAll failed: " & Err.Description
-End Sub
-
 Public Sub DoToggleGutter()
     On Error GoTo Failed
     Dim shp As Shape, problem As String
@@ -374,7 +347,7 @@ Public Sub DoNote()
     If sel.Type = ppSelectionText Then
         ln = modBlock.LineOfChar(shp.TextFrame.TextRange.text, sel.TextRange.Start)
     End If
-    If ln < 1 Then ln = LastEmphasisedLine(shp)
+    If ln < 1 Then ln = modBlock.LastEmphasisedLine(modBlock.GetEmphasis(shp))
 
     If ln < 1 Then
         n = modNote.NoteCount(shp)
@@ -419,32 +392,13 @@ Failed:
     Warn "DoNote failed: " & Err.Description
 End Sub
 
-' The last line of the block's emphasis, or 0 when nothing is emphasised.
-'
-' The LAST, not the first: Step through emphasises one line, where the two are
-' the same, and Build up emphasises everything so far, where the last line is
-' the one the slide has just reached and the earlier ones are already explained.
-Private Function LastEmphasisedLine(ByVal shp As Shape) As Long
-    Dim spec As String, parts() As String, i As Long, v As Long
-
-    spec = modBlock.GetEmphasis(shp)
-    If Len(spec) = 0 Then Exit Function
-
-    parts = Split(spec, ",")
-    For i = LBound(parts) To UBound(parts)
-        v = CLng(Val(parts(i)))
-        If v > LastEmphasisedLine Then LastEmphasisedLine = v
-    Next i
-End Function
-
 ' Sets the size new notes get, and repaints the ones already on the selected
 ' block so the choice is visible immediately rather than only on the next note.
 Public Sub DoNoteSize(ByVal pts As Long)
     On Error GoTo Failed
     Dim shp As Shape, problem As String
 
-    If pts < 0 Then pts = 0
-    modNote.SetDefaultNoteSize pts
+    modOptions.SetNoteSize pts
 
     Set shp = modBlock.SelectedBlock(problem)
     If shp Is Nothing Then Exit Sub          ' the default is set either way
@@ -458,7 +412,7 @@ Public Sub DoNoteColor(ByVal presetIndex As Long)
     On Error GoTo Failed
     Dim shp As Shape, problem As String
 
-    modNote.SetDefaultNoteColor ThemeNotePreset(presetIndex)
+    modOptions.SetNoteColor ThemeNotePreset(presetIndex)
 
     Set shp = modBlock.SelectedBlock(problem)
     If shp Is Nothing Then Exit Sub
@@ -466,6 +420,38 @@ Public Sub DoNoteColor(ByVal presetIndex As Long)
     Exit Sub
 Failed:
     Warn "DoNoteColor failed: " & Err.Description
+End Sub
+
+Public Sub DoNoteFont(ByVal presetIndex As Long)
+    On Error GoTo Failed
+    Dim shp As Shape, problem As String
+
+    modOptions.SetNoteFont ThemeNoteFontValue(presetIndex)
+
+    Set shp = modBlock.SelectedBlock(problem)
+    If shp Is Nothing Then Exit Sub
+    ApplyNoteStyle shp
+    Exit Sub
+Failed:
+    Warn "DoNoteFont failed: " & Err.Description
+End Sub
+
+' Restyles the selected block if there is one, so the change is visible at once.
+' Bold is a render-time property, so restyling is all it takes.
+Public Sub DoEmphasisBold(ByVal on_ As Boolean)
+    On Error GoTo Failed
+    Dim shp As Shape, problem As String
+
+    modOptions.SetEmphasisBold on_
+
+    Set shp = modBlock.SelectedBlock(problem)
+    If shp Is Nothing Then Exit Sub
+    StyleBlock shp
+    Reselect shp
+    RefreshRibbon
+    Exit Sub
+Failed:
+    Warn "DoEmphasisBold failed: " & Err.Description
 End Sub
 
 ' Restyling changes each note's height, so the notes have to be placed again -
@@ -583,6 +569,15 @@ Public Sub DoStepThrough(ByVal cumulative As Boolean)
                 list = CStr(steps(k))
             End If
             modBlock.SetEmphasis target, list
+            ' A note per step, already attached to the line this slide is
+            ' about, so the walkthrough arrives ready to be written into.
+            ' steps(k) is the newly emphasised line either way - for Build up
+            ' it is the last of the range, which is where the slide has reached.
+            If modOptions.StepNote() Then
+                If modNote.FindNote(target, steps(k)) Is Nothing Then
+                    modNote.AddNote target, steps(k)
+                End If
+            End If
             StyleBlock target
         End If
     Next k
@@ -748,10 +743,6 @@ Public Sub RibbonStylize(control As IRibbonControl)
     DoStylize
 End Sub
 
-Public Sub RibbonStylizeAll(control As IRibbonControl)
-    DoStylizeAll
-End Sub
-
 Public Sub RibbonLangCount(control As IRibbonControl, ByRef count)
     count = modLangRegistry.LangCount()
 End Sub
@@ -825,7 +816,7 @@ End Sub
 
 Public Sub RibbonNoteSizeText(control As IRibbonControl, ByRef text)
     Dim pts As Long
-    pts = modNote.DefaultNoteSize()
+    pts = modOptions.NoteSize()
     If pts < 1 Then
         text = "Auto"
     Else
@@ -862,11 +853,54 @@ Public Sub RibbonNoteColorLabel(control As IRibbonControl, index As Integer, ByR
 End Sub
 
 Public Sub RibbonNoteColorSelected(control As IRibbonControl, ByRef index)
-    index = ThemeNotePresetIndexOf(modNote.DefaultNoteColor())
+    index = ThemeNotePresetIndexOf(modOptions.NoteColor())
 End Sub
 
 Public Sub RibbonNoteColorChanged(control As IRibbonControl, id As String, index As Integer)
     DoNoteColor CLng(index)
+End Sub
+
+' A swatch in the actual colour, so the list shows what you are choosing rather
+' than asking you to remember what "Plum" looked like.
+Public Sub RibbonNoteColorImage(control As IRibbonControl, index As Integer, ByRef image)
+    Dim p As Object
+    Set p = modSwatch.Swatch(ThemeNotePreset(CLng(index)))
+    ' No image is a working gallery with labels only. A failed swatch must not
+    ' take the control down with it.
+    If Not p Is Nothing Then Set image = p
+End Sub
+
+Public Sub RibbonNoteFontCount(control As IRibbonControl, ByRef count)
+    count = ThemeNoteFontCount()
+End Sub
+
+Public Sub RibbonNoteFontLabel(control As IRibbonControl, index As Integer, ByRef label)
+    label = ThemeNoteFontName(CLng(index))
+End Sub
+
+Public Sub RibbonNoteFontSelected(control As IRibbonControl, ByRef index)
+    index = ThemeNoteFontIndexOf(modOptions.NoteFont())
+End Sub
+
+Public Sub RibbonNoteFontChanged(control As IRibbonControl, id As String, index As Integer)
+    DoNoteFont CLng(index)
+End Sub
+
+Public Sub RibbonStepNotePressed(control As IRibbonControl, ByRef returnedVal)
+    returnedVal = modOptions.StepNote()
+End Sub
+
+Public Sub RibbonToggleStepNote(control As IRibbonControl, pressed As Boolean)
+    modOptions.SetStepNote pressed
+    RefreshRibbon
+End Sub
+
+Public Sub RibbonEmphasisBoldPressed(control As IRibbonControl, ByRef returnedVal)
+    returnedVal = modOptions.EmphasisBold()
+End Sub
+
+Public Sub RibbonToggleEmphasisBold(control As IRibbonControl, pressed As Boolean)
+    DoEmphasisBold pressed
 End Sub
 
 Public Sub RibbonStepThrough(control As IRibbonControl)

@@ -49,11 +49,6 @@
                   onAction="RibbonStylize"
                   screentip="Stylize the selected block"
                   supertip="Re-colors the selected code block from scratch. Safe to press as often as you like."/>
-          <button id="btnStylizeAll"
-                  label="Stylize all"
-                  imageMso="RefreshAll"
-                  onAction="RibbonStylizeAll"
-                  screentip="Stylize every block on this slide"/>
           <toggleButton id="tglGutter"
                         label="Line numbers"
                         imageMso="NumberingGallery"
@@ -109,15 +104,30 @@
                     getItemLabel="RibbonNoteSizeLabel"
                     screentip="Font size for notes"
                     supertip="Auto sizes each note from the block it belongs to. Pick a rung or type any size to pin it instead. Applies to the selected block's notes at once, and to every note made afterwards."/>
-          <dropDown id="ddNoteColor"
-                    label="Note colour"
-                    sizeString="Indigo"
-                    getItemCount="RibbonNoteColorCount"
-                    getItemLabel="RibbonNoteColorLabel"
-                    getSelectedItemIndex="RibbonNoteColorSelected"
-                    onAction="RibbonNoteColorChanged"
-                    screentip="Colour for notes"
-                    supertip="Applies to the selected block's notes at once, and to every note made afterwards. The text colour follows the fill, so the light preset gets dark words rather than near-white ones."/>
+          <!-- A gallery rather than a dropDown, because only a gallery can show
+               an image per item, and the swatch is the point: the name of a
+               colour is not the colour. modSwatch makes them. -->
+          <gallery id="galNoteColor"
+                   label="Note color"
+                   columns="2"
+                   itemWidth="16"
+                   itemHeight="16"
+                   getItemCount="RibbonNoteColorCount"
+                   getItemLabel="RibbonNoteColorLabel"
+                   getItemImage="RibbonNoteColorImage"
+                   getSelectedItemIndex="RibbonNoteColorSelected"
+                   onAction="RibbonNoteColorChanged"
+                   screentip="Color for notes"
+                   supertip="Applies to the selected block's notes at once, and to every note made afterwards. The text color follows the fill, so the light preset gets dark words rather than near-white ones."/>
+          <dropDown id="ddNoteFont"
+                    label="Note font"
+                    sizeString="Deck default"
+                    getItemCount="RibbonNoteFontCount"
+                    getItemLabel="RibbonNoteFontLabel"
+                    getSelectedItemIndex="RibbonNoteFontSelected"
+                    onAction="RibbonNoteFontChanged"
+                    screentip="Font for notes"
+                    supertip="Deck default inherits your presentation's own body font, so a note looks like the rest of the deck rather than like code. The others ship with Windows or Office, so they render anywhere the deck opens."/>
         </group>
 
         <group id="grpWalk" label="Walkthrough">
@@ -135,6 +145,20 @@
                   onAction="RibbonBuildUp"
                   screentip="One slide per line, emphasis growing downward"
                   supertip="The same, except each slide emphasises everything up to the current line rather than just that line. For building code up rather than tracing it."/>
+          <toggleButton id="tglStepNote"
+                        label="Note per step"
+                        imageMso="ReviewNewComment"
+                        getPressed="RibbonStepNotePressed"
+                        onAction="RibbonToggleStepNote"
+                        screentip="Give every generated slide a note"
+                        supertip="Each slide the walkthrough builds arrives with a note already attached to the line it emphasises, so you fill them in rather than clicking to create them. Build up attaches it to the newest line."/>
+          <toggleButton id="tglEmphBold"
+                        label="Bold the line"
+                        imageMso="Bold"
+                        getPressed="RibbonEmphasisBoldPressed"
+                        onAction="RibbonToggleEmphasisBold"
+                        screentip="Render the emphasised line in bold"
+                        supertip="The band changes the background; bold changes the letters, which is the strongest signal available without moving anything. Applies to the newest emphasised line wherever emphasis is used, not only in a generated walkthrough."/>
           <button id="btnHide"
                   label="Hide lines"
                   imageMso="BlackAndWhiteBlack"

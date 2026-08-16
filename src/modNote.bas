@@ -54,15 +54,9 @@ Public Const TAG_LEADER_OF As String = "CODEBLOCK_LEADER_OF"
 
 Public Const NOTE_PLACEHOLDER As String = "What this line does"
 
-' The size and colour new notes get, stored on the PRESENTATION rather than in a
-' module variable so the choice survives closing PowerPoint and travels with the
-' deck. Whole numbers, for the locale reason above.
-Public Const TAG_PRES_NOTE_SIZE  As String = "CODEBLOCK_NOTE_SIZE"
-Public Const TAG_PRES_NOTE_COLOR As String = "CODEBLOCK_NOTE_COLOR"
-
-' Size 0 means "work it out from the block", which is the default and is right
-' for almost every deck. An explicit size pins it.
-Public Const NOTE_SIZE_AUTO As Long = 0
+' The size, colour and font new notes get live in modOptions, on the
+' presentation, so the choice survives closing PowerPoint and travels with the
+' deck.
 
 Private Const GAP_PT    As Single = 24      ' block edge to note
 Private Const MARGIN_PT As Single = 18      ' slide edge the note keeps clear
@@ -154,11 +148,12 @@ End Function
 ' PlaceNotes, which the caller reaches through StyleBlock.
 Public Function AddNote(ByVal shp As Shape, ByVal lineNo As Long) As Shape
     Dim sld As Slide, r As Shape
-    Dim nSize As Single, w As Single, pad As Single, fill As Long
+    Dim nSize As Single, w As Single, pad As Single, fill As Long, fnt As String
 
     Set sld = modGutter.OwningSlide(shp)
     nSize = EffectiveNoteSize(shp)
-    fill = DefaultNoteColor()
+    fill = modOptions.NoteColor()
+    fnt = modOptions.NoteFont()
     pad = modSpec.SpecPad(nSize)
     w = NoteWidth(shp)
 
@@ -184,10 +179,11 @@ Public Function AddNote(ByVal shp As Shape, ByVal lineNo As Long) As Shape
         .MarginBottom = Round(pad * 0.6, 1)
         .TextRange.text = NOTE_PLACEHOLDER
         With .TextRange
-            ' The font is deliberately NOT the code font. A note is not code,
-            ' and leaving the name alone inherits the deck's own body font, so
-            ' it looks like the rest of the presentation rather than like this
-            ' add-in. Only size and colour are ours.
+            ' The font is deliberately NOT the code font. Left unset it
+            ' inherits the deck's own body font, so a note looks like the rest
+            ' of the presentation rather than like this add-in - which is the
+            ' default, and what Note font calls "Deck default".
+            If Len(fnt) > 0 Then .Font.Name = fnt
             .Font.size = nSize
             .Font.Color.RGB = ThemeTextOn(fill)
             .ParagraphFormat.Alignment = ppAlignLeft
@@ -470,50 +466,14 @@ Public Function NoteFontSize(ByVal blockSize As Single) As Single
 End Function
 
 '------------------------------------------------------------------------------
-' The size and colour new notes get
+' The size, colour and font new notes get. The choices themselves live in
+' modOptions, on the presentation; what belongs here is applying them.
 '------------------------------------------------------------------------------
-
-Private Function ActivePres() As Presentation
-    On Error Resume Next
-    Set ActivePres = Application.ActivePresentation
-    On Error GoTo 0
-End Function
-
-' NOTE_SIZE_AUTO when nothing has been chosen, which is the usual case.
-Public Function DefaultNoteSize() As Long
-    Dim p As Presentation
-    Set p = ActivePres()
-    If p Is Nothing Then Exit Function
-    DefaultNoteSize = CLng(Val(p.Tags(TAG_PRES_NOTE_SIZE)))
-End Function
-
-Public Sub SetDefaultNoteSize(ByVal pts As Long)
-    Dim p As Presentation
-    Set p = ActivePres()
-    If p Is Nothing Then Exit Sub
-    p.Tags.Add TAG_PRES_NOTE_SIZE, CStr(pts)
-End Sub
-
-Public Function DefaultNoteColor() As Long
-    Dim p As Presentation, v As String
-    DefaultNoteColor = ThemeNoteColor()
-    Set p = ActivePres()
-    If p Is Nothing Then Exit Function
-    v = p.Tags(TAG_PRES_NOTE_COLOR)
-    If Len(v) > 0 Then DefaultNoteColor = CLng(Val(v))
-End Function
-
-Public Sub SetDefaultNoteColor(ByVal rgbColor As Long)
-    Dim p As Presentation
-    Set p = ActivePres()
-    If p Is Nothing Then Exit Sub
-    p.Tags.Add TAG_PRES_NOTE_COLOR, CStr(rgbColor)
-End Sub
 
 ' The size a note on this block should be: the pinned choice, or derived.
 Public Function EffectiveNoteSize(ByVal shp As Shape) As Single
     Dim pinned As Long
-    pinned = DefaultNoteSize()
+    pinned = modOptions.NoteSize()
     If pinned >= 1 Then
         EffectiveNoteSize = CSng(pinned)
     Else
@@ -522,20 +482,21 @@ Public Function EffectiveNoteSize(ByVal shp As Shape) As Single
 End Function
 
 ' Repaints and resizes every note on a block. The text is untouched - only the
-' size, the fill and the text colour, which is derived from the fill so a light
-' preset does not end up with near-white words on it.
+' size, the font, the fill and the text colour, which is derived from the fill
+' so a light preset does not end up with near-white words on it.
 '
 ' Height follows the text, so the caller has to place the notes again afterwards.
 Public Sub RestyleNotes(ByVal shp As Shape)
     Dim arr() As Shape, n As Long, i As Long
-    Dim size As Single, fill As Long, pad As Single, w As Single
+    Dim size As Single, fill As Long, pad As Single, w As Single, fnt As String
 
     On Error GoTo Done
     n = NoteArray(shp, arr)
     If n = 0 Then Exit Sub
 
     size = EffectiveNoteSize(shp)
-    fill = DefaultNoteColor()
+    fill = modOptions.NoteColor()
+    fnt = modOptions.NoteFont()
     pad = modSpec.SpecPad(size)
 
     For i = 1 To n
@@ -550,6 +511,10 @@ Public Sub RestyleNotes(ByVal shp As Shape)
             .MarginBottom = Round(pad * 0.6, 1)
             .TextRange.Font.size = size
             .TextRange.Font.Color.RGB = ThemeTextOn(fill)
+            ' Empty means the deck's own body font. Setting Font.Name to "" is
+            ' not the same thing - it is an error - so leaving it alone is how
+            ' "inherit" is expressed.
+            If Len(fnt) > 0 Then .TextRange.Font.Name = fnt
         End With
         ' Autofit reflows the height for the new size; the width is ours to keep.
         arr(i).Width = w

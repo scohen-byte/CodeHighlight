@@ -161,7 +161,7 @@ Failed:
     BuildSlice = "ERROR " & Err.Number & ": " & Err.Description
 End Function
 
-' Drives the REAL ribbon command path - DoNewBlock, DoStylize, DoStylizeAll
+' Drives the REAL ribbon command path - DoNewBlock, DoStylize
 ' and the wrong-selection cases - not the helpers underneath it. That is the
 ' point: a command whose logic lives inside an IRibbonControl callback can only
 ' be reached with a mouse, and would go untested.
@@ -257,14 +257,12 @@ Public Function RibbonSliceTest(ByVal srcPath As String, ByVal pngPath As String
     shp.Select
     modRibbon.DoStylize
 
-    ' --- Stylize all --------------------------------------------------------
-    modRibbon.DoStylizeAll
     ' AllShapes, not sld.Shapes: Stylize groups a block with its numbers and
     ' guides, so the block is no longer a top-level shape.
     For Each shp In modBlock.AllShapes(sld)
         If modBlock.IsCodeBlock(shp) Then blocks = blocks + 1
     Next shp
-    r = r & "highlight_all_blocks=" & blocks & vbLf
+    r = r & "blocks_on_slide=" & blocks & vbLf
 
     sld.Export pngPath, "PNG", 1920, 1080
     RibbonSliceTest = r & "done=1"
@@ -817,6 +815,107 @@ Public Function NoteTest(ByVal srcPath As String, ByVal pngPath As String) As St
     Exit Function
 Failed:
     NoteTest = r & "ERROR " & Err.Number & ": " & Err.Description
+End Function
+
+' The deck-level options: bold emphasis, a note per walkthrough step, the note
+' font, and the colour swatches the ribbon shows.
+Public Function OptionsTest(ByVal srcPath As String, ByVal pngPath As String) As String
+    Dim pres As Presentation, sld As Slide, shp As Shape, r As String
+    Dim code As String, a As Long, l As Long, s2 As Shape
+    Dim tr As TextRange, colourBefore As Long, k As Long, withNotes As Long
+    Dim target As Shape, pic As Object
+
+    On Error GoTo Failed
+    modRibbon.SetQuiet True
+    code = ReadTextFile(srcPath)
+
+    Set pres = Application.ActivePresentation
+    pres.PageSetup.SlideWidth = modSpec.SLIDE_W
+    pres.PageSetup.SlideHeight = modSpec.SLIDE_H
+    Set sld = pres.Slides.Add(pres.Slides.count + 1, ppLayoutBlank)
+    sld.Select
+
+    Set shp = modBlock.CreateBlock(sld, code, modSpec.BASE_SIZE, "python")
+    shp.Select
+    modRibbon.DoStylize
+    Set tr = shp.TextFrame.TextRange
+
+    ' --- bold the emphasised line ------------------------------------------
+    ' Build up style: a range, where only the LAST line should go bold.
+    modBlock.LineCharRange tr.text, 3, a, l
+    colourBefore = tr.Characters(a, 1).Font.Color.RGB
+
+    modBlock.SetEmphasis shp, "2,3"
+    modOptions.SetEmphasisBold True
+    shp.Select
+    modRibbon.DoStylize
+
+    Set tr = shp.TextFrame.TextRange
+    modBlock.LineCharRange tr.text, 3, a, l
+    r = "last_line_bold=" & Abs(CLng(tr.Characters(a, 1).Font.Bold = msoTrue)) & vbLf
+    ' Bold must not collapse the runs the way Font.Highlight did - that bug cost
+    ' a whole round of syntax colours once already.
+    r = r & "colour_survived_bold=" & _
+            Abs(CLng(tr.Characters(a, 1).Font.Color.RGB = colourBefore)) & vbLf
+    modBlock.LineCharRange tr.text, 2, a, l
+    r = r & "earlier_line_not_bold=" & _
+            Abs(CLng(tr.Characters(a, 1).Font.Bold <> msoTrue)) & vbLf
+
+    ' Turning it off has to actually unbold, not leave the last run behind.
+    modOptions.SetEmphasisBold False
+    shp.Select
+    modRibbon.DoStylize
+    Set tr = shp.TextFrame.TextRange
+    modBlock.LineCharRange tr.text, 3, a, l
+    r = r & "bold_cleared=" & Abs(CLng(tr.Characters(a, 1).Font.Bold <> msoTrue)) & vbLf
+
+    ' --- note font ----------------------------------------------------------
+    modOptions.SetNoteFont ThemeNoteFontValue(4)          ' Consolas
+    modBlock.SetEmphasis shp, "2"
+    shp.Select
+    modRibbon.DoStylize
+    Dim grp As Shape
+    Set grp = modBlock.ParentGroup(shp)
+    If grp Is Nothing Then shp.Select Else grp.Select
+    modRibbon.DoNote
+    Set s2 = modNote.FindNote(shp, 2)
+    If Not s2 Is Nothing Then
+        r = r & "note_font=" & s2.TextFrame.TextRange.Font.Name & vbLf
+    End If
+
+    ' --- a swatch for the ribbon -------------------------------------------
+    Set pic = modSwatch.Swatch(ThemeNotePreset(1))
+    r = r & "swatch_made=" & Abs(CLng(Not pic Is Nothing)) & vbLf
+
+    ' --- a note per walkthrough step ---------------------------------------
+    ' Bold back on, since the render below is what the two options look like
+    ' together, which is how they will actually be used.
+    modOptions.SetEmphasisBold True
+    modOptions.SetStepNote True
+    modBlock.SetEmphasis shp, ""
+    shp.Select
+    modRibbon.DoStylize
+    shp.Select
+    modRibbon.DoStepThrough False
+
+    r = r & "slides=" & pres.Slides.count & vbLf
+    For k = 2 To pres.Slides.count
+        Set target = Nothing
+        For Each s2 In modBlock.AllShapes(pres.Slides(k))
+            If s2.Tags(modBlock.TAG_BLOCK) = "1" Then Set target = s2
+        Next s2
+        If Not target Is Nothing Then
+            If modNote.NoteCount(target) > 0 Then withNotes = withNotes + 1
+        End If
+    Next k
+    r = r & "step_slides_with_notes=" & withNotes & vbLf
+
+    pres.Slides(3).Export pngPath, "PNG", 1920, 1080
+
+    OptionsTest = r
+    Exit Function
+Failed:
+    OptionsTest = r & "ERROR " & Err.Number & ": " & Err.Description
 End Function
 
 ' Compares three ways of showing an emphasised range, since the text highlight

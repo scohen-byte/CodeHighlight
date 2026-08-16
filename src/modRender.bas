@@ -31,6 +31,9 @@ Public Function ApplyHighlight(ByVal shp As Shape, ByVal langId As String) As Lo
 
     tr.Font.Name = THEME_FONT
     tr.Font.Color.RGB = ThemeColor(tkDefault)
+    ' Reset with the rest, so turning the option off actually unbolds the line
+    ' rather than leaving the last walkthrough's bold behind.
+    tr.Font.Bold = msoFalse
 
     ' Emphasis BEFORE the colours. Setting Font.Highlight across the whole range
     ' collapses the runs, so doing it afterwards repaints every character in one
@@ -67,8 +70,32 @@ Public Function ApplyHighlight(ByVal shp As Shape, ByVal langId As String) As Lo
         End If
     Next i
 
+    ' Bold LAST, after every colour is on. Setting Bold over a range touches
+    ' only the weight - unlike Font.Highlight, which collapses the runs and
+    ' repaints them one colour - but the order costs nothing and the test
+    ' checks a token's colour survives it.
+    If dimming Then BoldEmphasisedLine tr, emph
+
     ApplyHighlight = applied
 End Function
+
+' Renders the newly emphasised line in bold as well as banded, when the deck
+' asks for it. The band alone is a background change; bold changes the letters
+' themselves, which is the strongest signal available without moving anything.
+Private Sub BoldEmphasisedLine(ByVal tr As TextRange, ByVal emph As String)
+    Dim ln As Long, startIdx As Long, length As Long
+
+    If Not modOptions.EmphasisBold() Then Exit Sub
+    ln = modBlock.LastEmphasisedLine(emph)
+    If ln < 1 Then Exit Sub
+
+    modBlock.LineCharRange tr.text, ln, startIdx, length
+    If startIdx < 1 Or length < 1 Then Exit Sub
+
+    On Error Resume Next
+    tr.Characters(startIdx, length).Font.Bold = msoTrue
+    On Error GoTo 0
+End Sub
 
 ' char index -> line number, built once per render. Walking the text per span
 ' would be quadratic, and a long block has hundreds of spans.

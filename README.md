@@ -34,18 +34,20 @@ editable.
 |---|---|
 | **New block** | Inserts an empty dark block. The placeholder text is selected, so just start typing |
 | **Stylize** | Colours the selected block, refits it, and re-syncs its numbers, guides and notes. The button you press constantly |
-| **Stylize all** | The same, for every code block on the slide |
 | **Language** | Which lexer to use. Stored per block |
 | **Line numbers** | Show or hide the numbers for the selected block. A separate shape, so the code text stays pure source. Off by default |
 | **Indent guides** | Show or hide the vertical nesting lines, drawn as real shapes. Off by default |
 | **Emphasize** | Band the selected lines and fade the rest |
 | **Note** | Attach an explanation to a line of code |
 | **Note size** | Font size for notes. Auto sizes each one from its block |
-| **Note colour** | One of six presets. The text colour follows the fill |
+| **Note color** | One of six presets, each shown as its own swatch |
+| **Note font** | Deck default, or one of four that ship with Windows |
 | **Copy code** | Put the block's code on the clipboard, ready to paste into an editor |
 | **Strip** | Back to plain uncoloured text. Stylize brings it all back |
 | **Step through** | Build a walkthrough: one slide per line, each emphasising the next |
 | **Build up** | The same, with the emphasis growing downward rather than moving |
+| **Note per step** | Every generated slide arrives with a note on the line it emphasises |
+| **Bold the line** | Render the newest emphasised line in bold as well as banded |
 | **Hide lines** | Cover lines with a `?`, keeping the block's exact layout, so the class can guess them |
 | **Reveal next** | Duplicate the slide with nothing hidden — the answer, one click after the question |
 | **Size** | The block's size in points. Pick a rung or type any size |
@@ -87,6 +89,16 @@ Two things worth knowing:
   walks every line, which on a forty-line block means forty slides. Past twelve
   it asks before going ahead.
 
+Two options change what gets built:
+
+- **Note per step** gives every generated slide a note already attached to the
+  line it emphasises, so the walkthrough arrives ready to be written into rather
+  than ready to be clicked at. Build up attaches it to the newest line.
+- **Bold the line** renders that line in bold as well as banded. The band changes
+  the background; bold changes the letters, which is the strongest signal
+  available without moving anything. It applies wherever emphasis is used, not
+  only in a generated walkthrough.
+
 The generated slides are ordinary slides. Reorder, delete or edit any of them,
 and press Stylize on one if you change its code.
 
@@ -122,13 +134,20 @@ generated Step through is one click per slide, with nothing to aim at. Build up
 emphasises a range, and the note goes on its **last** line, which is the one
 that slide has just reached.
 
-**Note size** and **Note colour** apply to the selected block's notes straight
-away, and to every note made afterwards. Auto sizes each note from the block it
-belongs to, which is usually what you want. The six colours are fixed rather
-than a full picker, because each one is checked against the text colour it gets
-— the light preset gets dark words and a faint edge so it does not dissolve into
-a white slide. The choice is stored in the deck, not in the add-in, so it
-travels with the file.
+**Note size**, **Note color** and **Note font** apply to the selected block's
+notes straight away, and to every note made afterwards. All three are stored in
+the deck rather than in the add-in, so they travel with the file.
+
+- **Size.** Auto sizes each note from the block it belongs to, which is usually
+  what you want. Any rung, or any typed size, pins it instead.
+- **Color.** Six presets, each shown as a swatch of itself, rather than a full
+  picker — every one is checked against the text colour it gets, and an
+  arbitrary colour is not. The text colour follows the fill, so the light preset
+  gets dark words and a faint edge instead of dissolving into a white slide.
+- **Font.** Deck default inherits your presentation's own body font, so a note
+  looks like the rest of the deck rather than like code. That is the default and
+  is usually right. The four alternatives all ship with Windows or Office, so a
+  note renders anywhere the deck opens.
 
 - **Two notes on nearby lines stack** rather than landing on top of each other.
 - **A block too wide to leave a margin** puts its notes below itself instead,

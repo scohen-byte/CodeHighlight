@@ -13,7 +13,8 @@ $ErrorActionPreference = 'Stop'
 # which looks like a fault in whatever is being tested.
 if (-not $Scratch) { $Scratch = "C:\Users\User\ppt-lab\probe-run-" + [guid]::NewGuid().ToString('N').Substring(0,8) + '.pptm' }
 $MODULES = @('modTheme','modSpec','modLangRegistry','modLangPython',
-             'modLexer','modBlock','modRender','modGutter','modGuides','modRibbon','modSelfTest')
+             'modLexer','modBlock','modRender','modGutter','modGuides',
+             'modOptions','modSwatch','modNote','modRibbon','modSelfTest')
 if (Test-Path $Scratch) { Remove-Item $Scratch -Force }
 $ppt = New-Object -ComObject PowerPoint.Application
 $ppt.Visible = -1

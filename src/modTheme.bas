@@ -154,6 +154,42 @@ Public Function ThemeNotePreset(ByVal i As Long) As Long
     End Select
 End Function
 
+' The fonts a note can be set to. Item 0 is the deck's own body font, which is
+' the default: a note is prose, and inheriting the theme font makes it look like
+' the rest of the presentation. The rest ship with Windows or with Office, so
+' nothing here can fail to render on a machine that can open the deck.
+Public Function ThemeNoteFontCount() As Long
+    ThemeNoteFontCount = 5
+End Function
+
+Public Function ThemeNoteFontName(ByVal i As Long) As String
+    Select Case i
+        Case 0: ThemeNoteFontName = "Deck default"
+        Case 1: ThemeNoteFontName = "Segoe UI"
+        Case 2: ThemeNoteFontName = "Calibri"
+        Case 3: ThemeNoteFontName = "Georgia"
+        Case Else: ThemeNoteFontName = "Consolas"
+    End Select
+End Function
+
+' The value to hand to Font.Name. Empty for the deck default, which means
+' "leave it alone".
+Public Function ThemeNoteFontValue(ByVal i As Long) As String
+    If i = 0 Then Exit Function
+    ThemeNoteFontValue = ThemeNoteFontName(i)
+End Function
+
+Public Function ThemeNoteFontIndexOf(ByVal fontName As String) As Long
+    Dim i As Long
+    If Len(fontName) = 0 Then Exit Function
+    For i = 1 To ThemeNoteFontCount() - 1
+        If ThemeNoteFontName(i) = fontName Then
+            ThemeNoteFontIndexOf = i
+            Exit Function
+        End If
+    Next i
+End Function
+
 Public Function ThemeNotePresetIndexOf(ByVal rgbColor As Long) As Long
     Dim i As Long
     For i = 0 To ThemeNotePresetCount() - 1
