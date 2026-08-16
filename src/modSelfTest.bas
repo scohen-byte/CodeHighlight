@@ -909,6 +909,68 @@ Public Function OptionsTest(ByVal srcPath As String, ByVal pngPath As String) As
     r = r & "worst_contrast=" & Format$(worst, "0.00") & " (" & worstName & ")" & vbLf
     r = r & "all_presets_readable=" & Abs(CLng(worst >= 4.5)) & vbLf
 
+    ' --- two notes, two colours --------------------------------------------
+    ' The thing that was broken: restyling reapplied every property from the
+    ' deck, so no note could differ from any other in anything.
+    modBlock.LineCharRange shp.TextFrame.TextRange.text, 3, a, l
+    shp.TextFrame.TextRange.Characters(a, 1).Select
+    modRibbon.DoNote
+
+    Dim nA As Shape, nB As Shape
+
+    ' Singled out by the CURSOR, which is the gesture that works on a note
+    ' inside a group. Shape.Select on a group member selects the group, so a
+    ' test that clicked the note would be testing something a user cannot do.
+    modBlock.LineCharRange shp.TextFrame.TextRange.text, 2, a, l
+    shp.TextFrame.TextRange.Characters(a, 1).Select
+    modRibbon.DoNoteColor 9                               ' Emerald
+    modBlock.LineCharRange shp.TextFrame.TextRange.text, 3, a, l
+    shp.TextFrame.TextRange.Characters(a, 1).Select
+    modRibbon.DoNoteColor 10                              ' Royal
+
+    Set nA = modNote.FindNote(shp, 2)
+    Set nB = modNote.FindNote(shp, 3)
+    r = r & "two_colours=" & _
+            Abs(CLng(nA.fill.ForeColor.RGB = ThemeNotePreset(9) And _
+                     nB.fill.ForeColor.RGB = ThemeNotePreset(10))) & vbLf
+
+    ' A per-note size must not drag the other note's size with it.
+    modBlock.LineCharRange shp.TextFrame.TextRange.text, 2, a, l
+    shp.TextFrame.TextRange.Characters(a, 1).Select
+    modRibbon.DoNoteSize 28
+    Set nA = modNote.FindNote(shp, 2)
+    Set nB = modNote.FindNote(shp, 3)
+    r = r & "size_only_selected=" & _
+            Abs(CLng(nA.TextFrame.TextRange.Font.size = 28 And _
+                     nB.TextFrame.TextRange.Font.size <> 28)) & vbLf
+    ' And changing the size must not have reset the colours.
+    r = r & "colours_survived_size=" & _
+            Abs(CLng(nA.fill.ForeColor.RGB = ThemeNotePreset(9) And _
+                     nB.fill.ForeColor.RGB = ThemeNotePreset(10))) & vbLf
+
+    ' With the BLOCK selected rather than a line, all of them change.
+    shp.Select
+    modRibbon.DoNoteColor 11                              ' Violet
+    Set nA = modNote.FindNote(shp, 2)
+    Set nB = modNote.FindNote(shp, 3)
+    r = r & "block_selected_changes_all=" & _
+            Abs(CLng(nA.fill.ForeColor.RGB = ThemeNotePreset(11) And _
+                     nB.fill.ForeColor.RGB = ThemeNotePreset(11))) & vbLf
+
+    ' Put them back to two colours, then check Stylize never repaints a note.
+    modBlock.LineCharRange shp.TextFrame.TextRange.text, 2, a, l
+    shp.TextFrame.TextRange.Characters(a, 1).Select
+    modRibbon.DoNoteColor 9
+    shp.Select
+    modRibbon.DoStylize
+    Set nA = modNote.FindNote(shp, 2)
+    Set nB = modNote.FindNote(shp, 3)
+    r = r & "colours_survived_stylize=" & _
+            Abs(CLng(nA.fill.ForeColor.RGB = ThemeNotePreset(9) And _
+                     nB.fill.ForeColor.RGB = ThemeNotePreset(11))) & vbLf
+
+    sld.Export Replace(pngPath, ".png", "-notes.png"), "PNG", 1920, 1080
+
     ' --- a note per walkthrough step ---------------------------------------
     ' Bold back on, since the render below is what the two options look like
     ' together, which is how they will actually be used.

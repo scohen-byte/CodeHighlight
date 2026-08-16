@@ -134,9 +134,20 @@ generated Step through is one click per slide, with nothing to aim at. Build up
 emphasises a range, and the note goes on its **last** line, which is the one
 that slide has just reached.
 
-**Note size**, **Note color** and **Note font** apply to the selected block's
-notes straight away, and to every note made afterwards. All three are stored in
-the deck rather than in the add-in, so they travel with the file.
+**Note size**, **Note color** and **Note font** each change only what they are
+named after, so two notes on one slide can differ in colour, size and font
+independently. Each one applies to:
+
+- the note on the line your **cursor** is on, or
+- the note you have **clicked into**, or
+- **all** of the block's notes, when the block itself is selected.
+
+The cursor route matters because Stylize groups every note with its block, and
+reaching a shape inside a group takes two deliberate clicks. Putting the cursor
+on line 7 and picking a colour recolours line 7's note, and nothing else.
+
+Whatever you pick is also remembered for notes made afterwards, stored in the
+deck rather than in the add-in, so it travels with the file.
 
 - **Size.** Auto sizes each note from the block it belongs to, which is usually
   what you want. Any rung, or any typed size, pins it instead.
@@ -151,8 +162,10 @@ the deck rather than in the add-in, so they travel with the file.
   faint edge so it does not dissolve into a white slide.
 - **Font.** Deck default inherits your presentation's own body font, so a note
   looks like the rest of the deck rather than like code. That is the default and
-  is usually right. The four alternatives all ship with Windows or Office, so a
-  note renders anywhere the deck opens.
+  is usually right. It cannot be applied *back* to a note that already has a
+  named font — there is no font name meaning "inherit" — so choosing it affects
+  only notes made afterwards. The four alternatives all ship with Windows or
+  Office, so a note renders anywhere the deck opens.
 
 - **Two notes on nearby lines stack** rather than landing on top of each other.
 - **A block too wide to leave a margin** puts its notes below itself instead,

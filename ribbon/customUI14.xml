@@ -66,6 +66,36 @@
                     supertip="The vertical lines marking each level of nesting. Off by default."/>
         </group>
 
+        <group id="grpSize" label="Size">
+          <comboBox id="cboSize"
+                    label="Size"
+                    sizeString="00"
+                    getText="RibbonSizeText"
+                    onChange="RibbonSizeChanged"
+                    getItemCount="RibbonSizeCount"
+                    getItemLabel="RibbonSizeLabel"
+                    screentip="Font size in points"
+                    supertip="Pick a rung or type any size. Refused if the block would stop fitting the slide."/>
+          <button id="btnBigger"
+                  label="Larger"
+                  imageMso="FontSizeIncrease"
+                  onAction="RibbonSizeUp"
+                  screentip="Step up the size ladder"
+                  supertip="Stops growing where the code would stop fitting the slide."/>
+          <button id="btnSmaller"
+                  label="Smaller"
+                  imageMso="FontSizeDecrease"
+                  onAction="RibbonSizeDown"
+                  screentip="Step down the size ladder"/>
+          <button id="btnFit"
+                  label="Fit"
+                  size="large"
+                  imageMso="SizeToControlHeight"
+                  onAction="RibbonFit"
+                  screentip="Pick the largest size that fits"
+                  supertip="Warns instead of shrinking silently when the code will not read from the back of the room."/>
+        </group>
+
         <group id="grpTools" label="Emphasis and text">
           <button id="btnEmphasise"
                   label="Emphasize"
@@ -104,7 +134,7 @@
                     getItemCount="RibbonNoteSizeCount"
                     getItemLabel="RibbonNoteSizeLabel"
                     screentip="Font size for notes"
-                    supertip="Auto sizes each note from the block it belongs to. Pick a rung or type any size to pin it instead. Applies to the selected block's notes at once, and to every note made afterwards."/>
+                    supertip="Auto sizes each note from the block it belongs to. Pick a rung or type any size to pin it instead. Applies to the note on the line your cursor is on, or the note you have clicked into, or - with the block itself selected - all of its notes. Each of the three note controls changes only what it is named after, so notes on one slide can differ. The choice is also remembered for notes made afterwards."/>
           <!-- A gallery rather than a dropDown, because only a gallery can show
                an image per item, and the swatch is the point: the name of a
                colour is not the colour. modSwatch makes them. -->
@@ -120,7 +150,7 @@
                    getSelectedItemIndex="RibbonNoteColorSelected"
                    onAction="RibbonNoteColorChanged"
                    screentip="Color for notes"
-                   supertip="The control shows the color in use. The first six are quiet, for a note that is an aside about the code; the rest are saturated, for one that should be the loudest thing on the slide. Applies to the selected block's notes at once, and to every note made afterwards - the text color follows the fill, so a light preset gets dark words."/>
+                   supertip="The control shows the color in use. The first six are quiet, for a note that is an aside about the code; the rest are saturated, for one that should be the loudest thing on the slide. Applies to the note on the line your cursor is on, or the note you have clicked into, or - with the block itself selected - all of its notes. Each of the three note controls changes only what it is named after, so notes on one slide can differ. The text color follows the fill, so a light preset gets dark words."/>
           <dropDown id="ddNoteFont"
                     label="Note font"
                     sizeString="Deck default"
@@ -129,7 +159,7 @@
                     getSelectedItemIndex="RibbonNoteFontSelected"
                     onAction="RibbonNoteFontChanged"
                     screentip="Font for notes"
-                    supertip="Deck default inherits your presentation's own body font, so a note looks like the rest of the deck rather than like code. The others ship with Windows or Office, so they render anywhere the deck opens."/>
+                    supertip="Deck default inherits your presentation's own body font, so a note looks like the rest of the deck rather than like code. It cannot be applied back to a note that already has a named font, so it only affects notes made afterwards. The others ship with Windows or Office, and apply to the note on the line your cursor is on, or the note you have clicked into, or - with the block itself selected - all of its notes. each note control changes only what it is named after, so notes on one slide can differ."/>
         </group>
 
         <group id="grpWalk" label="Walkthrough">
@@ -179,36 +209,6 @@
                   onAction="RibbonReveal"
                   screentip="Add the answer on the next slide"
                   supertip="Duplicates this slide with nothing hidden, so the reveal follows the question."/>
-        </group>
-
-        <group id="grpSize" label="Size">
-          <comboBox id="cboSize"
-                    label="Size"
-                    sizeString="00"
-                    getText="RibbonSizeText"
-                    onChange="RibbonSizeChanged"
-                    getItemCount="RibbonSizeCount"
-                    getItemLabel="RibbonSizeLabel"
-                    screentip="Font size in points"
-                    supertip="Pick a rung or type any size. Refused if the block would stop fitting the slide."/>
-          <button id="btnBigger"
-                  label="Larger"
-                  imageMso="FontSizeIncrease"
-                  onAction="RibbonSizeUp"
-                  screentip="Step up the size ladder"
-                  supertip="Stops growing where the code would stop fitting the slide."/>
-          <button id="btnSmaller"
-                  label="Smaller"
-                  imageMso="FontSizeDecrease"
-                  onAction="RibbonSizeDown"
-                  screentip="Step down the size ladder"/>
-          <button id="btnFit"
-                  label="Fit"
-                  size="large"
-                  imageMso="SizeToControlHeight"
-                  onAction="RibbonFit"
-                  screentip="Pick the largest size that fits"
-                  supertip="Warns instead of shrinking silently when the code will not read from the back of the room."/>
         </group>
 
       </tab>

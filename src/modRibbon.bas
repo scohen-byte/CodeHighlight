@@ -392,20 +392,40 @@ Failed:
     Warn "DoNote failed: " & Err.Description
 End Sub
 
-' Sets the size new notes get, and repaints the ones already on the selected
-' block so the choice is visible immediately rather than only on the next note.
+' The three note-style commands share one rule.
+'
+' Each sets the choice for notes made AFTERWARDS, and applies it to the notes
+' you have SINGLED OUT - or, if you have not singled any out, to every note on
+' the selected block. Click into a note and pick a colour and only that note
+' changes; select the block and pick one and they all do.
+'
+' They also change only what they are named after. Restyling all three
+' properties together, which is what the first version did, is what made every
+' note on a slide the same: setting a colour also reset the size and the font,
+' so no two notes could differ in anything.
+
 Public Sub DoNoteSize(ByVal pts As Long)
     On Error GoTo Failed
-    Dim shp As Shape, problem As String
+    Dim notes As Collection, blk As Shape, size As Single
 
     modOptions.SetNoteSize pts
     ' Before the early exit below. The control shows the current choice, so it
-    ' has to be re-read whether or not there was a block to restyle.
+    ' has to be re-read whether or not there was anything to restyle.
     RefreshRibbon
 
-    Set shp = modBlock.SelectedBlock(problem)
-    If shp Is Nothing Then Exit Sub          ' the choice is stored either way
-    ApplyNoteStyle shp
+    Set notes = NotesToStyle(blk)
+    If notes.count = 0 Then Exit Sub
+
+    ' Auto means "from the block", which is only knowable once the block is.
+    size = CSng(pts)
+    If pts < 1 Then size = modNote.EffectiveNoteSize(blk)
+
+    modNote.CaptureDrags blk
+    modBlock.UngroupParts blk
+    modNote.ApplyFontSize notes, size
+    StyleBlock blk
+    Reselect blk
+    RefreshRibbon
     Exit Sub
 Failed:
     Warn "DoNoteSize failed: " & Err.Description
@@ -413,16 +433,18 @@ End Sub
 
 Public Sub DoNoteColor(ByVal presetIndex As Long)
     On Error GoTo Failed
-    Dim shp As Shape, problem As String
+    Dim notes As Collection, blk As Shape
 
     modOptions.SetNoteColor ThemeNotePreset(presetIndex)
-    ' Before the early exit below. The control shows the current choice, so it
-    ' has to be re-read whether or not there was a block to restyle.
     RefreshRibbon
 
-    Set shp = modBlock.SelectedBlock(problem)
-    If shp Is Nothing Then Exit Sub          ' the choice is stored either way
-    ApplyNoteStyle shp
+    Set notes = NotesToStyle(blk)
+    If notes.count = 0 Then Exit Sub
+
+    ' Colour changes no geometry, so there is nothing to re-place and the
+    ' selection can be left exactly where it was - which matters, because
+    ' recolouring one note of several is a thing you do repeatedly.
+    modNote.ApplyFill notes, ThemeNotePreset(presetIndex)
     Exit Sub
 Failed:
     Warn "DoNoteColor failed: " & Err.Description
@@ -430,20 +452,122 @@ End Sub
 
 Public Sub DoNoteFont(ByVal presetIndex As Long)
     On Error GoTo Failed
-    Dim shp As Shape, problem As String
+    Dim notes As Collection, blk As Shape
 
     modOptions.SetNoteFont ThemeNoteFontValue(presetIndex)
-    ' Before the early exit below. The control shows the current choice, so it
-    ' has to be re-read whether or not there was a block to restyle.
     RefreshRibbon
 
-    Set shp = modBlock.SelectedBlock(problem)
-    If shp Is Nothing Then Exit Sub          ' the choice is stored either way
-    ApplyNoteStyle shp
+    ' Deck default cannot be applied to an existing note - Font.Name has no
+    ' value meaning "inherit" - so it only affects notes made afterwards.
+    If presetIndex = 0 Then Exit Sub
+
+    Set notes = NotesToStyle(blk)
+    If notes.count = 0 Then Exit Sub
+
+    modNote.CaptureDrags blk
+    modBlock.UngroupParts blk
+    modNote.ApplyFontName notes, ThemeNoteFontValue(presetIndex)
+    StyleBlock blk
+    Reselect blk
+    RefreshRibbon
     Exit Sub
 Failed:
     Warn "DoNoteFont failed: " & Err.Description
 End Sub
+
+' The notes a style command should act on, and the block they belong to.
+'
+' Three ways of singling a note out, tried in order:
+'
+'   the note itself is selected      - clicking into the group and picking it
+'   the cursor is on its line        - the same gesture that made the note
+'   neither                          - every note on the selected block
+'
+' The middle one is not a nicety. Every note ends up inside a group with its
+' block, and reaching a shape inside a group takes two deliberate clicks, so
+' without it recolouring one note of several would be fiddly enough that nobody
+' would do it.
+'
+' Empty when none of the three applies, which is not an error: the choice is
+' still stored for the next note.
+Private Function NotesToStyle(ByRef blk As Shape) As Collection
+    Dim c As Collection, shp As Shape, problem As String
+    Dim ln As Long, note As Shape
+
+    Set c = SelectedNotes()
+    If c.count > 0 Then
+        Set blk = modNote.BlockOfNote(c(1))
+        If blk Is Nothing Then Set c = New Collection
+        Set NotesToStyle = c
+        Exit Function
+    End If
+
+    Set shp = modBlock.SelectedBlock(problem)
+    If shp Is Nothing Then
+        Set NotesToStyle = New Collection
+        Exit Function
+    End If
+    Set blk = shp
+
+    ln = CursorLine(shp)
+    If ln > 0 Then
+        Set note = modNote.FindNote(shp, ln)
+        If Not note Is Nothing Then
+            c.Add note
+            Set NotesToStyle = c
+            Exit Function
+        End If
+    End If
+
+    Set NotesToStyle = modNote.AllNotes(shp)
+End Function
+
+' The line the text cursor is on, or 0 when the selection is not text.
+Private Function CursorLine(ByVal shp As Shape) As Long
+    Dim sel As Selection
+    On Error GoTo Done
+    Set sel = Application.ActiveWindow.Selection
+    If sel.Type <> ppSelectionText Then Exit Function
+    CursorLine = modBlock.LineOfChar(shp.TextFrame.TextRange.text, sel.TextRange.Start)
+Done:
+End Function
+
+' The notes in the current selection.
+'
+' CHILD shape range first. Clicking into a group and picking one member gives a
+' child shape range, while ShapeRange still reports the whole group - so reading
+' ShapeRange alone can never see a note, because Stylize groups every note with
+' its block. That is not a corner case, it is the normal state of a note.
+'
+' Late-bound through Object so that HasChildShapeRange, which arrived in
+' PowerPoint 2010, cannot turn into a compile error on an older host - the
+' add-in claims 2010 and up, and a compile error takes the whole module down
+' rather than just this feature.
+Private Function SelectedNotes() As Collection
+    Dim sel As Object, sr As Object, c As Collection
+    Dim i As Long, hasChild As Boolean
+
+    Set c = New Collection
+    On Error GoTo Done
+    Set sel = Application.ActiveWindow.Selection
+    If sel.Type <> ppSelectionShapes And sel.Type <> ppSelectionText Then GoTo Done
+
+    On Error Resume Next
+    hasChild = sel.HasChildShapeRange
+    On Error GoTo Done
+
+    If hasChild Then
+        Set sr = sel.ChildShapeRange
+    Else
+        Set sr = sel.ShapeRange
+    End If
+
+    For i = 1 To sr.count
+        If modNote.IsNote(sr(i)) Then c.Add sr(i)
+    Next i
+Done:
+    Set SelectedNotes = c
+End Function
 
 ' Restyles the selected block if there is one, so the change is visible at once.
 ' Bold is a render-time property, so restyling is all it takes.
@@ -461,18 +585,6 @@ Public Sub DoEmphasisBold(ByVal on_ As Boolean)
     Exit Sub
 Failed:
     Warn "DoEmphasisBold failed: " & Err.Description
-End Sub
-
-' Restyling changes each note's height, so the notes have to be placed again -
-' which StyleBlock does, along with everything else.
-Private Sub ApplyNoteStyle(ByVal shp As Shape)
-    If modNote.NoteCount(shp) = 0 Then Exit Sub
-    modNote.CaptureDrags shp
-    modBlock.UngroupParts shp
-    modNote.RestyleNotes shp
-    StyleBlock shp
-    Reselect shp
-    RefreshRibbon
 End Sub
 
 ' Duplicates the slide with nothing hidden, so the answer follows the question.
@@ -823,8 +935,22 @@ Public Sub RibbonNoteSizeLabel(control As IRibbonControl, index As Integer, ByRe
     End If
 End Sub
 
+' Shows the SELECTED note's size when there is one, and the deck's choice
+' otherwise. Same for the colour and the font below.
+'
+' PowerPoint gives an add-in no selection-changed event, so these are re-read
+' after a command rather than as you click about - the language dropdown has
+' always had the same limitation. They are correct whenever the add-in has just
+' done something, which is when they are looked at.
 Public Sub RibbonNoteSizeText(control As IRibbonControl, ByRef text)
-    Dim pts As Long
+    Dim note As Shape, pts As Long
+
+    Set note = FirstSelectedNote()
+    If Not note Is Nothing Then
+        text = Format$(note.TextFrame.TextRange.Font.size, "0")
+        Exit Sub
+    End If
+
     pts = modOptions.NoteSize()
     If pts < 1 Then
         text = "Auto"
@@ -862,7 +988,7 @@ Public Sub RibbonNoteColorLabel(control As IRibbonControl, index As Integer, ByR
 End Sub
 
 Public Sub RibbonNoteColorSelected(control As IRibbonControl, ByRef index)
-    index = ThemeNotePresetIndexOf(modOptions.NoteColor())
+    index = ThemeNotePresetIndexOf(CurrentNoteColor())
 End Sub
 
 Public Sub RibbonNoteColorChanged(control As IRibbonControl, id As String, index As Integer)
@@ -884,9 +1010,28 @@ End Sub
 ' clue what the notes are set to.
 Public Sub RibbonNoteColorFace(control As IRibbonControl, ByRef image)
     Dim p As Object
-    Set p = modSwatch.Swatch(modOptions.NoteColor())
+    Set p = modSwatch.Swatch(CurrentNoteColor())
     If Not p Is Nothing Then Set image = p
 End Sub
+
+Private Function CurrentNoteColor() As Long
+    Dim note As Shape
+    Set note = FirstSelectedNote()
+    If note Is Nothing Then
+        CurrentNoteColor = modOptions.NoteColor()
+    Else
+        On Error Resume Next
+        CurrentNoteColor = modOptions.NoteColor()
+        CurrentNoteColor = note.fill.ForeColor.RGB
+    End If
+End Function
+
+' The one note the ribbon reports on. Nothing when the selection is not a note.
+Private Function FirstSelectedNote() As Shape
+    Dim c As Collection
+    Set c = SelectedNotes()
+    If c.count > 0 Then Set FirstSelectedNote = c(1)
+End Function
 
 Public Sub RibbonNoteFontCount(control As IRibbonControl, ByRef count)
     count = ThemeNoteFontCount()
@@ -897,7 +1042,14 @@ Public Sub RibbonNoteFontLabel(control As IRibbonControl, index As Integer, ByRe
 End Sub
 
 Public Sub RibbonNoteFontSelected(control As IRibbonControl, ByRef index)
-    index = ThemeNoteFontIndexOf(modOptions.NoteFont())
+    Dim note As Shape
+    Set note = FirstSelectedNote()
+    If note Is Nothing Then
+        index = ThemeNoteFontIndexOf(modOptions.NoteFont())
+    Else
+        On Error Resume Next
+        index = ThemeNoteFontIndexOf(note.TextFrame.TextRange.Font.Name)
+    End If
 End Sub
 
 Public Sub RibbonNoteFontChanged(control As IRibbonControl, id As String, index As Integer)

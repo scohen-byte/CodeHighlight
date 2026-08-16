@@ -486,43 +486,102 @@ End Function
 ' so a light preset does not end up with near-white words on it.
 '
 ' Height follows the text, so the caller has to place the notes again afterwards.
-Public Sub RestyleNotes(ByVal shp As Shape)
-    Dim arr() As Shape, n As Long, i As Long
-    Dim size As Single, fill As Long, pad As Single, w As Single, fnt As String
+' ONE PROPERTY AT A TIME.
+'
+' There used to be a single RestyleNotes that reapplied size, colour and font
+' together from the deck defaults. That is what forced every note on a slide to
+' look the same: changing the colour also reset the size and the font, so no
+' note could differ from any other in any respect. Each of these touches only
+' what it is named after, and everything else about the note survives.
+'
+' Colour is stored nowhere but on the shape, which is what makes per-note colour
+' work at all - Stylize places notes and never repaints them.
+Public Sub ApplyFill(ByVal notes As Collection, ByVal fill As Long)
+    Dim i As Long
 
-    On Error GoTo Done
-    n = NoteArray(shp, arr)
-    If n = 0 Then Exit Sub
+    On Error Resume Next
+    For i = 1 To notes.count
+        With notes(i)
+            .fill.Solid
+            .fill.ForeColor.RGB = fill
+            .fill.Transparency = 0
+            ' The text colour is not a separate choice. It is whichever of light
+            ' or dark reads better on this fill, so it has to move with it.
+            .TextFrame.TextRange.Font.Color.RGB = ThemeTextOn(fill)
+        End With
+        ApplyEdge notes(i), fill
+    Next i
+End Sub
 
-    size = EffectiveNoteSize(shp)
-    fill = modOptions.NoteColor()
-    fnt = modOptions.NoteFont()
-    pad = modSpec.SpecPad(size)
+Public Sub ApplyFontSize(ByVal notes As Collection, ByVal pts As Single)
+    Dim i As Long, pad As Single, w As Single
 
-    For i = 1 To n
-        w = arr(i).Width
-        arr(i).fill.Solid
-        arr(i).fill.ForeColor.RGB = fill
-        arr(i).fill.Transparency = 0
-        With arr(i).TextFrame
+    On Error Resume Next
+    pad = modSpec.SpecPad(pts)
+    For i = 1 To notes.count
+        ' Autofit reflows the height for the new size; the width is ours to keep.
+        w = notes(i).Width
+        With notes(i).TextFrame
             .MarginLeft = pad
             .MarginRight = pad
             .MarginTop = Round(pad * 0.6, 1)
             .MarginBottom = Round(pad * 0.6, 1)
-            .TextRange.Font.size = size
-            .TextRange.Font.Color.RGB = ThemeTextOn(fill)
-            ' Empty means the deck's own body font. Setting Font.Name to "" is
-            ' not the same thing - it is an error - so leaving it alone is how
-            ' "inherit" is expressed.
-            If Len(fnt) > 0 Then .TextRange.Font.Name = fnt
+            .TextRange.Font.size = pts
         End With
-        ' Autofit reflows the height for the new size; the width is ours to keep.
-        arr(i).Width = w
-        arr(i).Adjustments(1) = modSpec.SpecCornerAdjust(size, ShorterSide(arr(i)))
-        ApplyEdge arr(i), fill
+        notes(i).Width = w
+        notes(i).Adjustments(1) = modSpec.SpecCornerAdjust(pts, ShorterSide(notes(i)))
     Next i
-Done:
 End Sub
+
+' Empty means the deck's own body font. Setting Font.Name to "" is not the same
+' thing - it is an error - so there is no way to put a note BACK to the deck
+' font once it has been given a named one, short of retyping it. Choosing the
+' deck default therefore leaves the selected notes alone and only affects the
+' ones made afterwards.
+Public Sub ApplyFontName(ByVal notes As Collection, ByVal fontName As String)
+    Dim i As Long
+    If Len(fontName) = 0 Then Exit Sub
+
+    On Error Resume Next
+    For i = 1 To notes.count
+        notes(i).TextFrame.TextRange.Font.Name = fontName
+    Next i
+End Sub
+
+Public Function IsNote(ByVal shp As Shape) As Boolean
+    On Error Resume Next
+    IsNote = (Len(shp.Tags(TAG_NOTE_OF)) > 0)
+End Function
+
+' The block a note belongs to, so a command that starts from a selected note can
+' still run the pipeline that places it.
+Public Function BlockOfNote(ByVal note As Shape) As Shape
+    Dim sld As Slide, s2 As Shape, blockId As String
+
+    blockId = note.Tags(TAG_NOTE_OF)
+    If Len(blockId) = 0 Then Exit Function
+    Set sld = modGutter.OwningSlide(note)
+
+    For Each s2 In modBlock.AllShapes(sld)
+        If s2.Tags(modBlock.TAG_BLOCK) = "1" Then
+            If s2.Tags(modBlock.TAG_ID) = blockId Then
+                Set BlockOfNote = s2
+                Exit Function
+            End If
+        End If
+    Next s2
+End Function
+
+' Every note on a block, as a Collection - the shape the styling subs above take.
+Public Function AllNotes(ByVal shp As Shape) As Collection
+    Dim arr() As Shape, n As Long, i As Long, c As Collection
+    Set c = New Collection
+    n = NoteArray(shp, arr)
+    For i = 1 To n
+        c.Add arr(i)
+    Next i
+    Set AllNotes = c
+End Function
 
 ' How wide a new note can be: the room to the right of the block, then the room
 ' to its left, and failing both the full slide width for a note placed below.
