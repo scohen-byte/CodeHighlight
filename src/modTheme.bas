@@ -45,7 +45,16 @@ Public Function ThemeColor(ByVal kind As TokenClass) As Long
         Case tkKeywordDecl:  ThemeColor = RGB(86, 156, 214)     ' 569CD6
         Case tkFunction:     ThemeColor = RGB(220, 220, 170)    ' DCDCAA
         Case tkClass:        ThemeColor = RGB(78, 201, 176)     ' 4EC9B0
-        Case tkVariable:     ThemeColor = RGB(156, 220, 254)    ' 9CDCFE
+        ' Plain identifiers are WHITE, not light blue. Measured: two VS Code
+        ' screenshots of real code contained zero 9CDCFE pixels. That colour
+        ' comes from Pylance semantic highlighting, which is not in play here -
+        ' the stock grammar leaves variables at the default colour.
+        '
+        ' The token class stays distinct even though it now shares the default
+        ' colour. The lexer still knows what is a variable, so a future theme
+        ' with semantic colouring is a one-line change here rather than a lexer
+        ' change, and the test masks keep telling v apart from punctuation.
+        Case tkVariable:     ThemeColor = RGB(212, 212, 212)    ' D4D4D4
         Case tkBracket1:     ThemeColor = RGB(255, 215, 0)      ' FFD700 gold
         Case tkBracket2:     ThemeColor = RGB(218, 112, 214)    ' DA70D6 orchid
         Case tkBracket3:     ThemeColor = RGB(23, 159, 255)     ' 179FFF blue

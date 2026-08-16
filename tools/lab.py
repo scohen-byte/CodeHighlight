@@ -44,7 +44,9 @@ PALETTE = {
     "kw_decl":  "569CD6",   # def / class / None / self / and / not
     "func":     "DCDCAA",   # definitions, call sites, builtins, decorators
     "cls":      "4EC9B0",   # class names, types
-    "var":      "9CDCFE",   # variables, parameters, attributes
+    # White, not light blue. 9CDCFE is Pylance semantic highlighting, which the
+    # stock VS Code grammar does not apply - measured against real screenshots.
+    "var":      "D4D4D4",   # variables, parameters, attributes
     # Bracket pairs by nesting depth, cycling every three levels. On by default
     # in VS Code, and on a line like print(id(x)) it is most of what you see.
     "br1":      "FFD700",   # gold
