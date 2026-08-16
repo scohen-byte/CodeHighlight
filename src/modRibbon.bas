@@ -95,6 +95,22 @@ Public Sub DoStylize()
     ' working the first time it is highlighted.
     modBlock.EnsureTags shp, langId
 
+    StyleBlock shp, langId
+    Reselect shp
+    RefreshRibbon
+    Exit Sub
+Failed:
+    Warn "DoStylize failed: " & Err.Description
+End Sub
+
+' The whole styling pipeline for ONE block, with no reference to the selection.
+'
+' Separated out so it can be run on a block the user is not looking at - which
+' is what Step through needs, since it styles blocks on slides it has just
+' created.
+Public Sub StyleBlock(ByVal shp As Shape, Optional ByVal langId As String = "")
+    If Len(langId) = 0 Then langId = modBlock.BlockLangId(shp, CurrentLangId())
+    modBlock.UngroupParts shp
     modRender.ApplyHighlight shp, langId
     modBlock.ResizeToContent shp
     ' Gutter before guides: it changes the left margin, and the guides are
@@ -103,11 +119,6 @@ Public Sub DoStylize()
     modGuides.DrawGuides shp
     ' Back into a group, so the block and its numbers and guides drag as one.
     modBlock.GroupParts shp
-    Reselect shp
-    RefreshRibbon
-    Exit Sub
-Failed:
-    Warn "DoStylize failed: " & Err.Description
 End Sub
 
 Public Sub DoStylizeAll()
@@ -278,6 +289,107 @@ Public Sub DoStrip()
 Failed:
     Warn "DoStrip failed: " & Err.Description
 End Sub
+
+' Builds a walkthrough: one new slide per line of code, each emphasising the
+' next step. The slide you start from is left with nothing emphasised, so it
+' still shows the code whole before the walk begins.
+'
+' cumulative = False spotlights one line at a time, for tracing execution.
+' cumulative = True grows the emphasis downward, for building code up.
+Public Sub DoStepThrough(ByVal cumulative As Boolean)
+    On Error GoTo Failed
+    Dim shp As Shape, problem As String, sld As Slide, dup As Slide, target As Shape
+    Dim txt As String, lines() As String, sel As Selection
+    Dim steps() As Long, n As Long, i As Long, k As Long
+    Dim firstLine As Long, lastLine As Long, base As Long, list As String
+
+    Set shp = modBlock.SelectedBlock(problem)
+    If shp Is Nothing Then
+        Warn problem
+        Exit Sub
+    End If
+
+    Set sld = modGutter.OwningSlide(shp)
+    txt = shp.TextFrame.TextRange.text
+    lines = modBlock.SplitLines(txt)
+
+    ' A text selection limits the walk to those lines. Without it a forty-line
+    ' block would produce forty slides when you wanted to walk one function.
+    firstLine = 1
+    lastLine = UBound(lines) - LBound(lines) + 1
+    Set sel = Application.ActiveWindow.Selection
+    If sel.Type = ppSelectionText Then
+        If sel.TextRange.length > 0 Then
+            firstLine = modBlock.LineOfChar(txt, sel.TextRange.Start)
+            lastLine = modBlock.LineOfChar(txt, sel.TextRange.Start + sel.TextRange.length - 1)
+        End If
+    End If
+
+    ' Blank lines get no slide of their own - a dead beat in a walkthrough.
+    ReDim steps(1 To lastLine - firstLine + 1)
+    For i = firstLine To lastLine
+        If Len(Trim$(lines(LBound(lines) + i - 1))) > 0 Then
+            n = n + 1
+            steps(n) = i
+        End If
+    Next i
+
+    If n = 0 Then
+        Warn "No code lines to step through."
+        Exit Sub
+    End If
+
+    If n > 12 Then
+        If Not Confirm("This will add " & n & " slides after this one." & vbCrLf & _
+                       "Carry on?") Then Exit Sub
+    End If
+
+    ' The starting slide shows the code with nothing picked out.
+    modBlock.SetEmphasis shp, ""
+    StyleBlock shp
+
+    base = sld.SlideIndex
+    For k = 1 To n
+        Set dup = sld.Duplicate(1)
+        ' Duplicates land immediately after the original, so without this they
+        ' would come out in reverse order.
+        dup.MoveTo base + k
+
+        Set target = BlockOnSlide(dup, shp.Tags(modBlock.TAG_ID))
+        If Not target Is Nothing Then
+            If cumulative Then
+                list = ""
+                For i = 1 To k
+                    If Len(list) > 0 Then list = list & ","
+                    list = list & CStr(steps(i))
+                Next i
+            Else
+                list = CStr(steps(k))
+            End If
+            modBlock.SetEmphasis target, list
+            StyleBlock target
+        End If
+    Next k
+
+    sld.Select
+    Exit Sub
+Failed:
+    Warn "DoStepThrough failed: " & Err.Description
+End Sub
+
+' The block carrying this id on a given slide. Duplicated slides carry the same
+' id, which is fine - the search never crosses a slide.
+Private Function BlockOnSlide(ByVal sld As Slide, ByVal blockId As String) As Shape
+    Dim shp As Shape
+    For Each shp In modBlock.AllShapes(sld)
+        If shp.Tags(modBlock.TAG_BLOCK) = "1" Then
+            If shp.Tags(modBlock.TAG_ID) = blockId Then
+                Set BlockOnSlide = shp
+                Exit Function
+            End If
+        End If
+    Next shp
+End Function
 
 Public Sub DoSizeUp()
     StepSize 1
@@ -454,6 +566,14 @@ Public Sub RibbonToggleGuides(control As IRibbonControl, pressed As Boolean)
 End Sub
 
 ' The size box: shows the selected block's size, and accepts a typed one.
+Public Sub RibbonStepThrough(control As IRibbonControl)
+    DoStepThrough False
+End Sub
+
+Public Sub RibbonBuildUp(control As IRibbonControl)
+    DoStepThrough True
+End Sub
+
 Public Sub RibbonEmphasize(control As IRibbonControl)
     DoEmphasize
 End Sub
@@ -541,6 +661,15 @@ End Sub
 
 Public Function LastWarning() As String
     LastWarning = mLastWarning
+End Function
+
+' Yes/no, and always yes in a test run - a modal question would hang it.
+Private Function Confirm(ByVal msg As String) As Boolean
+    If mQuiet Then
+        Confirm = True
+        Exit Function
+    End If
+    Confirm = (MsgBox(msg, vbQuestion + vbYesNo, ADDIN_NAME) = vbYes)
 End Function
 
 Private Sub Warn(ByVal msg As String)

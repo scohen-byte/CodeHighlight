@@ -605,6 +605,51 @@ Failed:
     EditFlowTest = r & "ERROR " & Err.Number & ": " & Err.Description
 End Function
 
+' Builds a walkthrough and checks the slides that come out: how many, in what
+' order, and which line each one emphasises.
+Public Function StepTest(ByVal srcPath As String, ByVal mode As String) As String
+    Dim pres As Presentation, sld As Slide, shp As Shape
+    Dim r As String, code As String, i As Long, baseIdx As Long, target As Shape
+
+    On Error GoTo Failed
+    modRibbon.SetQuiet True
+    code = ReadTextFile(srcPath)
+
+    Set pres = Application.ActivePresentation
+    pres.PageSetup.SlideWidth = modSpec.SLIDE_W
+    pres.PageSetup.SlideHeight = modSpec.SLIDE_H
+    Set sld = pres.Slides.Add(pres.Slides.count + 1, ppLayoutBlank)
+    sld.Select
+
+    Set shp = modBlock.CreateBlock(sld, code, modSpec.BASE_SIZE, "python")
+    shp.Select
+    modRibbon.DoStylize
+    baseIdx = sld.SlideIndex
+    r = "lines=" & modBlock.CountLines(shp.TextFrame.TextRange.text) & _
+        " slides_before=" & pres.Slides.count & vbLf
+
+    shp.Select
+    modRibbon.DoStepThrough (mode = "build")
+    r = r & "slides_after=" & pres.Slides.count & vbLf
+    r = r & "start_slide_emphasis=" & Quoted(modBlock.GetEmphasis(shp)) & vbLf
+
+    For i = baseIdx To pres.Slides.count
+        Set target = Nothing
+        Dim s2 As Shape
+        For Each s2 In modBlock.AllShapes(pres.Slides(i))
+            If s2.Tags(modBlock.TAG_BLOCK) = "1" Then Set target = s2
+        Next s2
+        If Not target Is Nothing Then
+            r = r & "  slide " & i & " emphasis=" & Quoted(modBlock.GetEmphasis(target)) & vbLf
+        End If
+    Next i
+
+    StepTest = r
+    Exit Function
+Failed:
+    StepTest = r & "ERROR " & Err.Number & ": " & Err.Description
+End Function
+
 ' Emphasis, copy and strip, driven through the real commands.
 Public Function ToolsTest(ByVal srcPath As String, ByVal pngPath As String) As String
     Dim pres As Presentation, sld As Slide, shp As Shape

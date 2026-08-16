@@ -92,6 +92,22 @@
                   supertip="Removes the colours, emphasis, numbers and guides. The block stays, and Stylize brings it all back."/>
         </group>
 
+        <group id="grpWalk" label="Walkthrough">
+          <button id="btnStepThrough"
+                  label="Step through"
+                  size="large"
+                  imageMso="SlideShowFromCurrent"
+                  onAction="RibbonStepThrough"
+                  screentip="One slide per line, each emphasising the next"
+                  supertip="Duplicates this slide once per line of code, emphasising a different line each time. This slide keeps nothing emphasised, so it still shows the code whole. Select text first to walk only those lines."/>
+          <button id="btnBuildUp"
+                  label="Build up"
+                  imageMso="AnimationCustom"
+                  onAction="RibbonBuildUp"
+                  screentip="One slide per line, emphasis growing downward"
+                  supertip="The same, except each slide emphasises everything up to the current line rather than just that line. For building code up rather than tracing it."/>
+        </group>
+
         <group id="grpSize" label="Size">
           <comboBox id="cboSize"
                     label="Size"
