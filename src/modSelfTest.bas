@@ -566,6 +566,18 @@ Public Function EditFlowTest(ByVal srcPath As String, ByVal pngPath As String) A
         r = r & "group_resolves=" & Abs(CLng(Not found Is Nothing)) & vbLf
     End If
 
+    ' Report the geometry that has to line up, measured from PowerPoint's own
+    ' layout rather than from the font metric.
+    r = r & "code_first_top=" & Format$(shp.TextFrame.TextRange.Characters(1, 1).BoundTop, "0.00") & vbLf
+    If Not g Is Nothing Then
+        r = r & "num_first_top=" & Format$(g.TextFrame.TextRange.Characters(1, 1).BoundTop, "0.00") & vbLf
+        r = r & "baseline_delta=" & Format$( _
+                shp.TextFrame.TextRange.Characters(1, 1).BoundTop - _
+                g.TextFrame.TextRange.Characters(1, 1).BoundTop, "0.00") & vbLf
+    End If
+    r = r & "code_origin_x=" & Format$(shp.TextFrame.TextRange.Characters(1, 1).BoundLeft, "0.00") & vbLf
+    r = r & "spec_origin_x=" & Format$(shp.Left + shp.TextFrame.MarginLeft, "0.00") & vbLf
+
     ' Focus must survive a command, or every action costs a re-selection - and
     ' worse, the NEXT command silently does nothing because nothing is selected.
     r = r & "sel_after_highlight=" & SelectionResolves() & vbLf
@@ -578,6 +590,8 @@ Public Function EditFlowTest(ByVal srcPath As String, ByVal pngPath As String) A
     r = r & "size_after_2_no_reselect=" & Format$(modBlock.BlockFontSize(shp), "0") & vbLf
     r = r & "sel_after_resize=" & SelectionResolves() & vbLf
 
+    sld.Export pngPath, "PNG", 1920, 1080
+
     ' Resizing must keep the colours.
     shp.Select
     modRibbon.DoSizeDown
@@ -585,7 +599,6 @@ Public Function EditFlowTest(ByVal srcPath As String, ByVal pngPath As String) A
     r = r & "still_coloured=" & Abs(CLng(modLexer.MaskOf(shp.TextFrame.TextRange.text, _
             RunLang()) <> "")) & vbLf
 
-    sld.Export pngPath, "PNG", 1920, 1080
     EditFlowTest = r
     Exit Function
 Failed:

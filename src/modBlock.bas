@@ -147,7 +147,8 @@ Public Function CreateBlock(ByVal sld As Slide, ByVal code As String, _
     ' every new block landed on top of the last. The block is selected on
     ' creation, so dragging it is one gesture.
     Set shp = sld.Shapes.AddShape(msoShapeRoundedRectangle, _
-                                  modSpec.CONTENT_L, NextFreeTop(sld), _
+                                  modSpec.CONTENT_L + CascadeOffset(sld), _
+                                  modSpec.CONTENT_T + CascadeOffset(sld), _
                                   modSpec.CONTENT_W, h)
 
     With shp
@@ -191,21 +192,24 @@ Public Function CreateBlock(ByVal sld As Slide, ByVal code As String, _
     Set CreateBlock = shp
 End Function
 
-' Just below the lowest code block on the slide, or the top of the content area
-' when there is none.
-Private Function NextFreeTop(ByVal sld As Slide) As Single
-    Dim i As Long, lowest As Single, bottom As Single
+' New blocks CASCADE - each one offset down and right from the last, the way
+' pasting repeatedly does.
+'
+' Stacking them below one another sounds tidier and is not: a full-height block
+' pushes the next one off the slide, so the position gets reset and every block
+' after that lands in exactly the same spot. A cascade always moves, never runs
+' out of room, and leaves the previous block visible underneath so it is obvious
+' which is which.
+Private Function CascadeOffset(ByVal sld As Slide) As Single
+    Const STEP_PT As Single = 24
+    Const WRAP_AT As Long = 6
+    Dim shp As Shape, n As Long
 
-    Dim shp As Shape
-    lowest = modSpec.CONTENT_T
     For Each shp In AllShapes(sld)
-        If shp.Tags(TAG_BLOCK) = "1" Then
-            bottom = shp.Top + shp.Height + 12
-            If bottom > lowest Then lowest = bottom
-        End If
+        If shp.Tags(TAG_BLOCK) = "1" Then n = n + 1
     Next shp
-    If lowest > modSpec.SLIDE_H - 60 Then lowest = modSpec.CONTENT_T
-    NextFreeTop = lowest
+
+    CascadeOffset = (n Mod WRAP_AT) * STEP_PT
 End Function
 
 ' Font, alignment and paragraph spacing. Separated out because resizing has to

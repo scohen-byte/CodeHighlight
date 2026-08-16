@@ -216,4 +216,33 @@ Public Sub SyncGutter(ByVal shp As Shape, Optional ByVal create As Boolean = Fal
     ' Grouping and ungrouping reorders shapes, so this cannot be left to the
     ' order things happened to be created in.
     g.ZOrder msoBringToFront
+
+    AlignFirstLine shp, g
+End Sub
+
+' Nudges the gutter so its first number sits on the SAME baseline as the first
+' line of code.
+'
+' Both frames use the same font, size, exact line spacing and top margin, so in
+' principle they should already agree. In practice they do not quite: the block
+' has autofit on and the gutter does not, and PowerPoint lays the two frames out
+' slightly differently as a result. Rather than model that, ask where the two
+' first lines actually landed and close the gap.
+Private Sub AlignFirstLine(ByVal shp As Shape, ByVal g As Shape)
+    Dim codeTop As Single, numTop As Single, delta As Single
+
+    On Error GoTo Done
+    If Len(g.TextFrame.TextRange.text) = 0 Then Exit Sub
+    If Len(shp.TextFrame.TextRange.text) = 0 Then Exit Sub
+
+    codeTop = shp.TextFrame.TextRange.Characters(1, 1).BoundTop
+    numTop = g.TextFrame.TextRange.Characters(1, 1).BoundTop
+    delta = codeTop - numTop
+
+    ' Only correct a real difference, and never a wild one - a bad measurement
+    ' should leave the gutter where it was rather than throw it off the block.
+    If Abs(delta) > 0.2 And Abs(delta) < modSpec.SpecLine(modBlock.BlockFontSize(shp)) Then
+        g.Top = g.Top + delta
+    End If
+Done:
 End Sub

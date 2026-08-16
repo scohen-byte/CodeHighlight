@@ -27,10 +27,12 @@ Public Const TAG_GUIDES_OFF As String = "CODEBLOCK_GUIDES_OFF"
 ' VS Code Dark+ draws indent guides in 404040 - dark enough to recede, light
 ' enough to follow. Deliberately NOT in modTheme's token palette: this is
 ' furniture, not a token class.
-Private Const GUIDE_R As Long = 64
-Private Const GUIDE_G As Long = 64
-Private Const GUIDE_B As Long = 64
-Private Const GUIDE_WEIGHT As Single = 0.75
+' Light enough to see against 1F1F1F, dark enough to stay out of the way. VS
+' Code's own 404040 turned out to be nearly invisible once projected.
+Private Const GUIDE_R As Long = 106
+Private Const GUIDE_G As Long = 106
+Private Const GUIDE_B As Long = 106
+Private Const GUIDE_WEIGHT As Single = 1.25
 
 ' ALL module-level declarations must come before ANY procedure. Putting these
 ' two functions above the constants left GUIDE_R and friends stranded after a
@@ -68,6 +70,7 @@ Public Function DrawGuides(ByVal shp As Shape) As Long
     Dim sld As Slide, blockId As String
     Dim levels() As Long, lineCount As Long
     Dim size As Single, charW As Single, lineH As Single, pad As Single
+    Dim originX As Single
     Dim col As Long, i As Long, runStart As Long, drawn As Long
     Dim inRun As Boolean
     Dim x As Single, y0 As Single, y1 As Single
@@ -92,13 +95,17 @@ Public Function DrawGuides(ByVal shp As Shape) As Long
         If levels(i) > maxLevel Then maxLevel = levels(i)
     Next i
 
+    ' Ask PowerPoint where the text actually is, rather than deriving it from
+    ' the font metric. A guide has to land exactly under the first character of
+    ' its indent level, and an advance that is even 1% off the real one shows up
+    ' as a visible drift by the third level.
+    MeasureText shp, originX, charW
+
     ' One pass per indent column. A guide at column C is present on any line
     ' indented deeper than C, so consecutive such lines merge into a single
     ' shape instead of one per line.
     For col = 0 To maxLevel - 1
-        ' The block's ACTUAL left margin, not the padding: with a line-number
-        ' gutter the text starts further right, and guides must follow it.
-        x = shp.Left + shp.TextFrame.MarginLeft + col * modSpec.TAB_CHARS * charW
+        x = originX + col * modSpec.TAB_CHARS * charW
         runStart = -1
         ' Runs to lineCount INCLUSIVE, so a run reaching the last line still
         ' gets closed. The guard has to be nested rather than written as
@@ -125,6 +132,44 @@ Public Function DrawGuides(ByVal shp As Shape) As Long
 
     DrawGuides = drawn
 End Function
+
+' The left edge of the first character, and the true per-character advance,
+' both taken from PowerPoint's own layout via BoundLeft.
+'
+' Measured on a line long enough to span a tab stop, because BoundLeft resets at
+' the start of each line - measuring across a line break would give nonsense.
+Private Sub MeasureText(ByVal shp As Shape, ByRef originX As Single, _
+                        ByRef advance As Single)
+    Dim tr As TextRange, lines() As String, i As Long
+    Dim startIdx As Long, probeLen As Long, ok As Boolean
+
+    ' Fall back to the spec metric if anything below fails.
+    originX = shp.Left + shp.TextFrame.MarginLeft
+    advance = modSpec.SpecCharW(modBlock.BlockFontSize(shp))
+
+    On Error GoTo Fallback
+    Set tr = shp.TextFrame.TextRange
+    lines = modBlock.SplitLines(tr.text)
+    probeLen = CLng(modSpec.TAB_CHARS) + 1
+
+    startIdx = 1
+    For i = LBound(lines) To UBound(lines)
+        If Len(lines(i)) >= probeLen Then
+            ok = True
+            Exit For
+        End If
+        startIdx = startIdx + Len(lines(i)) + 1     ' +1 for the line break
+    Next i
+    If Not ok Then Exit Sub
+
+    originX = tr.Characters(startIdx, 1).BoundLeft
+    advance = (tr.Characters(startIdx + probeLen - 1, 1).BoundLeft - originX) / _
+              (probeLen - 1)
+    If advance <= 0 Then advance = modSpec.SpecCharW(modBlock.BlockFontSize(shp))
+    Exit Sub
+
+Fallback:
+End Sub
 
 Private Sub AddGuideLine(ByVal sld As Slide, ByVal blockId As String, _
                          ByVal x As Single, ByVal y0 As Single, ByVal y1 As Single)
