@@ -72,7 +72,7 @@ Public Function ApplyHighlight(ByVal shp As Shape, ByVal langId As String) As Lo
 
     ' The transcript lines are repainted AFTER the spans, since both kinds
     ' override what the lexer decided.
-    PaintTranscript shp, tr, langId
+    PaintTranscript shp, tr, langId, dimming, emph
 
     ' Bold LAST, after every colour is on. Setting Bold over a range touches
     ' only the weight - unlike Font.Highlight, which collapses the runs and
@@ -92,9 +92,11 @@ End Function
 ' loses its colour entirely, which is the signal - a printed value is not code,
 ' and the absence of syntax colour says so more plainly than any border.
 Private Sub PaintTranscript(ByVal shp As Shape, ByVal tr As TextRange, _
-                            ByVal langId As String)
+                            ByVal langId As String, ByVal dimming As Boolean, _
+                            ByVal emph As String)
     Dim lang As LangDef, lines() As String, i As Long, n As Long
     Dim startIdx As Long, length As Long, pl As Long
+    Dim markC As Long, outC As Long, lit As Boolean
 
     On Error Resume Next
     If Not modOutput.IsTranscript(shp) Then
@@ -115,11 +117,27 @@ Private Sub PaintTranscript(ByVal shp As Shape, ByVal tr As TextRange, _
         modBlock.LineCharRange tr.text, n, startIdx, length
         If startIdx < 1 Or length < 1 Then GoTo NextLine
 
+        ' THE DIMMING APPLIES HERE TOO. This runs after the spans, so it would
+        ' otherwise repaint the prompts and the output at full brightness and
+        ' leave them lit while the code around them faded - which on a Step
+        ' through means every result on the slide shouts over the one line the
+        ' slide is about.
+        lit = (Not dimming)
+        If dimming Then
+            lit = (InStr("," & emph & ",", "," & CStr(n) & ",") > 0)
+        End If
+        markC = ThemeOutputMark()
+        outC = ThemeOutputText()
+        If Not lit Then
+            markC = ThemeDimmed(markC)
+            outC = ThemeDimmed(outC)
+        End If
+
         pl = modOutput.PromptLen(lines(i), lang)
         If pl > 0 Then
-            tr.Characters(startIdx, pl).Font.Color.RGB = ThemeOutputMark()
+            tr.Characters(startIdx, pl).Font.Color.RGB = markC
         Else
-            tr.Characters(startIdx, length).Font.Color.RGB = ThemeOutputText()
+            tr.Characters(startIdx, length).Font.Color.RGB = outC
             tr.Characters(startIdx, length).Font.Bold = msoFalse
         End If
 NextLine:

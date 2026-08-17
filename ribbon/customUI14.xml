@@ -49,41 +49,47 @@
                   onAction="RibbonStylize"
                   screentip="Stylize the selected block"
                   supertip="Re-colors the selected code block from scratch. Safe to press as often as you like."/>
-          <!-- checkBox, not toggleButton. These are settings with an on and an
-               off state, and a tick box says so at a glance where a pressed-in
-               button has to be looked at. -->
-          <checkBox id="chkGutter"
-                    label="Line numbers"
-                    getPressed="RibbonGutterPressed"
-                    onAction="RibbonToggleGutter"
-                    screentip="Show or hide line numbers"
-                    supertip="Numbers live in their own shape, so the code text stays pure source."/>
-          <checkBox id="chkTranscript"
-                    label="Transcript"
-                    getPressed="RibbonTranscriptPressed"
-                    onAction="RibbonToggleTranscript"
-                    screentip="This block is a session at an interpreter"
-                    supertip="Puts the language's prompt in front of every line you typed - &gt;&gt;&gt; for Python, and ... on the body of a statement. Blank lines and lines marked as Output get none. The prompt goes into the text, so nothing can drift out of alignment with it, and Copy code strips it back off."/>
-          <button id="btnOutputLines"
-                  label="Output"
-                  imageMso="QueryShowTable"
-                  onAction="RibbonOutputLines"
-                  screentip="These lines were printed by the interpreter"
-                  supertip="Takes the prompt off the lines you select, which is what makes them output: they lose their syntax color and their line number, because a printed value is not code. Pressing it on a block that is not yet a transcript makes it one first, so marking your first output line is a single press. Press again on an output line to make it input. A bare cursor is enough for one line."/>
-          <editBox id="edtFirstLine"
-                   label="First line"
-                   sizeString="0000"
-                   maxLength="5"
-                   getText="RibbonFirstLineText"
-                   onChange="RibbonFirstLineChanged"
-                   screentip="The number the first line gets"
-                   supertip="For code split across several slides: set the second slide's block to start at 24 and its numbers carry on from the first. Stored per block. Setting it turns the line numbers on, since a start number with no numbers showing does nothing."/>
-          <checkBox id="chkGuides"
-                    label="Indent guides"
-                    getPressed="RibbonGuidesPressed"
-                    onAction="RibbonToggleGuides"
-                    screentip="Show or hide the indent guides"
-                    supertip="The vertical lines marking each level of nesting. Off by default."/>
+          <!-- Boxed into columns. A group packs its own controls into rows three
+               at a time, which scattered these across two columns in an order
+               nobody chose. A vertical box says which things belong together:
+               everything about the left margin in one, the transcript in the
+               other. -->
+          <box id="boxMargin" boxStyle="vertical">
+            <checkBox id="chkGuides"
+                      label="Indent guides"
+                      getPressed="RibbonGuidesPressed"
+                      onAction="RibbonToggleGuides"
+                      screentip="Show or hide the indent guides"
+                      supertip="The vertical lines marking each level of nesting. Off by default."/>
+            <checkBox id="chkGutter"
+                      label="Line numbers"
+                      getPressed="RibbonGutterPressed"
+                      onAction="RibbonToggleGutter"
+                      screentip="Show or hide line numbers"
+                      supertip="Numbers live in their own shape, so the code text stays pure source."/>
+            <editBox id="edtFirstLine"
+                     label="First line"
+                     sizeString="0000"
+                     maxLength="5"
+                     getText="RibbonFirstLineText"
+                     onChange="RibbonFirstLineChanged"
+                     screentip="The number the first line gets"
+                     supertip="For code split across several slides: set the second slide's block to start at 24 and its numbers carry on from the first. Stored per block. Setting it turns the line numbers on, since a start number with no numbers showing does nothing."/>
+          </box>
+          <box id="boxTranscript" boxStyle="vertical">
+            <checkBox id="chkTranscript"
+                      label="Transcript"
+                      getPressed="RibbonTranscriptPressed"
+                      onAction="RibbonToggleTranscript"
+                      screentip="This block is a session at an interpreter"
+                      supertip="Puts the language's prompt in front of every line you typed - &gt;&gt;&gt; for Python, and ... on the body of a statement. Blank lines and lines marked as Output get none. The prompt goes into the text, so nothing can drift out of alignment with it, and Copy code strips it back off."/>
+            <button id="btnOutputLines"
+                    label="Output"
+                    imageMso="QueryShowTable"
+                    onAction="RibbonOutputLines"
+                    screentip="These lines were printed by the interpreter"
+                    supertip="Takes the prompt off the lines you select, which is what makes them output: they lose their syntax color and their line number, because a printed value is not code. Pressing it on a block that is not yet a transcript makes it one first, so marking your first output line is a single press. Press again on an output line to make it input. A bare cursor is enough for one line."/>
+          </box>
         </group>
 
         <group id="grpSize" label="Size">

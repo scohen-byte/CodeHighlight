@@ -1216,7 +1216,40 @@ Public Function TranscriptTest(ByVal srcPath As String, ByVal pngPath As String)
     r = r & "code_only=" & Quoted(Replace(modOutput.CodeOnly( _
             shp.TextFrame.TextRange.text, "python"), vbCr, "|")) & vbLf
 
+    ' EMPHASIS ON A TRANSCRIPT. The output lines and the prompts are painted
+    ' after the spans, so without care they stay lit while the code fades - and
+    ' on a Step through every result on the slide then shouts over the one line
+    ' the slide is about.
+    ' After the inserted blank the block reads:
+    '   1 >>> x = [7, 8]   2 (blank)   3 >>> print(x[0])   4 output "7"
+    '   5 >>> for i in x:  6 ...  print(i)   7 output "7"   8 output "8"
+    ' Line 3 is a prompted line, which is what the emphasis needs to land on.
+    modBlock.SetEmphasis shp, "3"
+    shp.Select
+    modRibbon.DoStylize
+
+    Dim litC As Long, dimC As Long, pc As Long
+    modBlock.LineCharRange shp.TextFrame.TextRange.text, 3, a, b
+    litC = shp.TextFrame.TextRange.Characters(a, 1).Font.Color.RGB
+    r = r & "emphasised_prompt_lit=" & Abs(CLng(litC = ThemeOutputMark())) & vbLf
+
+    ' Line 7 is output and is NOT the emphasised line, so it must be faded.
+    modBlock.LineCharRange shp.TextFrame.TextRange.text, 7, a, b
+    dimC = shp.TextFrame.TextRange.Characters(a, 1).Font.Color.RGB
+    r = r & "other_output_dimmed=" & _
+            Abs(CLng(dimC = ThemeDimmed(ThemeOutputText()))) & vbLf
+
+    ' And a prompt on an unemphasised line fades too. Line 5, not line 2 -
+    ' line 2 is blank and carries no prompt at all.
+    modBlock.LineCharRange shp.TextFrame.TextRange.text, 5, a, b
+    pc = shp.TextFrame.TextRange.Characters(a, 1).Font.Color.RGB
+    r = r & "other_prompt_dimmed=" & _
+            Abs(CLng(pc = ThemeDimmed(ThemeOutputMark()))) & vbLf
+
     sld.Export pngPath, "PNG", 1920, 1080
+    modBlock.SetEmphasis shp, ""
+    shp.Select
+    modRibbon.DoStylize
 
     ' Turning it off takes every prompt back out.
     shp.Select
