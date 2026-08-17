@@ -28,6 +28,10 @@ Option Explicit
 Public Const TAG_OUTPUT    As String = "CODEBLOCK_OUTPUT"
 Public Const TAG_PROMPT_OF As String = "CODEBLOCK_PROMPT_OF"
 
+' A little air between the prompt and the code it introduces. Without it the
+' two run together as ">>>x = 1", which reads as one token.
+Private Const GAP_CHARS As Single = 1
+
 Public Function GetOutputLines(ByVal shp As Shape) As String
     GetOutputLines = shp.Tags(TAG_OUTPUT)
 End Function
@@ -130,20 +134,62 @@ Public Sub ClearPrompt(ByVal shp As Shape)
     If Not p Is Nothing Then p.Delete
 End Sub
 
-' The prompt for one line: the language's prompt on a code line, nothing on an
-' output line. That column is what makes a transcript readable - without it the
-' two kinds of line are only told apart by colour, which a projector may eat.
+' The prompt for each line: the language's prompt on a statement, its
+' continuation prompt on the body of one, and nothing at all on an output line
+' or a blank one.
+'
+' A BLANK LINE GETS NO PROMPT. A bare ">>>" with nothing after it reads as a
+' statement that failed to render, and a transcript with breathing room in it
+' was sprouting them.
+'
+' Continuation is inferred from INDENTATION, which is all there is to go on
+' without parsing: a code line indented further than the last statement is the
+' body of that statement. That handles nesting, because the base only moves
+' when a line comes back out to it or past it.
 Public Function PromptColumnText(ByVal text As String, ByVal spec As String, _
-                                 ByVal prompt As String) As String
+                                 ByVal prompt As String, _
+                                 ByVal continuePrompt As String) As String
     Dim lines() As String, i As Long, out As String, n As Long
+    Dim baseIndent As Long, indent As Long, started As Boolean
 
     lines = modBlock.SplitLines(text)
     For i = LBound(lines) To UBound(lines)
         n = i - LBound(lines) + 1
         If i > LBound(lines) Then out = out & vbCr
-        If Not IsOutputLine(spec, n) Then out = out & prompt
+
+        If IsOutputLine(spec, n) Then
+            ' nothing: the interpreter is talking, not you
+        ElseIf Len(Trim$(lines(i))) = 0 Then
+            ' nothing: a blank line is not a statement
+        Else
+            indent = LeadingColumns(lines(i))
+            If started And indent > baseIndent Then
+                out = out & continuePrompt
+            Else
+                out = out & prompt
+                baseIndent = indent
+                started = True
+            End If
+        End If
     Next i
     PromptColumnText = out
+End Function
+
+' Columns of leading whitespace, counting a tab as a full tab stop.
+Private Function LeadingColumns(ByVal line As String) As Long
+    Dim i As Long, ch As String, col As Long
+
+    For i = 1 To Len(line)
+        ch = Mid$(line, i, 1)
+        If ch = " " Then
+            col = col + 1
+        ElseIf ch = vbTab Then
+            col = col + CLng(modSpec.TAB_CHARS) - (col Mod CLng(modSpec.TAB_CHARS))
+        Else
+            Exit For
+        End If
+    Next i
+    LeadingColumns = col
 End Function
 
 ' Creates, updates or removes the prompt column, and owns the block's LEFT
@@ -171,15 +217,31 @@ Public Sub SyncPrompt(ByVal shp As Shape, ByVal langId As String)
     End If
 
     ' No output lines, or a language with no prompt, means no column - and the
-    ' margin goes back to whatever the gutter alone asks for.
+    ' margin and the indents go back to what an ordinary block has. Resetting
+    ' the indents matters: a block that HAD output lines and no longer does
+    ' would otherwise keep its code shifted right by a prompt that is gone.
     If Len(spec) = 0 Or Len(prompt) = 0 Then
         ClearPrompt shp
         shp.TextFrame.MarginLeft = pad + gutterW
+        ResetIndents shp
         Exit Sub
     End If
 
-    promptW = Len(prompt) * modSpec.SpecCharW(size)
-    shp.TextFrame.MarginLeft = pad + gutterW + promptW
+    ' The prompt is as wide as the wider of the two, so a statement and its
+    ' continuation start their code at the same column.
+    promptW = Len(prompt)
+    If Len(lang.ContinueText) > promptW Then promptW = Len(lang.ContinueText)
+    promptW = promptW * modSpec.SpecCharW(size) + modSpec.SpecCharW(size) * GAP_CHARS
+
+    ' OUTPUT SITS AT COLUMN ZERO AND THE CODE IS INDENTED, not the other way
+    ' round. A terminal indents what you TYPED by the width of the prompt and
+    ' prints its reply hard against the left - so aligning the two, which is
+    ' what making room in the margin for the prompt did, makes every reply look
+    ' like a continuation of the statement above it. The reply then has nothing
+    ' but the absence of a prompt to distinguish it, in a narrow column at the
+    ' far left, and it gets lost.
+    shp.TextFrame.MarginLeft = pad + gutterW
+    IndentCodeLines shp, spec, promptW
 
     Set sld = modGutter.OwningSlide(shp)
     Set p = FindPrompt(shp)
@@ -199,7 +261,8 @@ Public Sub SyncPrompt(ByVal shp As Shape, ByVal langId As String)
         .MarginRight = 0
         .MarginTop = pad
         .MarginBottom = pad
-        .TextRange.text = PromptColumnText(shp.TextFrame.TextRange.text, spec, prompt)
+        .TextRange.text = PromptColumnText(shp.TextFrame.TextRange.text, spec, _
+                                           prompt, lang.ContinueText)
         With .TextRange
             .Font.Name = THEME_FONT
             .Font.size = size
@@ -229,6 +292,46 @@ Public Sub SyncPrompt(ByVal shp As Shape, ByVal langId As String)
 
     AlignFirstLine shp, p
 Done:
+End Sub
+
+' Code lines take ruler level 2, which carries the prompt-width indent; output
+' lines take level 1, which carries none. PowerPoint has no per-paragraph
+' indent - the indent belongs to the outline LEVEL, and the level is the only
+' thing a paragraph can be assigned.
+Private Sub IndentCodeLines(ByVal shp As Shape, ByVal spec As String, _
+                            ByVal promptW As Single)
+    Dim i As Long, lineCount As Long
+
+    On Error Resume Next
+    With shp.TextFrame.Ruler
+        .Levels(1).FirstMargin = 0
+        .Levels(1).LeftMargin = 0
+        .Levels(2).FirstMargin = promptW
+        .Levels(2).LeftMargin = promptW
+    End With
+
+    lineCount = modBlock.CountLines(shp.TextFrame.TextRange.text)
+    For i = 1 To lineCount
+        If IsOutputLine(spec, i) Then
+            shp.TextFrame.TextRange.Paragraphs(i).IndentLevel = 1
+        Else
+            shp.TextFrame.TextRange.Paragraphs(i).IndentLevel = 2
+        End If
+    Next i
+End Sub
+
+Private Sub ResetIndents(ByVal shp As Shape)
+    Dim i As Long, lineCount As Long
+
+    On Error Resume Next
+    lineCount = modBlock.CountLines(shp.TextFrame.TextRange.text)
+    For i = 1 To lineCount
+        shp.TextFrame.TextRange.Paragraphs(i).IndentLevel = 1
+    Next i
+    With shp.TextFrame.Ruler
+        .Levels(1).FirstMargin = 0
+        .Levels(1).LeftMargin = 0
+    End With
 End Sub
 
 ' Nudges the column so its first prompt sits on the same baseline as the first

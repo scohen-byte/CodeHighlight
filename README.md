@@ -272,6 +272,18 @@ The block becomes a terminal, those lines lose their syntax colour, and the
 *code* lines get the language's prompt in a column of its own — drawn like the
 line numbers, in its own shape, so the block's text stays pure source.
 
+**The output sits at column zero and the code is indented**, which is what a
+terminal does: it indents what you typed by the width of the prompt and prints
+its reply hard against the left. Aligning the two instead — which is what making
+room for the prompt in the margin did — leaves every reply looking like a
+continuation of the statement above it, with nothing but a missing prompt in a
+narrow column to say otherwise. That is how output gets lost.
+
+The body of a statement gets the **continuation prompt** (`...` in Python)
+rather than `>>>`, inferred from indentation, and a blank line gets no prompt at
+all — a bare `>>>` with nothing after it reads as a statement that failed to
+render.
+
 Pressing it again on a marked line unmarks that line. With the block itself
 selected rather than text, it clears them all.
 

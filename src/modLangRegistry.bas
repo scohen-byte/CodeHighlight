@@ -55,6 +55,10 @@ Public Type LangDef
     ' REPL. modOutput draws it beside code lines in a transcript, and empty
     ' means a transcript simply gets no prompt column.
     PromptText        As String
+    ' What a REPL prints before a line that CONTINUES the previous one - the
+    ' body of a loop typed at the interpreter. "... " for Python. Empty falls
+    ' back to blank, which is right for a language with no such thing.
+    ContinueText      As String
 
     ' --- identifiers --------------------------------------------------------
     CaseSensitive     As Boolean

@@ -1080,6 +1080,138 @@ Failed:
     FirstLineTest = r & "ERROR " & Err.Number & ": " & Err.Description
 End Function
 
+' Why does the output get lost among the code? Four candidates on Sara's own
+' transcript.
+'
+' The diagnosis being tested: output is currently aligned WITH the code, which
+' is what a continuation looks like, when a real terminal prints its reply at
+' column zero and indents only the input. The prompt column is then the sole
+' signal, and it is a narrow presence/absence one at the far left.
+Public Function OutputLookProbe(ByVal srcPath As String, ByVal pngPath As String) As String
+    Dim v As Long, r As String
+    For v = 1 To 4
+        r = r & v & "=" & OneLook(v, pngPath) & vbLf
+    Next v
+    OutputLookProbe = r
+End Function
+
+Private Function OneLook(ByVal v As Long, ByVal pngPath As String) As String
+    Dim pres As Presentation, sld As Slide, shp As Shape, png As String
+    Dim code As String, spec As String, i As Long, lineCount As Long
+    Dim size As Single, promptW As Single, a As Long, b As Long
+
+    On Error GoTo Failed
+    modRibbon.SetQuiet True
+
+    Set pres = Application.ActivePresentation
+    pres.PageSetup.SlideWidth = modSpec.SLIDE_W
+    pres.PageSetup.SlideHeight = modSpec.SLIDE_H
+    Set sld = pres.Slides.Add(pres.Slides.count + 1, ppLayoutBlank)
+    sld.Select
+
+    code = "x = [7, " & Chr$(34) & "hello" & Chr$(34) & ", 2.0]" & vbCr & _
+           "y = x" & vbCr & _
+           "print(x[0])" & vbCr & _
+           "7" & vbCr & _
+           "print(y is x)" & vbCr & _
+           "True" & vbCr & _
+           "for i in range(3):" & vbCr & _
+           "    print(i)" & vbCr & _
+           "0" & vbCr & "1" & vbCr & "2"
+    spec = "4,6,9,10,11"
+
+    Set shp = modBlock.CreateBlock(sld, code, modSpec.BASE_SIZE, "python")
+    shp.Left = 150
+    shp.Top = 90
+    modOutput.SetOutputLines shp, spec
+    shp.Select
+    modRibbon.DoStylize
+    modBlock.UngroupParts shp
+
+    size = modBlock.BlockFontSize(shp)
+    promptW = Len(modLangRegistry.GetLang("python").PromptText) * modSpec.SpecCharW(size)
+    lineCount = modBlock.CountLines(shp.TextFrame.TextRange.text)
+
+    Select Case v
+        Case 1                                  ' as shipped
+        Case 2                                  ' output OUTDENTED to column zero
+            Outdent shp, spec, promptW
+        Case 3                                  ' outdented, and quieter
+            Outdent shp, spec, promptW
+            PaintOutput shp, spec, RGB(150, 150, 150)
+        Case Else                               ' outdented, with a band per run
+            Outdent shp, spec, promptW
+            BandRuns sld, shp, spec
+    End Select
+
+    png = Replace(pngPath, ".png", "-" & v & ".png")
+    sld.Export png, "PNG", 1920, 1080
+    OneLook = "ok"
+    Exit Function
+Failed:
+    OneLook = "ERROR " & Err.Number & ": " & Err.Description
+End Function
+
+' Code sits one prompt-width in; output starts at the frame's own left edge,
+' under the prompt. That is what a terminal actually looks like, and it means
+' the two kinds of line no longer begin at the same x.
+Private Sub Outdent(ByVal shp As Shape, ByVal spec As String, ByVal promptW As Single)
+    Dim i As Long, lineCount As Long
+
+    On Error Resume Next
+    shp.TextFrame.MarginLeft = modSpec.SpecPad(modBlock.BlockFontSize(shp))
+    With shp.TextFrame.Ruler
+        .Levels(1).FirstMargin = 0
+        .Levels(1).LeftMargin = 0
+        .Levels(2).FirstMargin = promptW
+        .Levels(2).LeftMargin = promptW
+    End With
+
+    lineCount = modBlock.CountLines(shp.TextFrame.TextRange.text)
+    For i = 1 To lineCount
+        If modOutput.IsOutputLine(spec, i) Then
+            shp.TextFrame.TextRange.Paragraphs(i).IndentLevel = 1
+        Else
+            shp.TextFrame.TextRange.Paragraphs(i).IndentLevel = 2
+        End If
+    Next i
+End Sub
+
+Private Sub PaintOutput(ByVal shp As Shape, ByVal spec As String, ByVal rgbColor As Long)
+    Dim i As Long, a As Long, b As Long, lineCount As Long
+    lineCount = modBlock.CountLines(shp.TextFrame.TextRange.text)
+    For i = 1 To lineCount
+        If modOutput.IsOutputLine(spec, i) Then
+            modBlock.LineCharRange shp.TextFrame.TextRange.text, i, a, b
+            If a >= 1 And b >= 1 Then _
+                shp.TextFrame.TextRange.Characters(a, b).Font.Color.RGB = rgbColor
+        End If
+    Next i
+End Sub
+
+' One translucent band per RUN of output lines - the shape DrawCovers uses.
+Private Sub BandRuns(ByVal sld As Slide, ByVal shp As Shape, ByVal spec As String)
+    Dim i As Long, runStart As Long, lineCount As Long, isOut As Boolean
+
+    lineCount = modBlock.CountLines(shp.TextFrame.TextRange.text)
+    runStart = -1
+    For i = 1 To lineCount + 1
+        isOut = False
+        If i <= lineCount Then isOut = modOutput.IsOutputLine(spec, i)
+        If isOut Then
+            If runStart < 0 Then runStart = i
+        ElseIf runStart >= 0 Then
+            ' Translucent, not opaque: an opaque band over the block sits on
+            ' top of its text and hides it. Same constraint as the emphasis
+            ' bands - nothing goes between a shape's fill and its own text.
+            With AddLineBand(sld, shp, runStart, i - 1, RGB(0, 0, 0))
+                .fill.Transparency = 0.6
+            End With
+            runStart = -1
+        End If
+    Next i
+End Sub
+
 ' The transcript form: output lines marked INSIDE the block, with a prompt
 ' column beside the code lines.
 Public Function OutputLinesTest(ByVal srcPath As String, ByVal pngPath As String) As String
@@ -1172,9 +1304,28 @@ Public Function OutputLinesTest(ByVal srcPath As String, ByVal pngPath As String
         r = r & "prompt_text=" & Quoted(Replace(p.TextFrame.TextRange.text, vbCr, "|")) & vbLf
         r = r & "prompt_inside_block=" & _
                 Abs(CLng(p.Left >= shp.Left And p.Left + p.Width <= shp.Left + shp.Width)) & vbLf
-        r = r & "margin_made_room=" & _
-                Abs(CLng(shp.TextFrame.MarginLeft > marginBefore)) & vbLf
+        ' The margin deliberately does NOT grow any more. Room for the prompt
+        ' is made by indenting the CODE, so that the output can sit left of it.
+        r = r & "margin_unchanged=" & _
+                Abs(CLng(Abs(shp.TextFrame.MarginLeft - marginBefore) < 0.5)) & vbLf
     End If
+
+    ' The OUTDENT: output starts left of the code, not level with it. Measured,
+    ' because "left of" is the whole point and a ruler level is easy to get
+    ' wrong in a way that looks almost right.
+    Dim codeX As Single, outX As Single, aa As Long, bb As Long
+    modBlock.LineCharRange shp.TextFrame.TextRange.text, 1, aa, bb
+    codeX = shp.TextFrame.TextRange.Characters(aa, 1).BoundLeft
+    modBlock.LineCharRange shp.TextFrame.TextRange.text, 2, aa, bb
+    outX = shp.TextFrame.TextRange.Characters(aa, 1).BoundLeft
+    r = r & "output_outdented=" & Abs(CLng(outX < codeX - 4)) & _
+            " (code x=" & Format$(codeX, "0") & " output x=" & Format$(outX, "0") & ")" & vbLf
+
+    ' Blank lines and continuations.
+    r = r & "prompts=" & Quoted(Replace(modOutput.PromptColumnText( _
+            "a = 1" & vbCr & "for i in x:" & vbCr & "    print(i)" & vbCr & _
+            "" & vbCr & "b = 2" & vbCr & "done", _
+            "6", ">>> ", "... "), vbCr, "|")) & vbLf
 
     ' Numbering skips the output lines, so it still matches the source file.
     r = r & "numbers=" & Quoted(Replace(modGutter.NumberColumn( _
