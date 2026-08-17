@@ -918,7 +918,6 @@ Public Function EverythingTest(ByVal srcPath As String, ByVal pngPath As String)
     modRibbon.DoToggleGuides
 
     ' Emphasis, in bold.
-    modOptions.SetEmphasisBold True
     modBlock.SetEmphasis shp, "4,5"
 
     ' A hidden run.
@@ -956,7 +955,6 @@ Public Function EverythingTest(ByVal srcPath As String, ByVal pngPath As String)
     r = r & "idempotent=" & Abs(CLng(e1 = e2)) & vbLf
     r = r & "still_one_group=" & Abs(CLng(LooseParts(shp) = 0)) & vbLf
 
-    modOptions.SetEmphasisBold False
     EverythingTest = r
     Exit Function
 Failed:
@@ -1074,6 +1072,81 @@ Failed:
     FirstLineTest = r & "ERROR " & Err.Number & ": " & Err.Description
 End Function
 
+' The three walkthroughs, and the note-per-step option on each of them.
+Public Function WalkTest(ByVal srcPath As String, ByVal pngPath As String) As String
+    Dim r As String
+    r = OneWalk(1, pngPath) & OneWalk(2, pngPath) & OneWalk(3, pngPath)
+    WalkTest = r
+End Function
+
+Private Function OneWalk(ByVal mode As Long, ByVal pngPath As String) As String
+    Dim pres As Presentation, sld As Slide, shp As Shape, r As String, nm As String
+    Dim base As Long, k As Long, target As Shape, s3 As Shape
+    Dim withNote As Long, withArrow As Long, withEmph As Long, withBold As Long
+    Dim a As Long, b As Long, ln As Long
+
+    On Error GoTo Failed
+    modRibbon.SetQuiet True
+    modOptions.SetStepNote True
+
+    Set pres = Application.ActivePresentation
+    pres.PageSetup.SlideWidth = modSpec.SLIDE_W
+    pres.PageSetup.SlideHeight = modSpec.SLIDE_H
+    Set sld = pres.Slides.Add(pres.Slides.count + 1, ppLayoutBlank)
+    sld.Select
+    base = pres.Slides.count
+
+    Set shp = modBlock.CreateBlock(sld, _
+        "a = 1" & vbCr & "b = 2" & vbCr & "c = a + b", modSpec.BASE_SIZE, "python")
+    shp.Left = 60
+    shp.Select
+    modRibbon.DoStylize
+
+    shp.Select
+    Select Case mode
+        Case 1: nm = "step ": modRibbon.DoStepThrough False
+        Case 2: nm = "build": modRibbon.DoStepThrough True
+        Case Else: nm = "point": modRibbon.DoStepThrough False, True
+    End Select
+
+    For k = base + 1 To pres.Slides.count
+        Set target = Nothing
+        For Each s3 In modBlock.AllShapes(pres.Slides(k))
+            If s3.Tags(modBlock.TAG_BLOCK) = "1" Then Set target = s3
+        Next s3
+        If target Is Nothing Then GoTo NextSlide
+
+        If modNote.NoteCount(target) > 0 Then withNote = withNote + 1
+        If modArrow.ArrowCount(target) > 0 Then withArrow = withArrow + 1
+        If Len(modBlock.GetEmphasis(target)) > 0 Then withEmph = withEmph + 1
+
+        ' The line the slide is singling out must be bold, in all three.
+        ln = modBlock.LastEmphasisedLine(modBlock.GetEmphasis(target))
+        If ln < 1 Then ln = modArrow.LastArrowLine(target)
+        If ln >= 1 Then
+            modBlock.LineCharRange target.TextFrame.TextRange.text, ln, a, b
+            If a >= 1 Then
+                If target.TextFrame.TextRange.Characters(a, 1).Font.Bold = msoTrue Then
+                    withBold = withBold + 1
+                End If
+            End If
+        End If
+NextSlide:
+    Next k
+
+    r = nm & " slides=" & (pres.Slides.count - base) & _
+        " notes=" & withNote & " arrows=" & withArrow & _
+        " emph=" & withEmph & " bold=" & withBold & vbLf
+
+    pres.Slides(base + 2).Export Replace(pngPath, ".png", "-" & nm & ".png"), _
+        "PNG", 1920, 1080
+    modOptions.SetStepNote False
+    OneWalk = r
+    Exit Function
+Failed:
+    OneWalk = r & nm & " ERROR " & Err.Number & ": " & Err.Description & vbLf
+End Function
+
 ' Sara's second report: a walkthrough built with "Arrow, not fade" ON, undone,
 ' the option turned OFF, and the next walkthrough still came out with arrows.
 '
@@ -1106,7 +1179,6 @@ Public Function StepArrowProbe(ByVal srcPath As String, ByVal pngPath As String)
     modRibbon.DoArrow
     r = "source has arrow=" & Abs(CLng(modArrow.ArrowCount(shp) > 0)) & vbLf
 
-    modOptions.SetStepArrow False
     shp.Select
     modRibbon.DoStepThrough False
 
@@ -2095,9 +2167,8 @@ Public Function ArrowTest(ByVal srcPath As String, ByVal pngPath As String) As S
     r = r & "toggled_off=" & Abs(CLng(modArrow.ArrowCount(shp) = 0)) & vbLf
 
     ' A walkthrough that points instead of fading.
-    modOptions.SetStepArrow True
     shp.Select
-    modRibbon.DoStepThrough False
+    modRibbon.DoStepThrough False, True
     r = r & "slides=" & pres.Slides.count & vbLf
     For k = 2 To pres.Slides.count
         Set target = Nothing
@@ -2153,7 +2224,6 @@ Public Function ArrowTest(ByVal srcPath As String, ByVal pngPath As String) As S
     pres.Slides(3).Export Replace(pngPath, ".png", "-colors.png"), "PNG", 1920, 1080
 
     ' Strip removes them, since an arrow points at styling.
-    modOptions.SetStepArrow False
     shp.Select
     modRibbon.DoArrow
     shp.Select
@@ -2266,7 +2336,6 @@ Public Function OptionsTest(ByVal srcPath As String, ByVal pngPath As String) As
     colourBefore = tr.Characters(a, 1).Font.Color.RGB
 
     modBlock.SetEmphasis shp, "2,3"
-    modOptions.SetEmphasisBold True
     shp.Select
     modRibbon.DoStylize
 
@@ -2281,13 +2350,15 @@ Public Function OptionsTest(ByVal srcPath As String, ByVal pngPath As String) As
     r = r & "earlier_line_not_bold=" & _
             Abs(CLng(tr.Characters(a, 1).Font.Bold <> msoTrue)) & vbLf
 
-    ' Turning it off has to actually unbold, not leave the last run behind.
-    modOptions.SetEmphasisBold False
+    ' Clearing the emphasis has to actually unbold, not leave the last run
+    ' behind.
+    modBlock.SetEmphasis shp, ""
     shp.Select
     modRibbon.DoStylize
     Set tr = shp.TextFrame.TextRange
     modBlock.LineCharRange tr.text, 3, a, l
     r = r & "bold_cleared=" & Abs(CLng(tr.Characters(a, 1).Font.Bold <> msoTrue)) & vbLf
+    modBlock.SetEmphasis shp, "2,3" 
 
     ' --- note font ----------------------------------------------------------
     modOptions.SetNoteFont ThemeNoteFontValue(4)          ' Consolas
@@ -2419,9 +2490,6 @@ Public Function OptionsTest(ByVal srcPath As String, ByVal pngPath As String) As
     sld.Export Replace(pngPath, ".png", "-notes.png"), "PNG", 1920, 1080
 
     ' --- a note per walkthrough step ---------------------------------------
-    ' Bold back on, since the render below is what the two options look like
-    ' together, which is how they will actually be used.
-    modOptions.SetEmphasisBold True
     modOptions.SetStepNote True
     ' A vibrant preset for the render, since the quiet ones are what the
     ' vibrant half was added to relieve. Through the COMMAND, not the setting:

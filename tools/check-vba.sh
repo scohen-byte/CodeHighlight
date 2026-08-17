@@ -92,6 +92,14 @@ for f in *.bas; do
     done
 done
 
+# 8b. Every harness must import every module its imports reach. A listed module
+#     calling one that is NOT listed makes VBA report "Variable not defined"
+#     against a module name, which reads as a bug in the code being tested and
+#     is not. See tools/check-modules.py.
+if ! python3 "$REPO/tools/check-modules.py"; then
+    fail=1
+fi
+
 # 7. The ribbon XML must parse. Office does not report a malformed customUI as
 #    an error - it silently drops the whole tab, which looks exactly like a
 #    failed install and sends you to the relationship types and the packaging.

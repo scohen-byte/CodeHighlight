@@ -26,7 +26,7 @@ param(
     [Parameter(Mandatory = $true)][string]$SampleDir,   # folder of .py files
     [Parameter(Mandatory = $true)][string]$OutDir,      # where masks are written
     [string]$Lang = 'python',
-    [string]$Scratch = 'C:\Users\User\ppt-lab\lexertest.pptm'
+    [string]$Scratch = ''
 )
 
 $ErrorActionPreference = 'Stop'
@@ -34,13 +34,21 @@ $ErrorActionPreference = 'Stop'
 # A UNIQUE scratch file per run. A shared name gets left locked by any run
 # that died badly, and then every later run fails on a file it cannot delete -
 # which looks like a fault in whatever is being tested.
+# The default is EMPTY on purpose. This used to default to a fixed filename,
+# which meant the guard below never fired: -not $Scratch was never true, every
+# run reused one file, and any run that died badly left it locked so that every
+# later run failed on a file it could not delete. The comment claimed a unique
+# name per run and the parameter quietly took it away.
 if (-not $Scratch) { $Scratch = "C:\Users\User\ppt-lab\lexertest-" + [guid]::NewGuid().ToString('N').Substring(0,8) + '.pptm' }
 $ppSaveAsOpenXMLPresentationMacroEnabled = 25
 
 # Dependency order. modLexer refers to the TokenClass enum in modTheme and to
 # LangDef in modLangRegistry, so those come first. modRibbon needs IRibbonUI and
 # has nothing to do with the lexer, so it is not in the list at all.
-$MODULES = @('modTheme', 'modLangRegistry', 'modLangPython', 'modLexer', 'modSelfTest')
+$MODULES = @('modTheme', 'modSpec', 'modLangRegistry', 'modLangPython',
+             'modLexer', 'modBlock', 'modRender', 'modGutter', 'modGuides',
+             'modOptions', 'modSwatch', 'modOutput', 'modNote', 'modArrow',
+             'modRibbon', 'modSelfTest')
 
 if (Test-Path $Scratch) { Remove-Item $Scratch -Force }
 New-Item -ItemType Directory -Path $OutDir -Force | Out-Null

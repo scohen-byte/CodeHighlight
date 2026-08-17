@@ -23,8 +23,6 @@ Public Const TAG_NOTE_SIZE  As String = "CODEBLOCK_NOTE_SIZE"
 Public Const TAG_NOTE_COLOR As String = "CODEBLOCK_NOTE_COLOR"
 Public Const TAG_NOTE_FONT  As String = "CODEBLOCK_NOTE_FONT"
 Public Const TAG_STEP_NOTE  As String = "CODEBLOCK_STEP_NOTE"
-Public Const TAG_STEP_BOLD  As String = "CODEBLOCK_STEP_BOLD"
-Public Const TAG_STEP_ARROW As String = "CODEBLOCK_STEP_ARROW"
 Public Const TAG_ARROW_COLOR As String = "CODEBLOCK_ARROW_COLOR"
 
 ' Size 0 means "work it out from the block". An explicit size pins it.
@@ -138,28 +136,3 @@ Public Sub SetStepNote(ByVal on_ As Boolean)
     SetTag TAG_STEP_NOTE, IIf(on_, "1", "0")
 End Sub
 
-' Mark each step with an arrow in the left margin INSTEAD of emphasising it.
-'
-' Instead, not as well. The point of an arrow is that the code stays whole and
-' readable while one line is singled out from outside it, and a walkthrough that
-' both faded the surroundings and pointed at the line would be saying the same
-' thing twice in the louder of the two ways.
-Public Function StepArrow() As Boolean
-    StepArrow = (GetTag(TAG_STEP_ARROW) = "1")
-End Function
-
-Public Sub SetStepArrow(ByVal on_ As Boolean)
-    SetTag TAG_STEP_ARROW, IIf(on_, "1", "0")
-End Sub
-
-' Render the newly emphasised line in bold as well as banded. Applies wherever
-' emphasis is used, not only in a generated walkthrough - it is a property of
-' how emphasis looks, and having it differ between a hand-set block and a
-' generated one would be a bug rather than a feature.
-Public Function EmphasisBold() As Boolean
-    EmphasisBold = (GetTag(TAG_STEP_BOLD) = "1")
-End Function
-
-Public Sub SetEmphasisBold(ByVal on_ As Boolean)
-    SetTag TAG_STEP_BOLD, IIf(on_, "1", "0")
-End Sub

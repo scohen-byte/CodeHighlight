@@ -4,13 +4,18 @@ param(
     [Parameter(Mandatory = $true)][string]$SrcDir,
     [Parameter(Mandatory = $true)][string]$Proc,
     [string]$Arg = "",
-    [string]$Scratch = 'C:\Users\User\ppt-lab\probe-run.pptm'
+    [string]$Scratch = ''
 )
 $ErrorActionPreference = 'Stop'
 
 # A UNIQUE scratch file per run. A shared name gets left locked by any run
 # that died badly, and then every later run fails on a file it cannot delete -
 # which looks like a fault in whatever is being tested.
+# The default is EMPTY on purpose. This used to default to a fixed filename,
+# which meant the guard below never fired: -not $Scratch was never true, every
+# run reused one file, and any run that died badly left it locked so that every
+# later run failed on a file it could not delete. The comment claimed a unique
+# name per run and the parameter quietly took it away.
 if (-not $Scratch) { $Scratch = "C:\Users\User\ppt-lab\probe-run-" + [guid]::NewGuid().ToString('N').Substring(0,8) + '.pptm' }
 $MODULES = @('modTheme','modSpec','modLangRegistry','modLangPython',
              'modLexer','modBlock','modRender','modGutter','modGuides',

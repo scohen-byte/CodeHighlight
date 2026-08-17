@@ -78,7 +78,7 @@ Public Function ApplyHighlight(ByVal shp As Shape, ByVal langId As String) As Lo
     ' only the weight - unlike Font.Highlight, which collapses the runs and
     ' repaints them one colour - but the order costs nothing and the test
     ' checks a token's colour survives it.
-    If dimming Then BoldEmphasisedLine tr, emph
+    BoldFocusLine shp, tr, emph
 
     ApplyHighlight = applied
 End Function
@@ -144,14 +144,22 @@ NextLine:
     Next i
 End Sub
 
-' Renders the newly emphasised line in bold as well as banded, when the deck
-' asks for it. The band alone is a background change; bold changes the letters
-' themselves, which is the strongest signal available without moving anything.
-Private Sub BoldEmphasisedLine(ByVal tr As TextRange, ByVal emph As String)
+' Bolds whatever line the slide is singling out - the newest emphasised one, or
+' failing that the one an arrow points at.
+'
+' Always, rather than behind an option. The band is a background change and the
+' arrow sits outside the block; bold changes the letters themselves, which is
+' the strongest signal available without moving anything, and a slide that has
+' gone to the trouble of picking out one line wants all three.
+'
+' The NEWEST line, not all of them: Build up emphasises everything so far, and
+' bolding the lot would say nothing about where it has got to.
+Private Sub BoldFocusLine(ByVal shp As Shape, ByVal tr As TextRange, _
+                          ByVal emph As String)
     Dim ln As Long, startIdx As Long, length As Long
 
-    If Not modOptions.EmphasisBold() Then Exit Sub
     ln = modBlock.LastEmphasisedLine(emph)
+    If ln < 1 Then ln = modArrow.LastArrowLine(shp)
     If ln < 1 Then Exit Sub
 
     modBlock.LineCharRange tr.text, ln, startIdx, length

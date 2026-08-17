@@ -60,6 +60,18 @@ Public Function ArrowCount(ByVal shp As Shape) As Long
     ArrowCount = AllArrows(shp).count
 End Function
 
+' The lowest line carrying an arrow, or 0. The renderer bolds it, the same way
+' it bolds the newest emphasised line - whatever the slide is singling out is
+' what should be heaviest.
+Public Function LastArrowLine(ByVal shp As Shape) As Long
+    Dim c As Collection, i As Long, v As Long
+    Set c = AllArrows(shp)
+    For i = 1 To c.count
+        v = CLng(Val(c(i).Tags(TAG_ARROW_LINE)))
+        If v > LastArrowLine Then LastArrowLine = v
+    Next i
+End Function
+
 Public Function FindArrow(ByVal shp As Shape, ByVal lineNo As Long) As Shape
     Dim c As Collection, i As Long
     Set c = AllArrows(shp)

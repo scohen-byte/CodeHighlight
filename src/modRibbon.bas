@@ -831,24 +831,6 @@ Done:
     Set SelectedNotes = c
 End Function
 
-' Restyles the selected block if there is one, so the change is visible at once.
-' Bold is a render-time property, so restyling is all it takes.
-Public Sub DoEmphasisBold(ByVal on_ As Boolean)
-    On Error GoTo Failed
-    Dim shp As Shape, problem As String
-
-    modOptions.SetEmphasisBold on_
-
-    Set shp = modBlock.SelectedBlock(problem)
-    If shp Is Nothing Then Exit Sub
-    StyleBlock shp
-    Reselect shp
-    RefreshRibbon
-    Exit Sub
-Failed:
-    Warn "DoEmphasisBold failed: " & Err.Description
-End Sub
-
 ' Sets the colour every arrow gets, and repaints the ones already in the deck.
 '
 ' Deck-wide, unlike the note controls. Arrows are uniform by design - two
@@ -958,7 +940,8 @@ Failed:
     Warn "DoReveal failed: " & Err.Description
 End Sub
 
-Public Sub DoStepThrough(ByVal cumulative As Boolean)
+Public Sub DoStepThrough(ByVal cumulative As Boolean, _
+                         Optional ByVal useArrow As Boolean = False)
     On Error GoTo Failed
     Dim shp As Shape, problem As String, sld As Slide, dup As Slide, target As Shape
     Dim txt As String, lines() As String, sel As Selection
@@ -1031,24 +1014,18 @@ Public Sub DoStepThrough(ByVal cumulative As Boolean)
             ' Arrows INSTEAD of emphasis, when the deck asks for it. Step
             ' through moves one arrow down the margin; Build up leaves them
             ' behind, so the marks accumulate the way the code does.
-            If modOptions.StepArrow() Then
+            ' A generated slide must look exactly like the mode it was built
+            ' in, whatever the source happens to be carrying. Each branch
+            ' therefore clears the other's marking rather than assuming the
+            ' source is clean - an arrow left on the source, by hand or by an
+            ' earlier walkthrough that was undone, is inherited by every
+            ' duplicate otherwise.
+            modArrow.ClearArrows target
+            If useArrow Then
                 modBlock.SetEmphasis target, ""
-                If cumulative Then
-                    For i = 1 To k
-                        modArrow.AddArrow target, steps(i)
-                    Next i
-                Else
-                    modArrow.ClearArrows target
-                    modArrow.AddArrow target, steps(k)
-                End If
+                modArrow.AddArrow target, steps(k)
             Else
                 modBlock.SetEmphasis target, list
-                ' Arrows are cleared even though this branch does not draw
-                ' them. A generated slide has to look exactly like the mode it
-                ' was built in, and the source block may be carrying an arrow -
-                ' from a hand-placed one, or from an earlier arrow walkthrough
-                ' that was undone - which every duplicate would inherit.
-                modArrow.ClearArrows target
             End If
             ' A note per step, already attached to the line this slide is
             ' about, so the walkthrough arrives ready to be written into.
@@ -1475,15 +1452,6 @@ Public Sub RibbonArrowColorApply(control As IRibbonControl)
     DoArrowColor ThemeArrowPresetIndexOf(modOptions.ArrowColor())
 End Sub
 
-Public Sub RibbonStepArrowPressed(control As IRibbonControl, ByRef returnedVal)
-    returnedVal = modOptions.StepArrow()
-End Sub
-
-Public Sub RibbonToggleStepArrow(control As IRibbonControl, pressed As Boolean)
-    modOptions.SetStepArrow pressed
-    RefreshRibbon
-End Sub
-
 Private Function CurrentNoteColor() As Long
     Dim note As Shape
     Set note = FirstSelectedNote()
@@ -1535,12 +1503,8 @@ Public Sub RibbonToggleStepNote(control As IRibbonControl, pressed As Boolean)
     RefreshRibbon
 End Sub
 
-Public Sub RibbonEmphasisBoldPressed(control As IRibbonControl, ByRef returnedVal)
-    returnedVal = modOptions.EmphasisBold()
-End Sub
-
-Public Sub RibbonToggleEmphasisBold(control As IRibbonControl, pressed As Boolean)
-    DoEmphasisBold pressed
+Public Sub RibbonPointAt(control As IRibbonControl)
+    DoStepThrough False, True
 End Sub
 
 Public Sub RibbonStepThrough(control As IRibbonControl)
