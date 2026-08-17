@@ -166,7 +166,7 @@
                   imageMso="QueryShowTable"
                   onAction="RibbonOutputLines"
                   screentip="Mark the selected lines as output, inside the block"
-                  supertip="For a transcript: statement, result, statement, result, all in one block. The block becomes a terminal, the marked lines lose their syntax color and their line number, and the code lines get the language's prompt in a column of their own. Copy code then gives you the code without the output, so what you paste runs. With the block itself selected rather than text, it clears the marking."/>
+                  supertip="For a transcript: statement, result, statement, result, all in one block. Type the whole session into ONE block, then put the cursor on an output line - or select a run of them - and press this. Press it again for the next output; the marking adds up. The block becomes a terminal, the marked lines lose their syntax color and their line number, and the code lines get the language's prompt. Copy code then gives you the code without the output, so what you paste runs. Pressing it on a marked line unmarks it, and with the block itself selected it clears them all."/>
           <button id="btnOutputNote"
                   label="Output"
                   size="large"

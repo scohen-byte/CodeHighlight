@@ -557,15 +557,18 @@ Public Sub DoOutputLines()
 
     Set sel = Application.ActiveWindow.Selection
     If sel.Type = ppSelectionText Then
+        txt = shp.TextFrame.TextRange.text
+        a = modBlock.LineOfChar(txt, sel.TextRange.Start)
         If sel.TextRange.length > 0 Then
-            txt = shp.TextFrame.TextRange.text
-            a = modBlock.LineOfChar(txt, sel.TextRange.Start)
             b = modBlock.LineOfChar(txt, sel.TextRange.Start + sel.TextRange.length - 1)
-            For i = a To b
-                If Len(list) > 0 Then list = list & ","
-                list = list & CStr(i)
-            Next i
+        Else
+            ' A bare cursor marks the one line it sits on, so a single output
+            ' line needs no selecting at all.
+            b = a
         End If
+        ' ADDED to what is already marked, not substituted for it. A transcript
+        ' has output in several places and a selection covers only one run.
+        list = modOutput.ToggleLines(modOutput.GetOutputLines(shp), a, b)
     End If
 
     modBlock.UngroupParts shp

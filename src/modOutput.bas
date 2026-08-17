@@ -48,6 +48,63 @@ Public Function IsOutputLine(ByVal spec As String, ByVal lineNo As Long) As Bool
     IsOutputLine = (InStr("," & spec & ",", "," & CStr(lineNo) & ",") > 0)
 End Function
 
+' Adds a run of lines to the marking, or takes it out again.
+'
+' ACCUMULATES, and this is the whole usability of the feature. A transcript has
+' output in several places - line 2 and line 4 - and a text selection can only
+' cover one run at a time, so a command that REPLACED the list could never mark
+' both. The first version did exactly that and the feature was unusable.
+'
+' Toggling on the whole run rather than per line: if every line in the selection
+' is already output, the gesture plainly means "no it is not", so the run comes
+' out. Otherwise it goes in.
+Public Function ToggleLines(ByVal spec As String, ByVal firstLine As Long, _
+                            ByVal lastLine As Long) As String
+    Dim marked() As Boolean, hi As Long, i As Long, allOn As Boolean
+    Dim parts() As String, v As Long, out As String
+
+    If lastLine < firstLine Then Exit Function
+
+    ' Big enough for everything already marked and everything about to be.
+    hi = lastLine
+    If Len(spec) > 0 Then
+        parts = Split(spec, ",")
+        For i = LBound(parts) To UBound(parts)
+            v = CLng(Val(parts(i)))
+            If v > hi Then hi = v
+        Next i
+    End If
+    If hi < 1 Then Exit Function
+    ReDim marked(1 To hi)
+
+    If Len(spec) > 0 Then
+        For i = LBound(parts) To UBound(parts)
+            v = CLng(Val(parts(i)))
+            If v >= 1 And v <= hi Then marked(v) = True
+        Next i
+    End If
+
+    allOn = True
+    For i = firstLine To lastLine
+        If Not marked(i) Then
+            allOn = False
+            Exit For
+        End If
+    Next i
+
+    For i = firstLine To lastLine
+        marked(i) = Not allOn
+    Next i
+
+    For i = 1 To hi
+        If marked(i) Then
+            If Len(out) > 0 Then out = out & ","
+            out = out & CStr(i)
+        End If
+    Next i
+    ToggleLines = out
+End Function
+
 '------------------------------------------------------------------------------
 ' The prompt column
 '------------------------------------------------------------------------------

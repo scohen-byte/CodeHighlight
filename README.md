@@ -259,10 +259,21 @@ deck rather than in the add-in, so it travels with the file.
 There are two shapes of this, and they are for different slides.
 
 **Output lines** is the transcript: statement, result, statement, result, all in
-one block. Select the lines the interpreter printed and press it. The block
-becomes a terminal, those lines lose their syntax colour, and the *code* lines
-get the language's prompt in a column of its own — drawn like the line numbers,
-in its own shape, so the block's text stays pure source.
+one block.
+
+1. Type the **whole session into one block** — the code *and* what it printed,
+   as plain text. Press **Stylize**; it all looks like code at this point.
+2. Put the cursor on a line the interpreter printed — no selection needed — and
+   press **Output lines**. For several consecutive output lines, select them.
+3. Repeat for the next output. **The marking adds up**, so a transcript with
+   output in four places takes four presses.
+
+The block becomes a terminal, those lines lose their syntax colour, and the
+*code* lines get the language's prompt in a column of its own — drawn like the
+line numbers, in its own shape, so the block's text stays pure source.
+
+Pressing it again on a marked line unmarks that line. With the block itself
+selected rather than text, it clears them all.
 
 Because the text stays pure, everything else keeps working. Line numbers skip
 the output lines, so they still match the file the code came from. Indent guides

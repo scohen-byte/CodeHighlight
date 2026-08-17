@@ -1114,8 +1114,35 @@ Public Function OutputLinesTest(ByVal srcPath As String, ByVal pngPath As String
     modRibbon.DoOutputLines
     r = "marked=" & Quoted(modOutput.GetOutputLines(shp)) & vbLf
 
-    ' Set both runs directly, since one selection cannot cover two apart.
-    modOutput.SetOutputLines shp, "2,4"
+    ' The SECOND run, marked the way a user would: another selection, another
+    ' press. This is the case that made the first version unusable - a command
+    ' that replaced the list could never hold both.
+    modBlock.LineCharRange shp.TextFrame.TextRange.text, 4, a, b
+    shp.TextFrame.TextRange.Characters(a, b).Select
+    modRibbon.DoOutputLines
+    r = r & "accumulated=" & Quoted(modOutput.GetOutputLines(shp)) & vbLf
+
+    ' Pressing again on a marked run takes it back out.
+    modBlock.LineCharRange shp.TextFrame.TextRange.text, 4, a, b
+    shp.TextFrame.TextRange.Characters(a, b).Select
+    modRibbon.DoOutputLines
+    r = r & "toggled_off=" & Quoted(modOutput.GetOutputLines(shp)) & vbLf
+    modBlock.LineCharRange shp.TextFrame.TextRange.text, 4, a, b
+    shp.TextFrame.TextRange.Characters(a, b).Select
+    modRibbon.DoOutputLines
+
+    ' And a bare cursor marks the line it sits on, with nothing selected.
+    modOutput.SetOutputLines shp, ""
+    shp.Select
+    modRibbon.DoStylize
+    modBlock.LineCharRange shp.TextFrame.TextRange.text, 2, a, b
+    shp.TextFrame.TextRange.Characters(a, 1).Select
+    modRibbon.DoOutputLines
+    r = r & "cursor_alone_marks=" & Quoted(modOutput.GetOutputLines(shp)) & vbLf
+    modBlock.LineCharRange shp.TextFrame.TextRange.text, 4, a, b
+    shp.TextFrame.TextRange.Characters(a, 1).Select
+    modRibbon.DoOutputLines
+
     shp.Select
     modRibbon.DoStylize
 
