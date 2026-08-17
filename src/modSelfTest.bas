@@ -1074,6 +1074,64 @@ Failed:
     FirstLineTest = r & "ERROR " & Err.Number & ": " & Err.Description
 End Function
 
+' Sara's second report: a walkthrough built with "Arrow, not fade" ON, undone,
+' the option turned OFF, and the next walkthrough still came out with arrows.
+'
+' The cause is that the non-arrow branch only set the emphasis - it never
+' cleared arrows - so an arrow on the SOURCE block was inherited by every
+' duplicate. A generated slide has to look exactly like the mode it was built
+' in, whatever state the source happens to be in.
+Public Function StepArrowProbe(ByVal srcPath As String, ByVal pngPath As String) As String
+    Dim pres As Presentation, sld As Slide, shp As Shape, r As String
+    Dim code As String, k As Long, target As Shape, s3 As Shape
+    Dim withArrows As Long, withEmph As Long, base As Long
+
+    On Error GoTo Failed
+    modRibbon.SetQuiet True
+
+    Set pres = Application.ActivePresentation
+    pres.PageSetup.SlideWidth = modSpec.SLIDE_W
+    pres.PageSetup.SlideHeight = modSpec.SLIDE_H
+    Set sld = pres.Slides.Add(pres.Slides.count + 1, ppLayoutBlank)
+    sld.Select
+    base = pres.Slides.count
+
+    code = "a = 1" & vbCr & "b = 2" & vbCr & "c = 3"
+    Set shp = modBlock.CreateBlock(sld, code, modSpec.BASE_SIZE, "python")
+    shp.Select
+    modRibbon.DoStylize
+
+    ' The source carries an arrow, which is the state that made this fail.
+    Cursor shp, 1
+    modRibbon.DoArrow
+    r = "source has arrow=" & Abs(CLng(modArrow.ArrowCount(shp) > 0)) & vbLf
+
+    modOptions.SetStepArrow False
+    shp.Select
+    modRibbon.DoStepThrough False
+
+    For k = base + 1 To pres.Slides.count
+        Set target = Nothing
+        For Each s3 In modBlock.AllShapes(pres.Slides(k))
+            If s3.Tags(modBlock.TAG_BLOCK) = "1" Then Set target = s3
+        Next s3
+        If Not target Is Nothing Then
+            If modArrow.ArrowCount(target) > 0 Then withArrows = withArrows + 1
+            If Len(modBlock.GetEmphasis(target)) > 0 Then withEmph = withEmph + 1
+        End If
+    Next k
+
+    r = r & "generated=" & (pres.Slides.count - base) & _
+        " with_arrows=" & withArrows & " with_emphasis=" & withEmph & vbLf
+    r = r & "no_inherited_arrows=" & Abs(CLng(withArrows = 0)) & vbLf
+
+    sld.Export pngPath, "PNG", 1920, 1080
+    StepArrowProbe = r
+    Exit Function
+Failed:
+    StepArrowProbe = r & "ERROR " & Err.Number & ": " & Err.Description
+End Function
+
 ' Two things Sara asked about: whether the numbers need the checkbox clicking
 ' again after adding a line, and where the indent guides land in a transcript.
 Public Function RenumberProbe(ByVal srcPath As String, ByVal pngPath As String) As String
@@ -1215,6 +1273,26 @@ Public Function TranscriptTest(ByVal srcPath As String, ByVal pngPath As String)
 
     r = r & "code_only=" & Quoted(Replace(modOutput.CodeOnly( _
             shp.TextFrame.TextRange.text, "python"), vbCr, "|")) & vbLf
+
+    ' A NEWLY TYPED LINE. It arrives bare, which is to say output, and Prompt
+    ' is how you promote it - the case Sara found no way to do.
+    shp.TextFrame.TextRange.InsertAfter vbCr & "z = 9"
+    shp.Select
+    modRibbon.DoStylize
+    Dim last As Long
+    last = modBlock.CountLines(shp.TextFrame.TextRange.text)
+    Cursor shp, last
+    r = r & "new line starts bare=" & _
+        Abs(CLng(Left$(Trim$(Split(Replace(shp.TextFrame.TextRange.text, vbCr, Chr$(1)), _
+            Chr$(1))(last - 1)), 1) = "z")) & vbLf
+    Cursor shp, last
+    modRibbon.DoPromptLines
+    r = r & "after Prompt=" & _
+        Quoted(Replace(shp.TextFrame.TextRange.text, vbCr, "|")) & vbLf
+    Cursor shp, last
+    modRibbon.DoOutputLines
+    r = r & "after Output=" & _
+        Quoted(Replace(shp.TextFrame.TextRange.text, vbCr, "|")) & vbLf
 
     ' EMPHASIS ON A TRANSCRIPT. The output lines and the prompts are painted
     ' after the spans, so without care they stay lit while the code fades - and

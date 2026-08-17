@@ -83,12 +83,18 @@
                       onAction="RibbonToggleTranscript"
                       screentip="This block is a session at an interpreter"
                       supertip="Puts the language's prompt in front of every line you typed - &gt;&gt;&gt; for Python, and ... on the body of a statement. Blank lines and lines marked as Output get none. The prompt goes into the text, so nothing can drift out of alignment with it, and Copy code strips it back off."/>
+            <button id="btnPromptLines"
+                    label="Prompt"
+                    imageMso="MacroPlay"
+                    onAction="RibbonPromptLines"
+                    screentip="These lines were typed at the interpreter"
+                    supertip="Puts the prompt back on the lines you select. A line you have just typed starts without one, which is to say it counts as output, so this is how you promote it. A bare cursor is enough for one line."/>
             <button id="btnOutputLines"
                     label="Output"
                     imageMso="QueryShowTable"
                     onAction="RibbonOutputLines"
                     screentip="These lines were printed by the interpreter"
-                    supertip="Takes the prompt off the lines you select, which is what makes them output: they lose their syntax color and their line number, because a printed value is not code. Pressing it on a block that is not yet a transcript makes it one first, so marking your first output line is a single press. Press again on an output line to make it input. A bare cursor is enough for one line."/>
+                    supertip="Takes the prompt off the lines you select, which is what makes them output: they lose their syntax color and their line number, because a printed value is not code. Pressing it on a block that is not yet a transcript makes it one first, so marking your first output line is a single press. Use Prompt to put a line back. A bare cursor is enough for one line."/>
           </box>
         </group>
 

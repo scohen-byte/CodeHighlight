@@ -535,17 +535,23 @@ Failed:
     Warn "DoNoteColor failed: " & Err.Description
 End Sub
 
-' Turns the prompt off the selected lines, making them output - or back on.
+' The two halves of marking a transcript, kept as separate commands rather than
+' one that toggles: a button called Output that sometimes puts prompts ON is a
+' sentence nobody should have to work out, and a newly typed line starts bare -
+' which is to say output - so promoting it is a thing you do often.
 '
 ' There is no stored list. A line carrying a prompt is one you typed and a bare
-' one is output, so this edits the TEXT and the text is the record. Editing the
-' block afterwards cannot desynchronise anything, because there is nothing to
-' desynchronise: add a line and it starts life bare, which is to say output, and
-' pressing this puts a prompt on it.
-'
-' Pressing it on a block that is not yet a transcript makes it one first, so
-' marking your first output line is a single gesture rather than two.
+' one is output, so these edit the TEXT and the text is the record. Editing the
+' block afterwards cannot desynchronise anything.
 Public Sub DoOutputLines()
+    MarkLines False
+End Sub
+
+Public Sub DoPromptLines()
+    MarkLines True
+End Sub
+
+Private Sub MarkLines(ByVal wantPrompt As Boolean)
     On Error GoTo Failed
     Dim shp As Shape, problem As String, sel As Selection
     Dim txt As String, a As Long, b As Long, langId As String
@@ -558,9 +564,9 @@ Public Sub DoOutputLines()
 
     Set sel = Application.ActiveWindow.Selection
     If sel.Type <> ppSelectionText Then
-        Warn "Put the cursor on the line the interpreter printed - or select a " & _
-             "run of them - and press Output. Use the Transcript button to turn " & _
-             "the prompts on and off for the whole block."
+        Warn "Put the cursor on the line - or select a run of them - and press " & _
+             "again. Use the Transcript button to turn the prompts on and off " & _
+             "for the whole block."
         Exit Sub
     End If
 
@@ -576,19 +582,19 @@ Public Sub DoOutputLines()
 
     modBlock.UngroupParts shp
     ' A block that was never a transcript has no prompts at all, so every line
-    ' would look like output. Prompt them, then take this run's prompt off.
+    ' would read as output. Prompt them, then apply what was asked for.
     If Not modOutput.IsTranscript(shp) Then
         modOutput.SetTranscript shp, True
         modOutput.SetAllPrompts shp, langId, True
     End If
-    modOutput.TogglePrompts shp, langId, a, b
+    modOutput.SetPrompts shp, langId, a, b, wantPrompt
     modBlock.FormatBlockText shp, modBlock.BlockFontSize(shp)
     StyleBlock shp, langId
     Reselect shp
     RefreshRibbon
     Exit Sub
 Failed:
-    Warn "DoOutputLines failed: " & Err.Description
+    Warn "Marking transcript lines failed: " & Err.Description
 End Sub
 
 ' Turns the whole block into a session at an interpreter, or back into a plain
@@ -1037,6 +1043,12 @@ Public Sub DoStepThrough(ByVal cumulative As Boolean)
                 End If
             Else
                 modBlock.SetEmphasis target, list
+                ' Arrows are cleared even though this branch does not draw
+                ' them. A generated slide has to look exactly like the mode it
+                ' was built in, and the source block may be carrying an arrow -
+                ' from a hand-placed one, or from an earlier arrow walkthrough
+                ' that was undone - which every duplicate would inherit.
+                modArrow.ClearArrows target
             End If
             ' A note per step, already attached to the line this slide is
             ' about, so the walkthrough arrives ready to be written into.
@@ -1060,6 +1072,10 @@ Public Sub DoStepThrough(ByVal cumulative As Boolean)
         Set target = BlockOnSlide(dup, shp.Tags(modBlock.TAG_ID))
         If Not target Is Nothing Then
             modBlock.SetEmphasis target, ""
+            ' Arrows too. This slide's whole job is to hand the code back
+            ' whole, with nothing singled out - and it is a duplicate of the
+            ' source, so it inherits whatever the source is carrying.
+            modArrow.ClearArrows target
             StyleBlock target
         End If
     End If
@@ -1393,6 +1409,10 @@ End Sub
 
 Public Sub RibbonOutputLines(control As IRibbonControl)
     DoOutputLines
+End Sub
+
+Public Sub RibbonPromptLines(control As IRibbonControl)
+    DoPromptLines
 End Sub
 
 Public Sub RibbonTranscriptPressed(control As IRibbonControl, ByRef returnedVal)

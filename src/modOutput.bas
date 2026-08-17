@@ -125,50 +125,45 @@ Public Function SetAllPrompts(ByVal shp As Shape, ByVal langId As String, _
     SetAllPrompts = changed
 End Function
 
-' Toggles the prompt off a run of lines, or back on. Off is "this is output".
+' Puts a prompt on a run of lines, or takes it off. NOT a toggle.
 '
-' Whole-run rather than per line: if every line in the selection is already
-' output, the gesture plainly means the opposite.
-Public Function TogglePrompts(ByVal shp As Shape, ByVal langId As String, _
-                              ByVal ln1 As Long, ByVal ln2 As Long) As Boolean
+' Two explicit commands rather than one that flips. A toggle reads fine on a
+' button called Output while it is taking prompts OFF, and reads as nonsense
+' the moment it is putting them back - "press Output to make this a line you
+' typed" is not a sentence anybody should have to work out. And a new line
+' starts bare, which is to say output, so putting a prompt on it is a thing you
+' do often enough to deserve its own button.
+Public Function SetPrompts(ByVal shp As Shape, ByVal langId As String, _
+                           ByVal ln1 As Long, ByVal ln2 As Long, _
+                           ByVal on_ As Boolean) As Boolean
     Dim lang As LangDef, lines() As String, i As Long, n As Long
-    Dim bare As String, out As String, allBare As Boolean, wantOn As Boolean
+    Dim bare As String, out As String
 
     lang = modLangRegistry.GetLang(langId)
     If Len(lang.PromptText) = 0 Then Exit Function
     lines = modBlock.SplitLines(shp.TextFrame.TextRange.text)
 
-    allBare = True
     For i = LBound(lines) To UBound(lines)
         n = i - LBound(lines) + 1
-        If n >= ln1 And n <= ln2 Then
-            If PromptLen(lines(i), lang) > 0 Then
-                allBare = False
-                Exit For
-            End If
-        End If
-    Next i
-    wantOn = allBare
-
-    For i = LBound(lines) To UBound(lines)
-        n = i - LBound(lines) + 1
-        bare = StripPrompt(lines(i), lang)
         If i > LBound(lines) Then out = out & vbCr
 
-        If n >= ln1 And n <= ln2 Then
-            If wantOn And Len(Trim$(bare)) > 0 Then
+        If n < ln1 Or n > ln2 Then
+            out = out & lines(i)
+        Else
+            bare = StripPrompt(lines(i), lang)
+            ' A blank line never gets a prompt: a bare ">>>" with nothing after
+            ' it reads as a statement that failed to render.
+            If on_ And Len(Trim$(bare)) > 0 Then
                 out = out & lang.PromptText & bare
             Else
                 out = out & bare
             End If
-        Else
-            out = out & lines(i)
         End If
     Next i
 
     If out <> shp.TextFrame.TextRange.text Then
         shp.TextFrame.TextRange.text = out
-        TogglePrompts = True
+        SetPrompts = True
     End If
 End Function
 

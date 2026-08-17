@@ -39,6 +39,7 @@ editable.
 | **Indent guides** | Show or hide the vertical nesting lines, drawn as real shapes. Off by default |
 | **Transcript** | Style the block as a session at an interpreter — prompts on every line you typed |
 | **Output** | Take the prompt off the selected lines: these were printed, not typed |
+| **Prompt** | Put it back: these were typed. A newly typed line starts without one |
 | **First line** | The number the first line gets, for code split across slides. Per block |
 | **Emphasize** | Band the selected lines and fade the rest |
 | **Arrow** | Point at a line from the left margin, leaving the code at full contrast |
@@ -273,8 +274,13 @@ block becomes a transcript, every line you typed gets the prompt (`>>>`, with
 `...` on the body of a statement, nothing on a blank line), and the line you
 marked loses its prompt, its syntax colour and its line number.
 
-Press **Output** again on a marked line to make it input again. The
-**Transcript** checkbox turns the prompts on and off for the whole block.
+**Prompt** does the reverse — it puts the prompt back on the lines you select.
+That is how you promote a line you have just typed: a new line arrives without a
+prompt, which is to say it counts as output. They are two separate commands
+rather than one that toggles, because a button called Output that sometimes puts
+prompts *on* is not a sentence anybody should have to work out.
+
+The **Transcript** checkbox turns the prompts on and off for the whole block.
 
 **There is no stored list of output lines.** A line carrying a prompt is one
 you typed; a bare one is output. The text *is* the record, so editing cannot
