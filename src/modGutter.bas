@@ -20,6 +20,27 @@ Attribute VB_Name = "modGutter"
 '
 ' The shapes are deliberately NOT grouped: grouping makes editing the text
 ' awkward and complicates every other operation.
+'
+' WHY THE NUMBERS STAY A SEPARATE SHAPE, when the transcript prompts moved INTO
+' the text for exactly the alignment reason this arrangement risks.
+'
+' Asked and settled on 2026-08-17. Both are two frames that must agree line for
+' line, so both can drift - but the failure modes are not the same size. The
+' prompts sat immediately left of the code with no gap, so drift put them ON the
+' code. The numbers are a narrow RIGHT-ALIGNED column with a deliberate gap, so
+' drift shows up as a wobble; in months of use they have not misbehaved.
+'
+' And the difference that decides it: copy a REPL session out of a terminal and
+' you GET the ">>>", because it is part of what a transcript is. Copy code out
+' of an editor and you do not get the line numbers, because they are the
+' editor's chrome. Putting them in the text would bake chrome into someone's
+' source - and a colleague without the add-in can delete a numbers SHAPE and
+' still have clean code, where they could not delete numbers from the text.
+'
+' The practical half: a prompt marking is a choice about specific lines and is
+' stable, while numbers are derived and change on every insertion. Numbers in
+' the text would mean rewriting the whole block on every Stylize, with the
+' cursor landing after a number and Home landing before it.
 '==============================================================================
 Option Explicit
 
