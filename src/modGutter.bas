@@ -102,9 +102,10 @@ End Sub
 ' the middle, which are part of the code, and including the last line, which is
 ' the whole point.
 Public Function NumberColumn(ByVal text As String, _
-                             Optional ByVal startAt As Long = 1) As String
+                             Optional ByVal startAt As Long = 1, _
+                             Optional ByVal outputSpec As String = "") As String
     Dim lines() As String, i As Long, firstReal As Long, lastReal As Long
-    Dim n As Long, out As String
+    Dim n As Long, out As String, ln As Long
 
     If startAt < 1 Then startAt = 1
     n = startAt - 1
@@ -120,10 +121,16 @@ Public Function NumberColumn(ByVal text As String, _
     Next i
 
     For i = LBound(lines) To UBound(lines)
+        ln = i - LBound(lines) + 1
         If i > LBound(lines) Then out = out & vbCr
+        ' An output line is not a line OF the program, so it gets no number and
+        ' does not advance the count - otherwise the numbers stop matching the
+        ' file the code came from, which is the only thing they are for.
         If firstReal >= 0 And i >= firstReal And i <= lastReal Then
-            n = n + 1
-            out = out & CStr(n)
+            If Not modOutput.IsOutputLine(outputSpec, ln) Then
+                n = n + 1
+                out = out & CStr(n)
+            End If
         End If
     Next i
 
@@ -194,7 +201,8 @@ Public Sub SyncGutter(ByVal shp As Shape, Optional ByVal create As Boolean = Fal
     ' block at all. Overwriting it with the numbers would silently destroy it.
     RescueStrayText shp, g
 
-    numbers = NumberColumn(shp.TextFrame.TextRange.text, FirstLine(shp))
+    numbers = NumberColumn(shp.TextFrame.TextRange.text, FirstLine(shp), _
+                           modOutput.GetOutputLines(shp))
 
     With g.TextFrame
         .WordWrap = msoFalse

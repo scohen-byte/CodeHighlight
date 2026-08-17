@@ -16,6 +16,7 @@ Public Function PythonLang() As LangDef
 
     L.id = "python"
     L.DisplayName = "Python"
+    L.PromptText = ">>> "
 
     L.LineComments = "#"
     L.BlockCommentOpen = ""            ' Python has none - docstrings are strings

@@ -23,7 +23,7 @@ $ppSaveAsOpenXMLPresentationMacroEnabled = 25
 # modRibbon is excluded - it needs IRibbonUI and plays no part here.
 $MODULES = @('modTheme', 'modSpec', 'modLangRegistry', 'modLangPython',
              'modLexer', 'modBlock', 'modRender', 'modGutter', 'modGuides',
-             'modOptions', 'modSelfTest')
+             'modOptions', 'modOutput', 'modSelfTest')
 
 if (Test-Path $Scratch) { Remove-Item $Scratch -Force }
 New-Item -ItemType Directory -Path (Split-Path $Png -Parent) -Force | Out-Null

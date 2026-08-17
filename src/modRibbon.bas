@@ -120,6 +120,9 @@ Public Sub StyleBlock(ByVal shp As Shape, Optional ByVal langId As String = "")
     ' Gutter before guides: it changes the left margin, and the guides are
     ' placed from that margin.
     modGutter.SyncGutter shp
+    ' The prompt column owns the left margin once it exists, and it needs the
+    ' gutter's width to sit beside it rather than on top of it.
+    modOutput.SyncPrompt shp, langId
     modGuides.DrawGuides shp
     ' Covers next: they have to sit above everything to hide anything.
     modRender.DrawCovers shp
@@ -263,10 +266,41 @@ Public Sub DoCopyCode()
 
     ' Copying the TextRange rather than the shape: pasting into an editor then
     ' gives the source, not a picture of a rounded rectangle.
-    shp.TextFrame.TextRange.Copy
+    '
+    ' A transcript's OUTPUT lines are dropped, for the same reason: what you
+    ' paste should run. Doing that needs a scratch shape, because the clipboard
+    ' takes a range and the range would bring the output with it.
+    If modOutput.HasOutput(shp) Then
+        CopyTextViaScratch shp, _
+            modOutput.CodeOnly(shp.TextFrame.TextRange.text, _
+                               modOutput.GetOutputLines(shp))
+    Else
+        shp.TextFrame.TextRange.Copy
+    End If
     Exit Sub
 Failed:
     Warn "DoCopyCode failed: " & Err.Description
+End Sub
+
+' Puts arbitrary text on the clipboard by way of a shape that exists just long
+' enough to be copied. VBA has no clipboard object without a reference to the
+' Forms library, and this add-in adds no references - a missing one is a load
+' failure on someone else's machine.
+Private Sub CopyTextViaScratch(ByVal shp As Shape, ByVal text As String)
+    Dim sld As Slide, tmp As Shape
+
+    On Error GoTo Failed
+    Set sld = modGutter.OwningSlide(shp)
+    ' Off-slide, so it cannot flash into view on the way past.
+    Set tmp = sld.Shapes.AddTextbox(msoTextOrientationHorizontal, -2000, -2000, 400, 100)
+    tmp.TextFrame.TextRange.text = text
+    tmp.TextFrame.TextRange.Copy
+    tmp.Delete
+    Exit Sub
+Failed:
+    On Error Resume Next
+    If Not tmp Is Nothing Then tmp.Delete
+    shp.TextFrame.TextRange.Copy
 End Sub
 
 ' Returns a block to plain, uncoloured text: no syntax colours, no emphasis, no
@@ -297,6 +331,10 @@ Public Sub DoStrip()
     ' Arrows go, notes stay. An arrow holds nothing the user typed and one
     ' click puts one back, so it belongs with the emphasis it replaces.
     modArrow.ClearArrows shp
+    ' Output marking goes too: it is a rendering choice about lines, like the
+    ' emphasis and the covers, and Stylize brings it all back from the tag.
+    modOutput.SetOutputLines shp, ""
+    modOutput.ClearPrompt shp
 
     modBlock.ResizeToContent shp
     ' Notes SURVIVE a strip. Everything else this removes can be rebuilt by
@@ -492,6 +530,52 @@ Public Sub DoNoteColorApply()
     Exit Sub
 Failed:
     Warn "DoNoteColor failed: " & Err.Description
+End Sub
+
+' Marks the selected lines as OUTPUT: what the interpreter printed, inside the
+' block rather than beside it. The block becomes a terminal, those lines lose
+' their syntax colour and their line number, and the CODE lines get the
+' language's prompt in a column of their own.
+'
+' The transcript form. Output notes are the other shape of the same idea - a
+' note is right when the code is a program and the output is an aside about one
+' line of it, this is right when the slide IS a session at the interpreter.
+'
+' With the SHAPE selected rather than text it clears the marking, the way
+' Emphasize and Hide lines do. No confirmation: nothing typed is lost, and
+' pressing it again puts it back.
+Public Sub DoOutputLines()
+    On Error GoTo Failed
+    Dim shp As Shape, problem As String, sel As Selection
+    Dim txt As String, a As Long, b As Long, i As Long, list As String
+
+    Set shp = modBlock.SelectedBlock(problem)
+    If shp Is Nothing Then
+        Warn problem
+        Exit Sub
+    End If
+
+    Set sel = Application.ActiveWindow.Selection
+    If sel.Type = ppSelectionText Then
+        If sel.TextRange.length > 0 Then
+            txt = shp.TextFrame.TextRange.text
+            a = modBlock.LineOfChar(txt, sel.TextRange.Start)
+            b = modBlock.LineOfChar(txt, sel.TextRange.Start + sel.TextRange.length - 1)
+            For i = a To b
+                If Len(list) > 0 Then list = list & ","
+                list = list & CStr(i)
+            Next i
+        End If
+    End If
+
+    modBlock.UngroupParts shp
+    modOutput.SetOutputLines shp, list
+    StyleBlock shp
+    Reselect shp
+    RefreshRibbon
+    Exit Sub
+Failed:
+    Warn "DoOutputLines failed: " & Err.Description
 End Sub
 
 ' Attaches an OUTPUT note to a line: what the program printed, dressed as a
@@ -779,6 +863,10 @@ Public Sub DoArrow()
             Exit Sub
         End If
         modArrow.ClearArrows shp
+    ' Output marking goes too: it is a rendering choice about lines, like the
+    ' emphasis and the covers, and Stylize brings it all back from the tag.
+    modOutput.SetOutputLines shp, ""
+    modOutput.ClearPrompt shp
     ElseIf Not modArrow.RemoveArrow(shp, ln) Then
         modArrow.AddArrow shp, ln
     End If
@@ -1260,6 +1348,10 @@ End Sub
 
 Public Sub RibbonNoteColorApply(control As IRibbonControl)
     DoNoteColorApply
+End Sub
+
+Public Sub RibbonOutputLines(control As IRibbonControl)
+    DoOutputLines
 End Sub
 
 Public Sub RibbonOutputNote(control As IRibbonControl)

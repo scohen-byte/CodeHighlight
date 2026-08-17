@@ -83,7 +83,7 @@ Public Function DrawGuides(ByVal shp As Shape) As Long
     ClearGuides sld, blockId
     If Not GuidesEnabled(shp) Then Exit Function
 
-    lineCount = IndentLevels(shp.TextFrame.TextRange.text, levels)
+    lineCount = IndentLevels(shp.TextFrame.TextRange.text, levels, modOutput.GetOutputLines(shp))
     If lineCount = 0 Then Exit Function
 
     size = modBlock.BlockFontSize(shp)
@@ -193,7 +193,12 @@ End Sub
 ' A blank line takes the SMALLER of its neighbours' levels, which is what an
 ' editor does: a blank line inside a loop body keeps the guide running through
 ' it, but a blank line between two functions does not sprout one.
-Public Function IndentLevels(ByVal text As String, ByRef levels() As Long) As Long
+' outputSpec names lines that are OUTPUT rather than code. They are treated
+' exactly as blank lines are: a printed value has no indentation to speak of,
+' and reading its leading spaces as a nesting level would sprout a guide from
+' nowhere in the middle of a transcript.
+Public Function IndentLevels(ByVal text As String, ByRef levels() As Long, _
+                             Optional ByVal outputSpec As String = "") As Long
     Dim lines() As String, n As Long, i As Long, j As Long
     Dim cols() As Long, blank() As Boolean
     Dim prevLevel As Long, nextLevel As Long
@@ -208,6 +213,7 @@ Public Function IndentLevels(ByVal text As String, ByRef levels() As Long) As Lo
 
     For i = 0 To n - 1
         blank(i) = (Len(Trim$(lines(i))) = 0)
+        If modOutput.IsOutputLine(outputSpec, i - LBound(lines) + 1) Then blank(i) = True
         cols(i) = LeadingColumns(lines(i))
     Next i
 

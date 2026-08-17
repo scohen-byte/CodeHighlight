@@ -70,6 +70,11 @@ Public Function ApplyHighlight(ByVal shp As Shape, ByVal langId As String) As Lo
         End If
     Next i
 
+    ' Output lines are repainted AFTER the spans, which is the whole of what
+    ' makes them read as output: the interpreter is showing a value, not code,
+    ' and the absence of syntax colour says so more plainly than any border.
+    PaintOutputLines shp, tr
+
     ' Bold LAST, after every colour is on. Setting Bold over a range touches
     ' only the weight - unlike Font.Highlight, which collapses the runs and
     ' repaints them one colour - but the order costs nothing and the test
@@ -78,6 +83,35 @@ Public Function ApplyHighlight(ByVal shp As Shape, ByVal langId As String) As Lo
 
     ApplyHighlight = applied
 End Function
+
+' Strips the colour back off the lines marked as output, and turns the block
+' itself into a terminal when it has any.
+Private Sub PaintOutputLines(ByVal shp As Shape, ByVal tr As TextRange)
+    Dim spec As String, lineCount As Long, i As Long
+    Dim startIdx As Long, length As Long
+
+    spec = modOutput.GetOutputLines(shp)
+
+    On Error Resume Next
+    If Len(spec) = 0 Then
+        ' Back to an editor. A block whose output lines were cleared must not
+        ' keep the terminal fill, or unmarking a line leaves no way back.
+        shp.fill.ForeColor.RGB = ThemeBackColor()
+        Exit Sub
+    End If
+    shp.fill.ForeColor.RGB = ThemeOutputFill()
+
+    lineCount = modBlock.CountLines(tr.text)
+    For i = 1 To lineCount
+        If modOutput.IsOutputLine(spec, i) Then
+            modBlock.LineCharRange tr.text, i, startIdx, length
+            If startIdx >= 1 And length >= 1 Then
+                tr.Characters(startIdx, length).Font.Color.RGB = ThemeOutputText()
+                tr.Characters(startIdx, length).Font.Bold = msoFalse
+            End If
+        End If
+    Next i
+End Sub
 
 ' Renders the newly emphasised line in bold as well as banded, when the deck
 ' asks for it. The band alone is a background change; bold changes the letters

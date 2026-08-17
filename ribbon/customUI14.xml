@@ -161,6 +161,12 @@
                   onAction="RibbonNote"
                   screentip="Attach a note to a line of code"
                   supertip="Puts a note beside the block with a line pointing at the code, so you can say what a line does without cramming it into a comment. Uses the line the cursor is on, or - with the block itself selected - the emphasised line, which makes annotating a walkthrough one click per slide. It stays anchored: change the size or edit the code above it and Stylize keeps it level with its line."/>
+          <button id="btnOutputLines"
+                  label="Output lines"
+                  imageMso="QueryShowTable"
+                  onAction="RibbonOutputLines"
+                  screentip="Mark the selected lines as output, inside the block"
+                  supertip="For a transcript: statement, result, statement, result, all in one block. The block becomes a terminal, the marked lines lose their syntax color and their line number, and the code lines get the language's prompt in a column of their own. Copy code then gives you the code without the output, so what you paste runs. With the block itself selected rather than text, it clears the marking."/>
           <button id="btnOutputNote"
                   label="Output"
                   size="large"

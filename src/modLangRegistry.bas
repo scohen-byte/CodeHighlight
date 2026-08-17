@@ -49,6 +49,13 @@ Public Type LangDef
     NumberSuffixes    As String   ' "j J" - trailing type markers
     DigitSep          As String   ' "_" - empty if the language has none
 
+    ' --- the interpreter ----------------------------------------------------
+    ' The prompt a REPL prints before a line you type, INCLUDING its trailing
+    ' space: ">>> " for Python, "> " for a shell, "" for a language with no
+    ' REPL. modOutput draws it beside code lines in a transcript, and empty
+    ' means a transcript simply gets no prompt column.
+    PromptText        As String
+
     ' --- identifiers --------------------------------------------------------
     CaseSensitive     As Boolean
     DecoratorChar     As String   ' "@" at line start, "" if the language has none

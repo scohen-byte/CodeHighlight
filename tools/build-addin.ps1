@@ -26,7 +26,7 @@ $ppSaveAsOpenXMLPresentationMacroEnabled = 25
 # tools/check-vba.sh compares this list against the directory for that reason.
 $MODULES = @('modTheme', 'modSpec', 'modLangRegistry', 'modLangPython',
              'modLexer', 'modBlock', 'modRender', 'modGutter', 'modGuides',
-             'modOptions', 'modSwatch', 'modNote', 'modArrow', 'modRibbon')
+             'modOptions', 'modSwatch', 'modOutput', 'modNote', 'modArrow', 'modRibbon')
 
 if (Test-Path $Out) { Remove-Item $Out -Force }
 New-Item -ItemType Directory -Path (Split-Path $Out -Parent) -Force | Out-Null

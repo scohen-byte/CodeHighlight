@@ -926,6 +926,10 @@ Public Function EverythingTest(ByVal srcPath As String, ByVal pngPath As String)
     shp.TextFrame.TextRange.Characters(a, b).Select
     modRibbon.DoHide
 
+    ' A transcript line, so the prompt column is in the census too - it is the
+    ' ninth kind of child shape and the newest thing GroupParts has to know.
+    modOutput.SetOutputLines shp, "7"
+
     ' Two notes and two arrows, on different lines.
     modBlock.LineCharRange shp.TextFrame.TextRange.text, 1, a, b
     shp.TextFrame.TextRange.Characters(a, 1).Select
@@ -967,7 +971,7 @@ End Function
 Private Function PartCensus(ByVal shp As Shape) As String
     Dim id As String, sld As Slide, s2 As Shape
     Dim gut As Long, gui As Long, bnd As Long, cov As Long
-    Dim nte As Long, led As Long, anc As Long, arw As Long
+    Dim nte As Long, led As Long, anc As Long, arw As Long, prm As Long
 
     id = shp.Tags(modBlock.TAG_ID)
     Set sld = modGutter.OwningSlide(shp)
@@ -980,11 +984,12 @@ Private Function PartCensus(ByVal shp As Shape) As String
         If s2.Tags(modNote.TAG_LEADER_OF) = id Then led = led + 1
         If s2.Tags(modNote.TAG_ANCHOR_OF) = id Then anc = anc + 1
         If s2.Tags(modArrow.TAG_ARROW_OF) = id Then arw = arw + 1
+        If s2.Tags(modOutput.TAG_PROMPT_OF) = id Then prm = prm + 1
     Next s2
 
     PartCensus = "gutter=" & gut & " guides=" & gui & " bands=" & bnd & _
                  " covers=" & cov & " notes=" & nte & " leaders=" & led & _
-                 " anchors=" & anc & " arrows=" & arw
+                 " anchors=" & anc & " arrows=" & arw & " prompts=" & prm
 End Function
 
 Private Function TotalParts(ByVal shp As Shape) As Long
@@ -1018,7 +1023,8 @@ Private Function PartOf(ByVal s2 As Shape, ByVal id As String) As Boolean
              (s2.Tags(modNote.TAG_NOTE_OF) = id) Or _
              (s2.Tags(modNote.TAG_LEADER_OF) = id) Or _
              (s2.Tags(modNote.TAG_ANCHOR_OF) = id) Or _
-             (s2.Tags(modArrow.TAG_ARROW_OF) = id)
+             (s2.Tags(modArrow.TAG_ARROW_OF) = id) Or _
+             (s2.Tags(modOutput.TAG_PROMPT_OF) = id)
 End Function
 
 ' Line numbering that starts somewhere other than 1, for code split across
@@ -1072,6 +1078,98 @@ Public Function FirstLineTest(ByVal srcPath As String, ByVal pngPath As String) 
     Exit Function
 Failed:
     FirstLineTest = r & "ERROR " & Err.Number & ": " & Err.Description
+End Function
+
+' The transcript form: output lines marked INSIDE the block, with a prompt
+' column beside the code lines.
+Public Function OutputLinesTest(ByVal srcPath As String, ByVal pngPath As String) As String
+    Dim pres As Presentation, sld As Slide, shp As Shape, r As String
+    Dim a As Long, b As Long, e As Long, l2 As Long, p As Shape
+    Dim code As String, marginBefore As Single
+
+    On Error GoTo Failed
+    modRibbon.SetQuiet True
+
+    Set pres = Application.ActivePresentation
+    pres.PageSetup.SlideWidth = modSpec.SLIDE_W
+    pres.PageSetup.SlideHeight = modSpec.SLIDE_H
+    Set sld = pres.Slides.Add(pres.Slides.count + 1, ppLayoutBlank)
+    sld.Select
+
+    code = "print(set(range(5)))" & vbCr & "{0, 1, 2, 3, 4}" & vbCr & _
+           "print(set(" & Chr$(34) & "hello" & Chr$(34) & "))" & vbCr & _
+           "{'h', 'e', 'l', 'o'}"
+    Set shp = modBlock.CreateBlock(sld, code, modSpec.BASE_SIZE, "python")
+    shp.Left = 150
+    shp.Top = 150
+    shp.Select
+    modRibbon.DoStylize
+    shp.Select
+    modRibbon.DoToggleGutter
+    marginBefore = shp.TextFrame.MarginLeft
+
+    ' Mark lines 2 and 4 by selecting them, one run at a time.
+    modBlock.LineCharRange shp.TextFrame.TextRange.text, 2, a, b
+    shp.TextFrame.TextRange.Characters(a, b).Select
+    modRibbon.DoOutputLines
+    r = "marked=" & Quoted(modOutput.GetOutputLines(shp)) & vbLf
+
+    ' Set both runs directly, since one selection cannot cover two apart.
+    modOutput.SetOutputLines shp, "2,4"
+    shp.Select
+    modRibbon.DoStylize
+
+    Set shp = modBlock.SelectedBlock(code)
+    r = r & "terminal_fill=" & Abs(CLng(shp.fill.ForeColor.RGB = ThemeOutputFill())) & vbLf
+
+    ' An output line has no syntax colour left on it.
+    modBlock.LineCharRange shp.TextFrame.TextRange.text, 2, a, b
+    r = r & "output_uncoloured=" & _
+            Abs(CLng(shp.TextFrame.TextRange.Characters(a, 1).Font.Color.RGB = _
+                     ThemeOutputText())) & vbLf
+    ' And a code line still has its.
+    modBlock.LineCharRange shp.TextFrame.TextRange.text, 3, a, b
+    r = r & "code_still_coloured=" & _
+            Abs(CLng(shp.TextFrame.TextRange.Characters(a, 1).Font.Color.RGB <> _
+                     ThemeOutputText())) & vbLf
+
+    ' The prompt column exists, carries the language's prompt, and is blank on
+    ' the output lines.
+    Set p = modOutput.FindPrompt(shp)
+    If p Is Nothing Then
+        r = r & "prompt_column=0 (missing)" & vbLf
+    Else
+        r = r & "prompt_column=1" & vbLf
+        r = r & "prompt_from_language=" & _
+                Quoted(modLangRegistry.GetLang("python").PromptText) & vbLf
+        r = r & "prompt_text=" & Quoted(Replace(p.TextFrame.TextRange.text, vbCr, "|")) & vbLf
+        r = r & "prompt_inside_block=" & _
+                Abs(CLng(p.Left >= shp.Left And p.Left + p.Width <= shp.Left + shp.Width)) & vbLf
+        r = r & "margin_made_room=" & _
+                Abs(CLng(shp.TextFrame.MarginLeft > marginBefore)) & vbLf
+    End If
+
+    ' Numbering skips the output lines, so it still matches the source file.
+    r = r & "numbers=" & Quoted(Replace(modGutter.NumberColumn( _
+            shp.TextFrame.TextRange.text, 1, modOutput.GetOutputLines(shp)), vbCr, "|")) & vbLf
+
+    ' Copy code drops them, so what you paste runs.
+    r = r & "code_only=" & Quoted(Replace(modOutput.CodeOnly( _
+            shp.TextFrame.TextRange.text, "2,4"), vbCr, "|")) & vbLf
+
+    sld.Export pngPath, "PNG", 1920, 1080
+
+    ' Clearing puts the editor back.
+    shp.Select
+    modRibbon.DoOutputLines
+    Set shp = modBlock.SelectedBlock(code)
+    r = r & "cleared_fill=" & Abs(CLng(shp.fill.ForeColor.RGB = ThemeBackColor())) & vbLf
+    r = r & "cleared_prompt=" & Abs(CLng(modOutput.FindPrompt(shp) Is Nothing)) & vbLf
+
+    OutputLinesTest = r
+    Exit Function
+Failed:
+    OutputLinesTest = r & "ERROR " & Err.Number & ": " & Err.Description
 End Function
 
 ' Output notes: the dress, the mark, and the hanging indent.

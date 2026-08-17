@@ -42,7 +42,8 @@ editable.
 | **Arrow** | Point at a line from the left margin, leaving the code at full contrast |
 | **Arrow color** | Eight syntax hues, darkened to read on a white slide. Deck-wide |
 | **Note** | Attach an explanation to a line of code |
-| **Output** | Attach what the code printed, dressed as a terminal |
+| **Output lines** | Mark lines as output *inside* the block, for a transcript |
+| **Output** | Attach what the code printed beside the block, as a note |
 | **Delete note** | Remove the note you have singled out, and its connector |
 | **Note size** | Font size for notes. 24pt, or Auto to size each one from its block |
 | **Note color** | Twelve presets, each shown as its own swatch |
@@ -255,8 +256,26 @@ deck rather than in the add-in, so it travels with the file.
 
 ### Showing what the code printed
 
-**Output** attaches a note carrying the program's output, dressed as a terminal
-rather than as an aside: the code font, a darker panel with an edge, and a green
+There are two shapes of this, and they are for different slides.
+
+**Output lines** is the transcript: statement, result, statement, result, all in
+one block. Select the lines the interpreter printed and press it. The block
+becomes a terminal, those lines lose their syntax colour, and the *code* lines
+get the language's prompt in a column of its own — drawn like the line numbers,
+in its own shape, so the block's text stays pure source.
+
+Because the text stays pure, everything else keeps working. Line numbers skip
+the output lines, so they still match the file the code came from. Indent guides
+treat them as blank, since a printed value has no nesting. And **Copy code**
+drops them, so what you paste runs.
+
+With the block itself selected rather than text, it clears the marking.
+
+**Output** is the other shape: a note beside the block, for when the code is a
+program and the output is an aside about one line of it.
+
+It attaches a note carrying the program's output, dressed as a terminal rather
+than as an ordinary note: the code font, a darker panel with an edge, and a green
 arrow opening the line. It takes the line the cursor is on, or the emphasised
 line with the block itself selected — the same rule as Note.
 
