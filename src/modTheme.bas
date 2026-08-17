@@ -218,7 +218,7 @@ End Function
 
 Public Function ThemeNoteFontName(ByVal i As Long) As String
     Select Case i
-        Case 0: ThemeNoteFontName = "Deck default"
+        Case 0: ThemeNoteFontName = "Default font"
         Case 1: ThemeNoteFontName = "Segoe UI"
         Case 2: ThemeNoteFontName = "Calibri"
         Case 3: ThemeNoteFontName = "Georgia"

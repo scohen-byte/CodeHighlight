@@ -365,10 +365,17 @@ End Sub
 ' cumulative = True grows the emphasis downward, for building code up.
 ' Hides the lines covered by the text selection, behind a panel with a question
 ' mark. With the shape selected rather than text, it reveals everything again.
+' Hides the selected lines behind a panel, ADDING to whatever is already
+' hidden. A transcript may want every run of output covered at once, and a
+' selection covers one run, so a command that replaced the list could hide only
+' one region ever.
+'
+' With the SHAPE selected rather than text it reveals everything, the way
+' Emphasize clears itself.
 Public Sub DoHide()
     On Error GoTo Failed
     Dim shp As Shape, problem As String, sel As Selection
-    Dim txt As String, a As Long, b As Long, i As Long, list As String
+    Dim txt As String, a As Long, b As Long, list As String
 
     Set shp = modBlock.SelectedBlock(problem)
     If shp Is Nothing Then
@@ -376,17 +383,19 @@ Public Sub DoHide()
         Exit Sub
     End If
 
+    list = modBlock.GetHidden(shp)
     Set sel = Application.ActiveWindow.Selection
     If sel.Type = ppSelectionText Then
+        txt = shp.TextFrame.TextRange.text
+        a = modBlock.LineOfChar(txt, sel.TextRange.Start)
         If sel.TextRange.length > 0 Then
-            txt = shp.TextFrame.TextRange.text
-            a = modBlock.LineOfChar(txt, sel.TextRange.Start)
             b = modBlock.LineOfChar(txt, sel.TextRange.Start + sel.TextRange.length - 1)
-            For i = a To b
-                If Len(list) > 0 Then list = list & ","
-                list = list & CStr(i)
-            Next i
+        Else
+            b = a
         End If
+        list = modBlock.ToggleLineList(list, a, b)
+    Else
+        list = ""
     End If
 
     modBlock.SetHidden shp, list
@@ -913,10 +922,17 @@ Failed:
     Warn "DoArrow failed: " & Err.Description
 End Sub
 
-' Duplicates the slide with nothing hidden, so the answer follows the question.
+' Duplicates the slide with ONE hidden region revealed, so the answer follows
+' the question a piece at a time.
+'
+' One region, not all of them. A transcript with four runs of output covered is
+' four questions, and revealing the lot at the first press answers them all at
+' once. Which region: the one the cursor sits in, or failing that the topmost -
+' the same "what did you mean" rule the rest of the add-in uses.
 Public Sub DoReveal()
     On Error GoTo Failed
     Dim shp As Shape, problem As String, sld As Slide, dup As Slide, target As Shape
+    Dim spec As String, r1 As Long, r2 As Long, cursorLine As Long, sel As Selection
 
     Set shp = modBlock.SelectedBlock(problem)
     If shp Is Nothing Then
@@ -924,10 +940,17 @@ Public Sub DoReveal()
         Exit Sub
     End If
 
-    If Len(modBlock.GetHidden(shp)) = 0 Then
+    spec = modBlock.GetHidden(shp)
+    If Len(spec) = 0 Then
         Warn "Nothing is hidden on this block. Select some lines and press Hide first."
         Exit Sub
     End If
+
+    Set sel = Application.ActiveWindow.Selection
+    If sel.Type = ppSelectionText Then
+        cursorLine = modBlock.LineOfChar(shp.TextFrame.TextRange.text, sel.TextRange.Start)
+    End If
+    If Not modBlock.NextRun(spec, cursorLine, r1, r2) Then Exit Sub
 
     Set sld = modGutter.OwningSlide(shp)
     Set dup = sld.Duplicate(1)
@@ -935,7 +958,7 @@ Public Sub DoReveal()
 
     Set target = BlockOnSlide(dup, shp.Tags(modBlock.TAG_ID))
     If Not target Is Nothing Then
-        modBlock.SetHidden target, ""
+        modBlock.SetHidden target, modBlock.RemoveRunFromList(spec, r1, r2)
         StyleBlock target
     End If
 

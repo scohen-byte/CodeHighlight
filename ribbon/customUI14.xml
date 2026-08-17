@@ -224,70 +224,80 @@
         <!-- The only deck-level settings on the tab, and the only controls you
              touch once and then never again. They were scattered through the
              working controls, which is why they are here instead. -->
+        <!-- The only deck-level settings on the tab, and the only controls you
+             touch once and then never again. Laid out like the Home tab's Font
+             group: one word naming the thing, then unlabelled dropdowns whose
+             contents say what they are. Labelling each of them said "Note" three
+             times and still needed reading. -->
         <group id="grpLook" label="Appearance">
-          <comboBox id="cboNoteSize"
-                    label="Note size"
-                    sizeString="Auto"
-                    getText="RibbonNoteSizeText"
-                    onChange="RibbonNoteSizeChanged"
-                    getItemCount="RibbonNoteSizeCount"
-                    getItemLabel="RibbonNoteSizeLabel"
-                    screentip="Font size for notes"
-                    supertip="Auto sizes each note from the block it belongs to. Pick a rung or type any size to pin it instead. Applies to the note on the line your cursor is on, or the note you have clicked into. With nothing singled out it only records the choice for the next note, so opening this list can never repaint a note you were not pointing at. Each of the three note controls changes only what it is named after, so notes on one slide can differ. The choice is also remembered for notes made afterwards."/>
-          <box id="boxNoteColor" boxStyle="horizontal">
+          <box id="boxNotes" boxStyle="horizontal">
+            <labelControl id="lblNotes" label="Notes"/>
+            <comboBox id="cboNoteSize"
+                        label="Note size"
+                        sizeString="Auto"
+                        showLabel="false" getText="RibbonNoteSizeText"
+                        onChange="RibbonNoteSizeChanged"
+                        getItemCount="RibbonNoteSizeCount"
+                        getItemLabel="RibbonNoteSizeLabel"
+                        screentip="Font size for notes"
+                        supertip="Auto sizes each note from the block it belongs to. Pick a rung or type any size to pin it instead. Applies to the note on the line your cursor is on, or the note you have clicked into. With nothing singled out it only records the choice for the next note, so opening this list can never repaint a note you were not pointing at. Each of the three note controls changes only what it is named after, so notes on one slide can differ. The choice is also remembered for notes made afterwards."/>
             <dropDown id="ddNoteColor"
-                      label="Note color"
-                      sizeString="Crimson"
-                      getItemCount="RibbonNoteColorCount"
-                      getItemLabel="RibbonNoteColorLabel"
-                      getItemImage="RibbonNoteColorImage"
-                      getSelectedItemIndex="RibbonNoteColorSelected"
-                      onAction="RibbonNoteColorChanged"
-                      screentip="Color for notes"
-                      supertip="The first six are quiet, for a note that is an aside about the code; the rest are saturated, for one that should be the loudest thing on the slide. Applies to the note on the line your cursor is on, or the note you have clicked into. With nothing singled out it only records the choice for the next note, so opening this list can never repaint a note you were not pointing at. Each of the three note controls changes only what it is named after, so notes on one slide can differ. The text color follows the fill, so a light preset gets dark words."/>
+                        label="Note color"
+                        sizeString="Crimson"
+                        getItemCount="RibbonNoteColorCount"
+                        getItemLabel="RibbonNoteColorLabel"
+                        getItemImage="RibbonNoteColorImage"
+                        getSelectedItemIndex="RibbonNoteColorSelected"
+                        showLabel="false" onAction="RibbonNoteColorChanged"
+                        screentip="Color for notes"
+                        supertip="The first six are quiet, for a note that is an aside about the code; the rest are saturated, for one that should be the loudest thing on the slide. Applies to the note on the line your cursor is on, or the note you have clicked into. With nothing singled out it only records the choice for the next note, so opening this list can never repaint a note you were not pointing at. Each of the three note controls changes only what it is named after, so notes on one slide can differ. The text color follows the fill, so a light preset gets dark words."/>
             <button id="btnNoteColorNow"
-                    showLabel="false"
-                    getImage="RibbonNoteColorFace"
-                    onAction="RibbonNoteColorApply"
-                    screentip="The color notes are set to"
-                    supertip="Shows the color currently chosen, and applies it to the note you have singled out - by putting the cursor on its line, or by clicking into it. Press it to give a second note the same color as the first without going back through the list."/>
+                      showLabel="false"
+                      getImage="RibbonNoteColorFace"
+                      onAction="RibbonNoteColorApply"
+                      screentip="The color notes are set to"
+                      supertip="Shows the color currently chosen, and applies it to the note you have singled out - by putting the cursor on its line, or by clicking into it. Press it to give a second note the same color as the first without going back through the list."/>
+            <dropDown id="ddNoteFont"
+                        label="Note font"
+                        sizeString="Default font"
+                        getItemCount="RibbonNoteFontCount"
+                        getItemLabel="RibbonNoteFontLabel"
+                        getSelectedItemIndex="RibbonNoteFontSelected"
+                        showLabel="false" onAction="RibbonNoteFontChanged"
+                        screentip="Font for notes"
+                        supertip="Default font inherits your presentation's own body font, so a note looks like the rest of the deck rather than like code. It cannot be applied back to a note that already has a named font, so it only affects notes made afterwards. The others ship with Windows or Office, and apply to the note on the line your cursor is on, or the note you have clicked into, and otherwise only to notes made afterwards."/>
           </box>
-          <dropDown id="ddNoteFont"
-                    label="Note font"
-                    sizeString="Deck default"
-                    getItemCount="RibbonNoteFontCount"
-                    getItemLabel="RibbonNoteFontLabel"
-                    getSelectedItemIndex="RibbonNoteFontSelected"
-                    onAction="RibbonNoteFontChanged"
-                    screentip="Font for notes"
-                    supertip="Deck default inherits your presentation's own body font, so a note looks like the rest of the deck rather than like code. It cannot be applied back to a note that already has a named font, so it only affects notes made afterwards. The others ship with Windows or Office, and apply to the note on the line your cursor is on, or the note you have clicked into, and otherwise only to notes made afterwards."/>
-          <box id="boxArrowColor" boxStyle="horizontal">
+          <box id="boxArrow" boxStyle="horizontal">
+            <labelControl id="lblArrow" label="Arrow"/>
             <dropDown id="ddArrowColor"
-                      label="Arrow color"
-                      sizeString="Crimson"
-                      getItemCount="RibbonArrowColorCount"
-                      getItemLabel="RibbonArrowColorLabel"
-                      getItemImage="RibbonArrowColorImage"
-                      getSelectedItemIndex="RibbonArrowColorSelected"
-                      onAction="RibbonArrowColorChanged"
-                      screentip="Color for the margin arrows"
-                      supertip="The syntax colors, darkened until they read on a white slide - the palette itself is chosen against the block background and looks faded on one. Arrows are uniform by design, so this repaints every arrow in the presentation, not only the ones in front of you."/>
+                        label="Arrow color"
+                        sizeString="Crimson"
+                        getItemCount="RibbonArrowColorCount"
+                        getItemLabel="RibbonArrowColorLabel"
+                        getItemImage="RibbonArrowColorImage"
+                        getSelectedItemIndex="RibbonArrowColorSelected"
+                        showLabel="false" onAction="RibbonArrowColorChanged"
+                        screentip="Color for the margin arrows"
+                        supertip="The syntax colors, darkened until they read on a white slide - the palette itself is chosen against the block background and looks faded on one. Arrows are uniform by design, so this repaints every arrow in the presentation, not only the ones in front of you."/>
             <button id="btnArrowColorNow"
-                    showLabel="false"
-                    getImage="RibbonArrowColorFace"
-                    onAction="RibbonArrowColorApply"
-                    screentip="The color arrows are set to"
-                    supertip="Shows the color in use. Press it to repaint every arrow in the presentation with it, which is worth doing after recoloring one by hand."/>
+                      showLabel="false"
+                      getImage="RibbonArrowColorFace"
+                      onAction="RibbonArrowColorApply"
+                      screentip="The color arrows are set to"
+                      supertip="Shows the color in use. Press it to repaint every arrow in the presentation with it, which is worth doing after recoloring one by hand."/>
           </box>
-          <dropDown id="ddLang"
-                    label="Language"
-                    sizeString="Python XXXX"
-                    getItemCount="RibbonLangCount"
-                    getItemLabel="RibbonLangLabel"
-                    getSelectedItemIndex="RibbonLangSelected"
-                    onAction="RibbonLangChanged"
-                    screentip="Language for the selected block"
-                    supertip="Sets which lexer the Stylize button uses. Stored on the shape, so each block remembers its own language."/>
+          <box id="boxLang" boxStyle="horizontal">
+            <labelControl id="lblLang" label="Language"/>
+            <dropDown id="ddLang"
+                        label="Language"
+                        sizeString="Python XXXX"
+                        getItemCount="RibbonLangCount"
+                        getItemLabel="RibbonLangLabel"
+                        getSelectedItemIndex="RibbonLangSelected"
+                        showLabel="false" onAction="RibbonLangChanged"
+                        screentip="Language for the selected block"
+                        supertip="Sets which lexer the Stylize button uses. Stored on the shape, so each block remembers its own language."/>
+          </box>
         </group>
 
       </tab>

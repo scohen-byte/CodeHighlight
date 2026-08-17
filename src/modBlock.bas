@@ -184,6 +184,127 @@ Public Sub SetEmphasis(ByVal shp As Shape, ByVal lineList As String)
     shp.Tags.Add TAG_EMPHASIS, lineList
 End Sub
 
+' Line-list arithmetic, shared by everything that names lines: emphasis, hidden
+' lines, and whatever comes next.
+'
+' ACCUMULATES. A text selection covers one contiguous run, so a command that
+' REPLACED the list could never mark two separate regions - which is how the
+' transcript marking failed first, and how Hide lines failed after it. Toggling
+' the whole run rather than each line: if every line in the selection is already
+' marked, the gesture plainly means the opposite.
+Public Function ToggleLineList(ByVal spec As String, ByVal firstLine As Long, _
+                               ByVal lastLine As Long) As String
+    Dim marked() As Boolean, hi As Long, i As Long, allOn As Boolean
+    Dim parts() As String, v As Long, out As String
+
+    If lastLine < firstLine Then Exit Function
+
+    hi = lastLine
+    If Len(spec) > 0 Then
+        parts = Split(spec, ",")
+        For i = LBound(parts) To UBound(parts)
+            v = CLng(Val(parts(i)))
+            If v > hi Then hi = v
+        Next i
+    End If
+    If hi < 1 Then Exit Function
+    ReDim marked(1 To hi)
+
+    If Len(spec) > 0 Then
+        For i = LBound(parts) To UBound(parts)
+            v = CLng(Val(parts(i)))
+            If v >= 1 And v <= hi Then marked(v) = True
+        Next i
+    End If
+
+    allOn = True
+    For i = firstLine To lastLine
+        If Not marked(i) Then
+            allOn = False
+            Exit For
+        End If
+    Next i
+    For i = firstLine To lastLine
+        marked(i) = Not allOn
+    Next i
+
+    For i = 1 To hi
+        If marked(i) Then
+            If Len(out) > 0 Then out = out & ","
+            out = out & CStr(i)
+        End If
+    Next i
+    ToggleLineList = out
+End Function
+
+' Takes a run out of a list, leaving the rest.
+Public Function RemoveRunFromList(ByVal spec As String, ByVal firstLine As Long, _
+                                  ByVal lastLine As Long) As String
+    Dim parts() As String, i As Long, v As Long, out As String
+
+    If Len(spec) = 0 Then Exit Function
+    parts = Split(spec, ",")
+    For i = LBound(parts) To UBound(parts)
+        v = CLng(Val(parts(i)))
+        If v < firstLine Or v > lastLine Then
+            If Len(out) > 0 Then out = out & ","
+            out = out & CStr(v)
+        End If
+    Next i
+    RemoveRunFromList = out
+End Function
+
+' The RUN of consecutive marked lines to act on next: the one the cursor sits
+' in, or failing that the topmost. False when the list is empty.
+'
+' Runs rather than lines, because a hidden region is drawn as ONE panel and
+' revealing half of it would mean nothing.
+Public Function NextRun(ByVal spec As String, ByVal cursorLine As Long, _
+                        ByRef runFirst As Long, ByRef runLast As Long) As Boolean
+    Dim marked() As Boolean, hi As Long, i As Long, parts() As String, v As Long
+    Dim s1 As Long, s2 As Long, gotFirst As Boolean
+
+    If Len(spec) = 0 Then Exit Function
+    parts = Split(spec, ",")
+    For i = LBound(parts) To UBound(parts)
+        v = CLng(Val(parts(i)))
+        If v > hi Then hi = v
+    Next i
+    If hi < 1 Then Exit Function
+    ReDim marked(1 To hi)
+    For i = LBound(parts) To UBound(parts)
+        v = CLng(Val(parts(i)))
+        If v >= 1 Then marked(v) = True
+    Next i
+
+    i = 1
+    Do While i <= hi
+        If Not marked(i) Then
+            i = i + 1
+        Else
+            s1 = i
+            Do While i <= hi
+                If Not marked(i) Then Exit Do
+                i = i + 1
+            Loop
+            s2 = i - 1
+            ' The cursor's run wins outright; otherwise remember the topmost.
+            If cursorLine >= s1 And cursorLine <= s2 Then
+                runFirst = s1
+                runLast = s2
+                NextRun = True
+                Exit Function
+            End If
+            If Not gotFirst Then
+                runFirst = s1
+                runLast = s2
+                gotFirst = True
+            End If
+        End If
+    Loop
+    NextRun = gotFirst
+End Function
+
 ' The last line of an emphasis list, or 0 when there is none.
 '
 ' The LAST, not the first. Step through emphasises one line, where the two are

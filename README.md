@@ -170,8 +170,14 @@ nothing shifts, so the audience can see precisely how much is missing and where.
 Press **Reveal next** and the slide is duplicated with nothing hidden, giving
 you the answer slide immediately after the question.
 
-To unhide without adding a slide, select the block itself — not text inside it —
-and press **Hide lines** again. **Strip** also clears it.
+The marking **adds up**, so you can cover several separate regions — every run
+of output in a transcript, say — one press per region. **Reveal next** then
+uncovers **one** region at a time: the one your cursor is in, or the topmost
+remaining. Four covered regions is four questions, and answering them all at the
+first press would defeat the point.
+
+To unhide without adding a slide, press **Hide lines** again on a covered
+region, or select the block itself to clear them all. **Strip** also clears it.
 
 The code is covered, not deleted. It is still in the file, and anyone who opens
 the deck can drag the panel aside. That is fine when you reveal in the room, but

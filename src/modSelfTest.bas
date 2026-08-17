@@ -603,6 +603,84 @@ Failed:
     EditFlowTest = r & "ERROR " & Err.Number & ": " & Err.Description
 End Function
 
+' Hiding several regions, and revealing them one at a time.
+Public Function HideRunsTest(ByVal srcPath As String, ByVal pngPath As String) As String
+    Dim pres As Presentation, sld As Slide, shp As Shape, r As String
+    Dim code As String, a As Long, b As Long, c As Long, d As Long
+    Dim covers As Long, s3 As Shape, target As Shape, base As Long
+
+    On Error GoTo Failed
+    modRibbon.SetQuiet True
+
+    Set pres = Application.ActivePresentation
+    pres.PageSetup.SlideWidth = modSpec.SLIDE_W
+    pres.PageSetup.SlideHeight = modSpec.SLIDE_H
+    Set sld = pres.Slides.Add(pres.Slides.count + 1, ppLayoutBlank)
+    sld.Select
+    base = pres.Slides.count
+
+    code = "print(1)" & vbCr & "1" & vbCr & "print(2)" & vbCr & "2" & vbCr & _
+           "print(3)" & vbCr & "3"
+    Set shp = modBlock.CreateBlock(sld, code, modSpec.BASE_SIZE, "python")
+    shp.Left = 120
+    shp.Select
+    modRibbon.DoStylize
+
+    ' Three separate output lines, hidden one press at a time.
+    HideRun shp, 2, 2
+    HideRun shp, 4, 4
+    HideRun shp, 6, 6
+    r = "hidden=" & Quoted(modBlock.GetHidden(shp)) & vbLf
+
+    covers = 0
+    For Each s3 In modBlock.AllShapes(sld)
+        If s3.Tags(modBlock.TAG_COVER_OF) = shp.Tags(modBlock.TAG_ID) Then covers = covers + 1
+    Next s3
+    r = r & "panels=" & covers & " (one per run)" & vbLf
+
+    ' Reveal reveals ONE region and leaves the rest covered.
+    shp.Select
+    modRibbon.DoReveal
+    Set target = Nothing
+    For Each s3 In modBlock.AllShapes(pres.Slides(base + 1))
+        If s3.Tags(modBlock.TAG_BLOCK) = "1" Then Set target = s3
+    Next s3
+    r = r & "after 1st reveal=" & Quoted(modBlock.GetHidden(target)) & vbLf
+
+    ' And again from that slide. The SLIDE has to be activated first: selecting
+    ' a shape on a slide that is not the current view raises "To select a shape,
+    ' its view must be active".
+    pres.Slides(base + 1).Select
+    target.Select
+    modRibbon.DoReveal
+    Set target = Nothing
+    For Each s3 In modBlock.AllShapes(pres.Slides(base + 2))
+        If s3.Tags(modBlock.TAG_BLOCK) = "1" Then Set target = s3
+    Next s3
+    r = r & "after 2nd reveal=" & Quoted(modBlock.GetHidden(target)) & vbLf
+
+    ' The block itself selected clears the lot. Back to the first slide, for
+    ' the same view-must-be-active reason.
+    pres.Slides(base).Select
+    shp.Select
+    modRibbon.DoHide
+    r = r & "cleared=" & Quoted(modBlock.GetHidden(shp)) & vbLf
+
+    pres.Slides(base).Export pngPath, "PNG", 1920, 1080
+    HideRunsTest = r
+    Exit Function
+Failed:
+    HideRunsTest = r & "ERROR " & Err.Number & ": " & Err.Description
+End Function
+
+Private Sub HideRun(ByVal shp As Shape, ByVal ln1 As Long, ByVal ln2 As Long)
+    Dim a As Long, b As Long, c As Long, d As Long
+    modBlock.LineCharRange shp.TextFrame.TextRange.text, ln1, a, b
+    modBlock.LineCharRange shp.TextFrame.TextRange.text, ln2, c, d
+    shp.TextFrame.TextRange.Characters(a, (c + d) - a).Select
+    modRibbon.DoHide
+End Sub
+
 ' Hide a range, check the cover appears and keeps the layout, then Reveal and
 ' check the answer slide follows with nothing hidden.
 Public Function HideTest(ByVal srcPath As String, ByVal pngPath As String) As String
