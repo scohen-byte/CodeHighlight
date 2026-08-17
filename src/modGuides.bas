@@ -213,7 +213,7 @@ Public Function IndentLevels(ByVal text As String, ByRef levels() As Long, _
 
     For i = 0 To n - 1
         blank(i) = (Len(Trim$(lines(i))) = 0)
-        If modOutput.IsOutputLine(outputSpec, i - LBound(lines) + 1) Then blank(i) = True
+        If modOutput.InList(outputSpec, i - LBound(lines) + 1) Then blank(i) = True
         cols(i) = LeadingColumns(lines(i))
     Next i
 

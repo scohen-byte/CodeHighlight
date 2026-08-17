@@ -1,36 +1,44 @@
 Attribute VB_Name = "modOutput"
 '==============================================================================
-' modOutput - lines INSIDE a block that are output rather than code.
+' modOutput - transcripts: lines that are typed AT an interpreter, and lines
+'             that are printed BY one.
 '
-' The transcript form: statement, result, statement, result, all in one shape.
-' An output NOTE (modNote) is the other shape of the same idea and they are both
-' worth having - a note is right when the code is a program and the output is an
-' aside about one line of it, and this is right when the slide IS a session at
-' the interpreter and the two interleave.
+' Two line kinds, chosen the way emphasis is chosen - select the lines, press
+' the button. A line that is neither is ordinary code.
 '
-' Marked lines are a comma list on a tag, exactly like the hidden lines, because
-' it is the same problem: name some lines and treat them differently at render
-' time. Marked lines get no syntax colour, no line number and no indent guide,
-' and the CODE lines get a prompt.
+'   INTERPRETER  gets the language's prompt, and its code is coloured normally
+'   OUTPUT       gets no prompt and no syntax colour, because a printed value
+'                is not code and the absence of colour says so
 '
-' THE PROMPT IS NOT IN THE BLOCK'S TEXT. It goes in its own shape, the way the
-' line numbers do, for the reason the numbers do: the block's text is the source.
-' Putting ">>> " in it would break Copy code and feed the lexer four characters
-' that are not code.
+' THE PROMPT IS IN THE TEXT, and that is a deliberate reversal.
 '
-' AND THE PROMPT IS NOT ">>>" AS FAR AS THIS MODULE IS CONCERNED. That string is
-' Python's. It comes from the language table, which is the one rule this project
-' has held from the start: nothing outside modLang*.bas knows a language.
+' It was a separate shape, on the same argument the line numbers are made from:
+' the block's text is the source, so nothing that is not source should be in it.
+' The argument is sound and the result was not. Two shapes that must agree
+' LINE FOR LINE will eventually disagree - they have different frames, only one
+' has autofit, and a single soft break or a wrapped line puts them out of step -
+' and when these two disagree the prompts land on top of the code. The numbers
+' survive the same fragility only because they are a narrow right-aligned column
+' with a gap, so drift shows up as a wobble rather than as a collision.
+'
+' In the text there is nothing to keep in step. The prompt indents the code
+' because it IS characters in front of the code, and no ruler level, no second
+' frame and no alignment nudge is involved.
+'
+' What that costs is the pure-source property, and Copy code buys it back: it
+' strips the prompts and drops the output, so what you paste is what you would
+' run. That is a better home for the guarantee anyway - it is exactly the moment
+' anybody wants it.
+'
+' The prompts themselves come from the language table. ">>> " and "... " are
+' Python's, and nothing outside modLang*.bas is allowed to know that.
 '==============================================================================
 Option Explicit
 
-' Which lines are output, as a comma list, and the tag marking the prompt shape.
-Public Const TAG_OUTPUT    As String = "CODEBLOCK_OUTPUT"
-Public Const TAG_PROMPT_OF As String = "CODEBLOCK_PROMPT_OF"
-
-' A little air between the prompt and the code it introduces. Without it the
-' two run together as ">>>x = 1", which reads as one token.
-Private Const GAP_CHARS As Single = 1
+' Comma lists of line numbers, read the same way the emphasis and hidden lists
+' are. Both live on the block.
+Public Const TAG_OUTPUT As String = "CODEBLOCK_OUTPUT"
+Public Const TAG_INTERP As String = "CODEBLOCK_INTERP"
 
 Public Function GetOutputLines(ByVal shp As Shape) As String
     GetOutputLines = shp.Tags(TAG_OUTPUT)
@@ -40,28 +48,42 @@ Public Sub SetOutputLines(ByVal shp As Shape, ByVal lineList As String)
     shp.Tags.Add TAG_OUTPUT, lineList
 End Sub
 
+Public Function GetInterpLines(ByVal shp As Shape) As String
+    GetInterpLines = shp.Tags(TAG_INTERP)
+End Function
+
+Public Sub SetInterpLines(ByVal shp As Shape, ByVal lineList As String)
+    shp.Tags.Add TAG_INTERP, lineList
+End Sub
+
 Public Function HasOutput(ByVal shp As Shape) As Boolean
     HasOutput = (Len(GetOutputLines(shp)) > 0)
+End Function
+
+Public Function IsTranscript(ByVal shp As Shape) As Boolean
+    IsTranscript = (Len(GetOutputLines(shp)) > 0 Or Len(GetInterpLines(shp)) > 0)
 End Function
 
 ' Membership by string search rather than by parsing, the same way the emphasis
 ' and hidden lists are read. "1,10" must not match line 0 or line 101, which is
 ' what the commas either side are for.
-Public Function IsOutputLine(ByVal spec As String, ByVal lineNo As Long) As Boolean
+Public Function InList(ByVal spec As String, ByVal lineNo As Long) As Boolean
     If Len(spec) = 0 Then Exit Function
-    IsOutputLine = (InStr("," & spec & ",", "," & CStr(lineNo) & ",") > 0)
+    InList = (InStr("," & spec & ",", "," & CStr(lineNo) & ",") > 0)
 End Function
 
-' Adds a run of lines to the marking, or takes it out again.
+Public Function IsOutputLine(ByVal spec As String, ByVal lineNo As Long) As Boolean
+    IsOutputLine = InList(spec, lineNo)
+End Function
+
+' Adds a run of lines to a marking, or takes it out again.
 '
-' ACCUMULATES, and this is the whole usability of the feature. A transcript has
-' output in several places - line 2 and line 4 - and a text selection can only
-' cover one run at a time, so a command that REPLACED the list could never mark
-' both. The first version did exactly that and the feature was unusable.
+' ACCUMULATES, and this is the whole usability of it. A transcript has output in
+' several places and a text selection covers only one run at a time, so a
+' command that REPLACED the list could never mark both.
 '
 ' Toggling on the whole run rather than per line: if every line in the selection
-' is already output, the gesture plainly means "no it is not", so the run comes
-' out. Otherwise it goes in.
+' is already marked, the gesture plainly means "no it is not".
 Public Function ToggleLines(ByVal spec As String, ByVal firstLine As Long, _
                             ByVal lastLine As Long) As String
     Dim marked() As Boolean, hi As Long, i As Long, allOn As Boolean
@@ -69,7 +91,6 @@ Public Function ToggleLines(ByVal spec As String, ByVal firstLine As Long, _
 
     If lastLine < firstLine Then Exit Function
 
-    ' Big enough for everything already marked and everything about to be.
     hi = lastLine
     If Len(spec) > 0 Then
         parts = Split(spec, ",")
@@ -109,70 +130,132 @@ Public Function ToggleLines(ByVal spec As String, ByVal firstLine As Long, _
     ToggleLines = out
 End Function
 
-'------------------------------------------------------------------------------
-' The prompt column
-'------------------------------------------------------------------------------
+' Takes a run out of a list without touching the rest, for keeping the two
+' markings mutually exclusive - a line cannot be both typed and printed.
+Public Function RemoveRun(ByVal spec As String, ByVal firstLine As Long, _
+                          ByVal lastLine As Long) As String
+    Dim parts() As String, i As Long, v As Long, out As String
 
-Public Function FindPrompt(ByVal shp As Shape) As Shape
-    Dim sld As Slide, s2 As Shape, blockId As String
-
-    blockId = shp.Tags(modBlock.TAG_ID)
-    If Len(blockId) = 0 Then Exit Function
-    Set sld = modGutter.OwningSlide(shp)
-
-    For Each s2 In modBlock.AllShapes(sld)
-        If s2.Tags(TAG_PROMPT_OF) = blockId Then
-            Set FindPrompt = s2
-            Exit Function
-        End If
-    Next s2
-End Function
-
-Public Sub ClearPrompt(ByVal shp As Shape)
-    Dim p As Shape
-    Set p = FindPrompt(shp)
-    If Not p Is Nothing Then p.Delete
-End Sub
-
-' The prompt for each line: the language's prompt on a statement, its
-' continuation prompt on the body of one, and nothing at all on an output line
-' or a blank one.
-'
-' A BLANK LINE GETS NO PROMPT. A bare ">>>" with nothing after it reads as a
-' statement that failed to render, and a transcript with breathing room in it
-' was sprouting them.
-'
-' Continuation is inferred from INDENTATION, which is all there is to go on
-' without parsing: a code line indented further than the last statement is the
-' body of that statement. That handles nesting, because the base only moves
-' when a line comes back out to it or past it.
-Public Function PromptColumnText(ByVal text As String, ByVal spec As String, _
-                                 ByVal prompt As String, _
-                                 ByVal continuePrompt As String) As String
-    Dim lines() As String, i As Long, out As String, n As Long
-    Dim baseIndent As Long, indent As Long, started As Boolean
-
-    lines = modBlock.SplitLines(text)
-    For i = LBound(lines) To UBound(lines)
-        n = i - LBound(lines) + 1
-        If i > LBound(lines) Then out = out & vbCr
-
-        If IsOutputLine(spec, n) Then
-            ' nothing: the interpreter is talking, not you
-        ElseIf Len(Trim$(lines(i))) = 0 Then
-            ' nothing: a blank line is not a statement
-        Else
-            indent = LeadingColumns(lines(i))
-            If started And indent > baseIndent Then
-                out = out & continuePrompt
-            Else
-                out = out & prompt
-                baseIndent = indent
-                started = True
-            End If
+    If Len(spec) = 0 Then Exit Function
+    parts = Split(spec, ",")
+    For i = LBound(parts) To UBound(parts)
+        v = CLng(Val(parts(i)))
+        If v < firstLine Or v > lastLine Then
+            If Len(out) > 0 Then out = out & ","
+            out = out & CStr(v)
         End If
     Next i
-    PromptColumnText = out
+    RemoveRun = out
+End Function
+
+'------------------------------------------------------------------------------
+' The prompts, in the text
+'------------------------------------------------------------------------------
+
+' Brings every line's prompt into line with the markings. True when the text
+' changed, so the caller can reapply the block formatting - assigning to
+' TextRange.text drops every run.
+'
+' Idempotent, because it runs on every Stylize: a line already carrying the
+' right prompt is left alone, one carrying the wrong prompt has it swapped, and
+' a line that is no longer an interpreter line has its taken off. Without that,
+' five Stylizes would give you ">>> >>> >>> >>> >>> x = 1".
+Public Function SyncPrompts(ByVal shp As Shape, ByVal langId As String) As Boolean
+    Dim lang As LangDef, lines() As String, i As Long, n As Long
+    Dim interp As String, want As String, bare As String
+    Dim out As String, changed As Boolean, before As String
+
+    lang = modLangRegistry.GetLang(langId)
+    If Len(lang.PromptText) = 0 Then Exit Function
+
+    interp = GetInterpLines(shp)
+    before = shp.TextFrame.TextRange.text
+    If Len(before) = 0 Then Exit Function
+    lines = modBlock.SplitLines(before)
+
+    For i = LBound(lines) To UBound(lines)
+        n = i - LBound(lines) + 1
+        bare = StripPrompt(lines(i), lang)
+
+        want = ""
+        If InList(interp, n) Then want = PromptFor(lines, LBound(lines), i, interp, lang)
+
+        If i > LBound(lines) Then out = out & vbCr
+        out = out & want & bare
+        If want & bare <> lines(i) Then changed = True
+    Next i
+
+    If changed Then shp.TextFrame.TextRange.text = out
+    SyncPrompts = changed
+End Function
+
+' Which prompt one interpreter line should carry.
+'
+' The continuation prompt goes on the BODY of a statement, and indentation is
+' all there is to tell that from without parsing: a line indented past the last
+' statement is that statement's body. The base only moves when a line comes back
+' out to it, so nesting works.
+'
+' Measured on the line WITHOUT its prompt, or a line would stop being a
+' continuation the moment it was given one.
+Private Function PromptFor(ByRef lines() As String, ByVal lo As Long, _
+                           ByVal idx As Long, ByVal interp As String, _
+                           ByRef lang As LangDef) As String
+    Dim j As Long, n As Long, indent As Long, baseIndent As Long
+    Dim started As Boolean, bare As String
+
+    For j = lo To idx
+        n = j - lo + 1
+        If Not InList(interp, n) Then GoTo NextLine
+
+        bare = StripPrompt(lines(j), lang)
+        If Len(Trim$(bare)) = 0 Then
+            ' A blank line is not a statement, so it gets no prompt. A bare
+            ' ">>>" with nothing after it reads as one that failed to render.
+            If j = idx Then Exit Function
+            GoTo NextLine
+        End If
+
+        indent = LeadingColumns(bare)
+        If started And indent > baseIndent Then
+            If j = idx Then
+                PromptFor = lang.ContinueText
+                Exit Function
+            End If
+        Else
+            baseIndent = indent
+            started = True
+            If j = idx Then
+                PromptFor = lang.PromptText
+                Exit Function
+            End If
+        End If
+NextLine:
+    Next j
+End Function
+
+' One prompt off the front of a line, whichever of the two it is - and never
+' more than one, so a line that has somehow collected two keeps one. Silently
+' eating text is worse than leaving something visibly wrong.
+Public Function StripPrompt(ByVal line As String, ByRef lang As LangDef) As String
+    If Len(lang.PromptText) > 0 Then
+        If Left$(line, Len(lang.PromptText)) = lang.PromptText Then
+            StripPrompt = Mid$(line, Len(lang.PromptText) + 1)
+            Exit Function
+        End If
+    End If
+    If Len(lang.ContinueText) > 0 Then
+        If Left$(line, Len(lang.ContinueText)) = lang.ContinueText Then
+            StripPrompt = Mid$(line, Len(lang.ContinueText) + 1)
+            Exit Function
+        End If
+    End If
+    StripPrompt = line
+End Function
+
+' How many characters of prompt a line is carrying, for colouring them.
+Public Function PromptLen(ByVal line As String, ByRef lang As LangDef) As Long
+    PromptLen = Len(line) - Len(StripPrompt(line, lang))
 End Function
 
 ' Columns of leading whitespace, counting a tab as a full tab stop.
@@ -192,191 +275,27 @@ Private Function LeadingColumns(ByVal line As String) As Long
     LeadingColumns = col
 End Function
 
-' Creates, updates or removes the prompt column, and owns the block's LEFT
-' MARGIN while it exists.
-'
-' The margin is computed from scratch rather than added to, because this runs on
-' every Stylize and adding would walk the code right a little further each time.
-Public Sub SyncPrompt(ByVal shp As Shape, ByVal langId As String)
-    Dim sld As Slide, p As Shape, lang As LangDef
-    Dim size As Single, pad As Single, gutterW As Single, promptW As Single
-    Dim lineCount As Long, spec As String, prompt As String
-
-    On Error GoTo Done
-
-    lang = modLangRegistry.GetLang(langId)
-    prompt = lang.PromptText
-    spec = GetOutputLines(shp)
-
-    size = modBlock.BlockFontSize(shp)
-    pad = modSpec.SpecPad(size)
-    lineCount = modBlock.CountLines(shp.TextFrame.TextRange.text)
-    gutterW = 0
-    If modGutter.HasGutter(shp) Then
-        gutterW = modSpec.SpecGutter(size, modGutter.FirstLine(shp) + lineCount - 1)
-    End If
-
-    ' No output lines, or a language with no prompt, means no column - and the
-    ' margin and the indents go back to what an ordinary block has. Resetting
-    ' the indents matters: a block that HAD output lines and no longer does
-    ' would otherwise keep its code shifted right by a prompt that is gone.
-    If Len(spec) = 0 Or Len(prompt) = 0 Then
-        ClearPrompt shp
-        shp.TextFrame.MarginLeft = pad + gutterW
-        ResetIndents shp
-        Exit Sub
-    End If
-
-    ' The prompt is as wide as the wider of the two, so a statement and its
-    ' continuation start their code at the same column.
-    promptW = Len(prompt)
-    If Len(lang.ContinueText) > promptW Then promptW = Len(lang.ContinueText)
-    promptW = promptW * modSpec.SpecCharW(size) + modSpec.SpecCharW(size) * GAP_CHARS
-
-    ' OUTPUT SITS AT COLUMN ZERO AND THE CODE IS INDENTED, not the other way
-    ' round. A terminal indents what you TYPED by the width of the prompt and
-    ' prints its reply hard against the left - so aligning the two, which is
-    ' what making room in the margin for the prompt did, makes every reply look
-    ' like a continuation of the statement above it. The reply then has nothing
-    ' but the absence of a prompt to distinguish it, in a narrow column at the
-    ' far left, and it gets lost.
-    shp.TextFrame.MarginLeft = pad + gutterW
-    IndentCodeLines shp, spec, promptW
-
-    Set sld = modGutter.OwningSlide(shp)
-    Set p = FindPrompt(shp)
-    If p Is Nothing Then
-        Set p = sld.Shapes.AddTextbox(msoTextOrientationHorizontal, _
-                                      shp.Left, shp.Top, promptW, shp.Height)
-        p.Tags.Add TAG_PROMPT_OF, shp.Tags(modBlock.TAG_ID)
-        p.Line.Visible = msoFalse
-        p.fill.Visible = msoFalse
-    End If
-
-    With p.TextFrame
-        .WordWrap = msoFalse
-        .AutoSize = ppAutoSizeNone
-        .VerticalAnchor = msoAnchorTop
-        .MarginLeft = 0
-        .MarginRight = 0
-        .MarginTop = pad
-        .MarginBottom = pad
-        .TextRange.text = PromptColumnText(shp.TextFrame.TextRange.text, spec, _
-                                           prompt, lang.ContinueText)
-        With .TextRange
-            .Font.Name = THEME_FONT
-            .Font.size = size
-            .Font.Color.RGB = ThemeOutputMark()
-            With .ParagraphFormat
-                ' LEFT, unlike the line numbers. A prompt runs into the code it
-                ' introduces; a number is a column that lines up on its units.
-                .Alignment = ppAlignLeft
-                .LineRuleWithin = msoFalse
-                .SpaceWithin = modSpec.SpecLine(size)
-                .LineRuleBefore = msoFalse
-                .SpaceBefore = 0
-                .LineRuleAfter = msoFalse
-                .SpaceAfter = 0
-            End With
-        End With
-    End With
-
-    ' Pinned AFTER the text. A textbox left to itself resizes around what it
-    ' contains, which in the mockup put the prompts outside the block entirely.
-    p.Left = shp.Left + pad + gutterW
-    p.Top = shp.Top
-    p.Width = promptW
-    p.Height = modSpec.SpecHeight(size, lineCount)
-    If shp.Height > p.Height Then p.Height = shp.Height
-    p.ZOrder msoBringToFront
-
-    AlignFirstLine shp, p
-Done:
-End Sub
-
-' Code lines take ruler level 2, which carries the prompt-width indent; output
-' lines take level 1, which carries none. PowerPoint has no per-paragraph
-' indent - the indent belongs to the outline LEVEL, and the level is the only
-' thing a paragraph can be assigned.
-Private Sub IndentCodeLines(ByVal shp As Shape, ByVal spec As String, _
-                            ByVal promptW As Single)
-    Dim i As Long, lineCount As Long
-
-    On Error Resume Next
-    With shp.TextFrame.Ruler
-        .Levels(1).FirstMargin = 0
-        .Levels(1).LeftMargin = 0
-        .Levels(2).FirstMargin = promptW
-        .Levels(2).LeftMargin = promptW
-    End With
-
-    lineCount = modBlock.CountLines(shp.TextFrame.TextRange.text)
-    For i = 1 To lineCount
-        If IsOutputLine(spec, i) Then
-            shp.TextFrame.TextRange.Paragraphs(i).IndentLevel = 1
-        Else
-            shp.TextFrame.TextRange.Paragraphs(i).IndentLevel = 2
-        End If
-    Next i
-End Sub
-
-Private Sub ResetIndents(ByVal shp As Shape)
-    Dim i As Long, lineCount As Long
-
-    On Error Resume Next
-    lineCount = modBlock.CountLines(shp.TextFrame.TextRange.text)
-    For i = 1 To lineCount
-        shp.TextFrame.TextRange.Paragraphs(i).IndentLevel = 1
-    Next i
-    With shp.TextFrame.Ruler
-        .Levels(1).FirstMargin = 0
-        .Levels(1).LeftMargin = 0
-    End With
-End Sub
-
-' Nudges the column so its first prompt sits on the same baseline as the first
-' line of code. The block has autofit on and this does not, and PowerPoint lays
-' the two frames out slightly differently as a result - the same correction the
-' gutter needs, and for the same reason.
-Private Sub AlignFirstLine(ByVal shp As Shape, ByVal p As Shape)
-    Dim codeTop As Single, promptTop As Single, delta As Single
-
-    On Error GoTo Done
-    If Len(p.TextFrame.TextRange.text) = 0 Then Exit Sub
-    If Len(shp.TextFrame.TextRange.text) = 0 Then Exit Sub
-
-    codeTop = shp.TextFrame.TextRange.Characters(1, 1).BoundTop
-    promptTop = p.TextFrame.TextRange.Characters(1, 1).BoundTop
-    delta = codeTop - promptTop
-
-    If Abs(delta) > 0.2 And Abs(delta) < modSpec.SpecLine(modBlock.BlockFontSize(shp)) Then
-        p.Top = p.Top + delta
-    End If
-Done:
-End Sub
-
 '------------------------------------------------------------------------------
 
-' The block's text with the output lines removed, for Copy code.
+' What Copy code puts on the clipboard: no prompts, no output.
 '
-' What you paste should run. A transcript pasted verbatim is not a program, and
-' the whole point of Copy code is that it gives you the source rather than a
-' picture of a rounded rectangle.
-Public Function CodeOnly(ByVal text As String, ByVal spec As String) As String
-    Dim lines() As String, i As Long, n As Long, out As String, first As Boolean
+' This is where the pure-source guarantee lives now. Keeping the prompts out of
+' the block's text bought that property at every moment EXCEPT the one where
+' anybody wants it. Doing it here buys it at exactly that moment.
+Public Function CodeOnly(ByVal text As String, ByVal outputSpec As String, _
+                         ByVal langId As String) As String
+    Dim lang As LangDef, lines() As String, i As Long, n As Long
+    Dim out As String, first As Boolean
 
-    If Len(spec) = 0 Then
-        CodeOnly = text
-        Exit Function
-    End If
-
+    lang = modLangRegistry.GetLang(langId)
     lines = modBlock.SplitLines(text)
     first = True
+
     For i = LBound(lines) To UBound(lines)
         n = i - LBound(lines) + 1
-        If Not IsOutputLine(spec, n) Then
+        If Not InList(outputSpec, n) Then
             If Not first Then out = out & vbCr
-            out = out & lines(i)
+            out = out & StripPrompt(lines(i), lang)
             first = False
         End If
     Next i

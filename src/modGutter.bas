@@ -127,7 +127,7 @@ Public Function NumberColumn(ByVal text As String, _
         ' does not advance the count - otherwise the numbers stop matching the
         ' file the code came from, which is the only thing they are for.
         If firstReal >= 0 And i >= firstReal And i <= lastReal Then
-            If Not modOutput.IsOutputLine(outputSpec, ln) Then
+            If Not modOutput.InList(outputSpec, ln) Then
                 n = n + 1
                 out = out & CStr(n)
             End If

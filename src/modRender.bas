@@ -70,10 +70,9 @@ Public Function ApplyHighlight(ByVal shp As Shape, ByVal langId As String) As Lo
         End If
     Next i
 
-    ' Output lines are repainted AFTER the spans, which is the whole of what
-    ' makes them read as output: the interpreter is showing a value, not code,
-    ' and the absence of syntax colour says so more plainly than any border.
-    PaintOutputLines shp, tr
+    ' The transcript lines are repainted AFTER the spans, since both kinds
+    ' override what the lexer decided.
+    PaintTranscript shp, tr, langId
 
     ' Bold LAST, after every colour is on. Setting Bold over a range touches
     ' only the weight - unlike Font.Highlight, which collapses the runs and
@@ -84,30 +83,45 @@ Public Function ApplyHighlight(ByVal shp As Shape, ByVal langId As String) As Lo
     ApplyHighlight = applied
 End Function
 
-' Strips the colour back off the lines marked as output, and turns the block
-' itself into a terminal when it has any.
-Private Sub PaintOutputLines(ByVal shp As Shape, ByVal tr As TextRange)
-    Dim spec As String, lineCount As Long, i As Long
-    Dim startIdx As Long, length As Long
+' Repaints the two kinds of transcript line after the spans are on.
+'
+' The PROMPT is coloured green: it is not code, and the lexer has just coloured
+' it as whatever ">>>" happens to tokenize as. The OUTPUT loses its colour
+' entirely, which is the whole signal - a printed value is not code, and the
+' absence of syntax colour says so more plainly than any border.
+Private Sub PaintTranscript(ByVal shp As Shape, ByVal tr As TextRange, _
+                            ByVal langId As String)
+    Dim outSpec As String, interp As String, lang As LangDef
+    Dim lines() As String, i As Long, n As Long
+    Dim startIdx As Long, length As Long, pl As Long
 
-    spec = modOutput.GetOutputLines(shp)
+    outSpec = modOutput.GetOutputLines(shp)
+    interp = modOutput.GetInterpLines(shp)
 
     On Error Resume Next
-    If Len(spec) = 0 Then
-        ' Back to an editor. A block whose output lines were cleared must not
-        ' keep the terminal fill, or unmarking a line leaves no way back.
+    If Len(outSpec) = 0 And Len(interp) = 0 Then
+        ' Back to an editor. A block whose markings were cleared must not keep
+        ' the terminal fill, or unmarking leaves no way back.
         shp.fill.ForeColor.RGB = ThemeBackColor()
         Exit Sub
     End If
     shp.fill.ForeColor.RGB = ThemeOutputFill()
 
-    lineCount = modBlock.CountLines(tr.text)
-    For i = 1 To lineCount
-        If modOutput.IsOutputLine(spec, i) Then
-            modBlock.LineCharRange tr.text, i, startIdx, length
-            If startIdx >= 1 And length >= 1 Then
+    lang = modLangRegistry.GetLang(langId)
+    lines = modBlock.SplitLines(tr.text)
+
+    For i = LBound(lines) To UBound(lines)
+        n = i - LBound(lines) + 1
+        modBlock.LineCharRange tr.text, n, startIdx, length
+        If startIdx >= 1 And length >= 1 Then
+            If modOutput.InList(outSpec, n) Then
                 tr.Characters(startIdx, length).Font.Color.RGB = ThemeOutputText()
                 tr.Characters(startIdx, length).Font.Bold = msoFalse
+            ElseIf modOutput.InList(interp, n) Then
+                pl = modOutput.PromptLen(lines(i), lang)
+                If pl > 0 Then
+                    tr.Characters(startIdx, pl).Font.Color.RGB = ThemeOutputMark()
+                End If
             End If
         End If
     Next i

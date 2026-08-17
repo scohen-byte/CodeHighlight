@@ -926,8 +926,7 @@ Public Function EverythingTest(ByVal srcPath As String, ByVal pngPath As String)
     shp.TextFrame.TextRange.Characters(a, b).Select
     modRibbon.DoHide
 
-    ' A transcript line, so the prompt column is in the census too - it is the
-    ' ninth kind of child shape and the newest thing GroupParts has to know.
+    ' A transcript line, so the render path for output is exercised here too.
     modOutput.SetOutputLines shp, "7"
 
     ' Two notes and two arrows, on different lines.
@@ -971,7 +970,7 @@ End Function
 Private Function PartCensus(ByVal shp As Shape) As String
     Dim id As String, sld As Slide, s2 As Shape
     Dim gut As Long, gui As Long, bnd As Long, cov As Long
-    Dim nte As Long, led As Long, anc As Long, arw As Long, prm As Long
+    Dim nte As Long, led As Long, anc As Long, arw As Long
 
     id = shp.Tags(modBlock.TAG_ID)
     Set sld = modGutter.OwningSlide(shp)
@@ -984,12 +983,11 @@ Private Function PartCensus(ByVal shp As Shape) As String
         If s2.Tags(modNote.TAG_LEADER_OF) = id Then led = led + 1
         If s2.Tags(modNote.TAG_ANCHOR_OF) = id Then anc = anc + 1
         If s2.Tags(modArrow.TAG_ARROW_OF) = id Then arw = arw + 1
-        If s2.Tags(modOutput.TAG_PROMPT_OF) = id Then prm = prm + 1
     Next s2
 
     PartCensus = "gutter=" & gut & " guides=" & gui & " bands=" & bnd & _
                  " covers=" & cov & " notes=" & nte & " leaders=" & led & _
-                 " anchors=" & anc & " arrows=" & arw & " prompts=" & prm
+                 " anchors=" & anc & " arrows=" & arw
 End Function
 
 Private Function TotalParts(ByVal shp As Shape) As Long
@@ -1023,8 +1021,7 @@ Private Function PartOf(ByVal s2 As Shape, ByVal id As String) As Boolean
              (s2.Tags(modNote.TAG_NOTE_OF) = id) Or _
              (s2.Tags(modNote.TAG_LEADER_OF) = id) Or _
              (s2.Tags(modNote.TAG_ANCHOR_OF) = id) Or _
-             (s2.Tags(modArrow.TAG_ARROW_OF) = id) Or _
-             (s2.Tags(modOutput.TAG_PROMPT_OF) = id)
+             (s2.Tags(modArrow.TAG_ARROW_OF) = id)
 End Function
 
 ' Line numbering that starts somewhere other than 1, for code split across
@@ -1212,15 +1209,15 @@ Private Sub BandRuns(ByVal sld As Slide, ByVal shp As Shape, ByVal spec As Strin
     Next i
 End Sub
 
-' The transcript form: output lines marked INSIDE the block, with a prompt
-' column beside the code lines.
+' The transcript form: prompts in the TEXT, output lines uncoloured.
 Public Function OutputLinesTest(ByVal srcPath As String, ByVal pngPath As String) As String
     Dim pres As Presentation, sld As Slide, shp As Shape, r As String
-    Dim a As Long, b As Long, e As Long, l2 As Long, p As Shape
-    Dim code As String, marginBefore As Single
+    Dim a As Long, b As Long, code As String, lang As LangDef
+    Dim codeX As Single, outX As Single, i As Long
 
     On Error GoTo Failed
     modRibbon.SetQuiet True
+    lang = modLangRegistry.GetLang("python")
 
     Set pres = Application.ActivePresentation
     pres.PageSetup.SlideWidth = modSpec.SLIDE_W
@@ -1228,127 +1225,94 @@ Public Function OutputLinesTest(ByVal srcPath As String, ByVal pngPath As String
     Set sld = pres.Slides.Add(pres.Slides.count + 1, ppLayoutBlank)
     sld.Select
 
-    code = "print(set(range(5)))" & vbCr & "{0, 1, 2, 3, 4}" & vbCr & _
-           "print(set(" & Chr$(34) & "hello" & Chr$(34) & "))" & vbCr & _
-           "{'h', 'e', 'l', 'o'}"
+    code = "x = [7, 8]" & vbCr & _
+           "print(x[0])" & vbCr & _
+           "7" & vbCr & _
+           "for i in x:" & vbCr & _
+           "    print(i)" & vbCr & _
+           "7" & vbCr & "8"
     Set shp = modBlock.CreateBlock(sld, code, modSpec.BASE_SIZE, "python")
-    shp.Left = 150
-    shp.Top = 150
-    shp.Select
-    modRibbon.DoStylize
-    shp.Select
-    modRibbon.DoToggleGutter
-    marginBefore = shp.TextFrame.MarginLeft
-
-    ' Mark lines 2 and 4 by selecting them, one run at a time.
-    modBlock.LineCharRange shp.TextFrame.TextRange.text, 2, a, b
-    shp.TextFrame.TextRange.Characters(a, b).Select
-    modRibbon.DoOutputLines
-    r = "marked=" & Quoted(modOutput.GetOutputLines(shp)) & vbLf
-
-    ' The SECOND run, marked the way a user would: another selection, another
-    ' press. This is the case that made the first version unusable - a command
-    ' that replaced the list could never hold both.
-    modBlock.LineCharRange shp.TextFrame.TextRange.text, 4, a, b
-    shp.TextFrame.TextRange.Characters(a, b).Select
-    modRibbon.DoOutputLines
-    r = r & "accumulated=" & Quoted(modOutput.GetOutputLines(shp)) & vbLf
-
-    ' Pressing again on a marked run takes it back out.
-    modBlock.LineCharRange shp.TextFrame.TextRange.text, 4, a, b
-    shp.TextFrame.TextRange.Characters(a, b).Select
-    modRibbon.DoOutputLines
-    r = r & "toggled_off=" & Quoted(modOutput.GetOutputLines(shp)) & vbLf
-    modBlock.LineCharRange shp.TextFrame.TextRange.text, 4, a, b
-    shp.TextFrame.TextRange.Characters(a, b).Select
-    modRibbon.DoOutputLines
-
-    ' And a bare cursor marks the line it sits on, with nothing selected.
-    modOutput.SetOutputLines shp, ""
-    shp.Select
-    modRibbon.DoStylize
-    modBlock.LineCharRange shp.TextFrame.TextRange.text, 2, a, b
-    shp.TextFrame.TextRange.Characters(a, 1).Select
-    modRibbon.DoOutputLines
-    r = r & "cursor_alone_marks=" & Quoted(modOutput.GetOutputLines(shp)) & vbLf
-    modBlock.LineCharRange shp.TextFrame.TextRange.text, 4, a, b
-    shp.TextFrame.TextRange.Characters(a, 1).Select
-    modRibbon.DoOutputLines
-
+    shp.Left = 120
+    shp.Top = 120
     shp.Select
     modRibbon.DoStylize
 
-    Set shp = modBlock.SelectedBlock(code)
-    r = r & "terminal_fill=" & Abs(CLng(shp.fill.ForeColor.RGB = ThemeOutputFill())) & vbLf
+    ' Lines 1, 2, 4 and 5 were typed; 3, 6 and 7 were printed.
+    MarkRun shp, 1, 2, True
+    MarkRun shp, 4, 5, True
+    MarkRun shp, 3, 3, False
+    MarkRun shp, 6, 7, False
 
-    ' An output line has no syntax colour left on it.
-    modBlock.LineCharRange shp.TextFrame.TextRange.text, 2, a, b
+    r = "interp=" & Quoted(modOutput.GetInterpLines(shp)) & vbLf
+    r = r & "output=" & Quoted(modOutput.GetOutputLines(shp)) & vbLf
+    r = r & "text=" & Quoted(Replace(shp.TextFrame.TextRange.text, vbCr, "|")) & vbLf
+
+    ' Idempotence is the risk with a prompt that lives in the text: styling
+    ' five times must not give ">>> >>> >>> >>> >>> x = [7, 8]".
+    For i = 1 To 4
+        shp.Select
+        modRibbon.DoStylize
+    Next i
+    r = r & "stable=" & Quoted(Replace(shp.TextFrame.TextRange.text, vbCr, "|")) & vbLf
+
+    ' The prompt is coloured as a prompt, not as whatever ">>>" tokenizes to.
+    modBlock.LineCharRange shp.TextFrame.TextRange.text, 1, a, b
+    r = r & "prompt_green=" & _
+            Abs(CLng(shp.TextFrame.TextRange.Characters(a, 1).Font.Color.RGB = _
+                     ThemeOutputMark())) & vbLf
+    r = r & "code_after_prompt_coloured=" & _
+            Abs(CLng(shp.TextFrame.TextRange.Characters(a + 4, 1).Font.Color.RGB <> _
+                     ThemeOutputMark())) & vbLf
+
+    ' Output has no syntax colour left on it.
+    modBlock.LineCharRange shp.TextFrame.TextRange.text, 3, a, b
     r = r & "output_uncoloured=" & _
             Abs(CLng(shp.TextFrame.TextRange.Characters(a, 1).Font.Color.RGB = _
                      ThemeOutputText())) & vbLf
-    ' And a code line still has its.
+
+    ' Output starts left of the code, because the prompt is real characters.
+    modBlock.LineCharRange shp.TextFrame.TextRange.text, 2, a, b
+    codeX = shp.TextFrame.TextRange.Characters(a + 4, 1).BoundLeft
     modBlock.LineCharRange shp.TextFrame.TextRange.text, 3, a, b
-    r = r & "code_still_coloured=" & _
-            Abs(CLng(shp.TextFrame.TextRange.Characters(a, 1).Font.Color.RGB <> _
-                     ThemeOutputText())) & vbLf
+    outX = shp.TextFrame.TextRange.Characters(a, 1).BoundLeft
+    r = r & "output_left_of_code=" & Abs(CLng(outX < codeX - 4)) & vbLf
 
-    ' The prompt column exists, carries the language's prompt, and is blank on
-    ' the output lines.
-    Set p = modOutput.FindPrompt(shp)
-    If p Is Nothing Then
-        r = r & "prompt_column=0 (missing)" & vbLf
-    Else
-        r = r & "prompt_column=1" & vbLf
-        r = r & "prompt_from_language=" & _
-                Quoted(modLangRegistry.GetLang("python").PromptText) & vbLf
-        r = r & "prompt_text=" & Quoted(Replace(p.TextFrame.TextRange.text, vbCr, "|")) & vbLf
-        r = r & "prompt_inside_block=" & _
-                Abs(CLng(p.Left >= shp.Left And p.Left + p.Width <= shp.Left + shp.Width)) & vbLf
-        ' The margin deliberately does NOT grow any more. Room for the prompt
-        ' is made by indenting the CODE, so that the output can sit left of it.
-        r = r & "margin_unchanged=" & _
-                Abs(CLng(Abs(shp.TextFrame.MarginLeft - marginBefore) < 0.5)) & vbLf
-    End If
-
-    ' The OUTDENT: output starts left of the code, not level with it. Measured,
-    ' because "left of" is the whole point and a ruler level is easy to get
-    ' wrong in a way that looks almost right.
-    Dim codeX As Single, outX As Single, aa As Long, bb As Long
-    modBlock.LineCharRange shp.TextFrame.TextRange.text, 1, aa, bb
-    codeX = shp.TextFrame.TextRange.Characters(aa, 1).BoundLeft
-    modBlock.LineCharRange shp.TextFrame.TextRange.text, 2, aa, bb
-    outX = shp.TextFrame.TextRange.Characters(aa, 1).BoundLeft
-    r = r & "output_outdented=" & Abs(CLng(outX < codeX - 4)) & _
-            " (code x=" & Format$(codeX, "0") & " output x=" & Format$(outX, "0") & ")" & vbLf
-
-    ' Blank lines and continuations.
-    r = r & "prompts=" & Quoted(Replace(modOutput.PromptColumnText( _
-            "a = 1" & vbCr & "for i in x:" & vbCr & "    print(i)" & vbCr & _
-            "" & vbCr & "b = 2" & vbCr & "done", _
-            "6", ">>> ", "... "), vbCr, "|")) & vbLf
-
-    ' Numbering skips the output lines, so it still matches the source file.
+    r = r & "terminal_fill=" & Abs(CLng(shp.fill.ForeColor.RGB = ThemeOutputFill())) & vbLf
     r = r & "numbers=" & Quoted(Replace(modGutter.NumberColumn( _
             shp.TextFrame.TextRange.text, 1, modOutput.GetOutputLines(shp)), vbCr, "|")) & vbLf
 
-    ' Copy code drops them, so what you paste runs.
+    ' Copy code gives back something that runs: no prompts, no output.
     r = r & "code_only=" & Quoted(Replace(modOutput.CodeOnly( _
-            shp.TextFrame.TextRange.text, "2,4"), vbCr, "|")) & vbLf
+            shp.TextFrame.TextRange.text, modOutput.GetOutputLines(shp), "python"), _
+            vbCr, "|")) & vbLf
 
     sld.Export pngPath, "PNG", 1920, 1080
 
-    ' Clearing puts the editor back.
+    ' Clearing takes the prompts back out of the text and the terminal off.
+    shp.Select
+    modRibbon.DoInterpLines
     shp.Select
     modRibbon.DoOutputLines
     Set shp = modBlock.SelectedBlock(code)
+    r = r & "cleared_text=" & Quoted(Replace(shp.TextFrame.TextRange.text, vbCr, "|")) & vbLf
     r = r & "cleared_fill=" & Abs(CLng(shp.fill.ForeColor.RGB = ThemeBackColor())) & vbLf
-    r = r & "cleared_prompt=" & Abs(CLng(modOutput.FindPrompt(shp) Is Nothing)) & vbLf
 
     OutputLinesTest = r
     Exit Function
 Failed:
     OutputLinesTest = r & "ERROR " & Err.Number & ": " & Err.Description
 End Function
+
+' Selects a run of lines and presses one of the two marking buttons, which is
+' what a user does - the test must not reach past the command and set the tag.
+Private Sub MarkRun(ByVal shp As Shape, ByVal ln1 As Long, ByVal ln2 As Long, _
+                    ByVal asInterp As Boolean)
+    Dim a As Long, b As Long, c As Long, d As Long
+    modBlock.LineCharRange shp.TextFrame.TextRange.text, ln1, a, b
+    modBlock.LineCharRange shp.TextFrame.TextRange.text, ln2, c, d
+    shp.TextFrame.TextRange.Characters(a, (c + d) - a).Select
+    If asInterp Then modRibbon.DoInterpLines Else modRibbon.DoOutputLines
+End Sub
 
 ' Output notes: the dress, the mark, and the hanging indent.
 '

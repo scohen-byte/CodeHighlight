@@ -115,14 +115,17 @@ Public Sub StyleBlock(ByVal shp As Shape, Optional ByVal langId As String = "")
     ' modNote's header explains why.
     modNote.CaptureDrags shp
     modBlock.UngroupParts shp
+    ' Prompts live in the text now, so they are settled BEFORE anything is
+    ' coloured - and assigning to TextRange.text drops every run, so the block
+    ' formatting has to go back on when it changed.
+    If modOutput.SyncPrompts(shp, langId) Then
+        modBlock.FormatBlockText shp, modBlock.BlockFontSize(shp)
+    End If
     modRender.ApplyHighlight shp, langId
     modBlock.ResizeToContent shp
     ' Gutter before guides: it changes the left margin, and the guides are
     ' placed from that margin.
     modGutter.SyncGutter shp
-    ' The prompt column owns the left margin once it exists, and it needs the
-    ' gutter's width to sit beside it rather than on top of it.
-    modOutput.SyncPrompt shp, langId
     modGuides.DrawGuides shp
     ' Covers next: they have to sit above everything to hide anything.
     modRender.DrawCovers shp
@@ -270,10 +273,11 @@ Public Sub DoCopyCode()
     ' A transcript's OUTPUT lines are dropped, for the same reason: what you
     ' paste should run. Doing that needs a scratch shape, because the clipboard
     ' takes a range and the range would bring the output with it.
-    If modOutput.HasOutput(shp) Then
+    If modOutput.IsTranscript(shp) Then
         CopyTextViaScratch shp, _
             modOutput.CodeOnly(shp.TextFrame.TextRange.text, _
-                               modOutput.GetOutputLines(shp))
+                               modOutput.GetOutputLines(shp), _
+                               modBlock.BlockLangId(shp, CurrentLangId()))
     Else
         shp.TextFrame.TextRange.Copy
     End If
@@ -334,7 +338,7 @@ Public Sub DoStrip()
     ' Output marking goes too: it is a rendering choice about lines, like the
     ' emphasis and the covers, and Stylize brings it all back from the tag.
     modOutput.SetOutputLines shp, ""
-    modOutput.ClearPrompt shp
+    modOutput.SetInterpLines shp, ""
 
     modBlock.ResizeToContent shp
     ' Notes SURVIVE a strip. Everything else this removes can be rebuilt by
@@ -532,27 +536,38 @@ Failed:
     Warn "DoNoteColor failed: " & Err.Description
 End Sub
 
-' Marks the selected lines as OUTPUT: what the interpreter printed, inside the
-' block rather than beside it. The block becomes a terminal, those lines lose
-' their syntax colour and their line number, and the CODE lines get the
-' language's prompt in a column of their own.
+' The two transcript markings. Select the lines and press: one for what you
+' typed at the interpreter, one for what it printed back.
 '
-' The transcript form. Output notes are the other shape of the same idea - a
-' note is right when the code is a program and the output is an aside about one
-' line of it, this is right when the slide IS a session at the interpreter.
-'
-' With the SHAPE selected rather than text it clears the marking, the way
-' Emphasize and Hide lines do. No confirmation: nothing typed is lost, and
-' pressing it again puts it back.
+' They are mutually exclusive - a line cannot be both - so marking a run as one
+' takes it out of the other. With the SHAPE selected rather than text, each
+' clears its own, the way Emphasize and Hide lines do.
+Public Sub DoInterpLines()
+    MarkTranscript True
+End Sub
+
 Public Sub DoOutputLines()
+    MarkTranscript False
+End Sub
+
+Private Sub MarkTranscript(ByVal asInterp As Boolean)
     On Error GoTo Failed
     Dim shp As Shape, problem As String, sel As Selection
-    Dim txt As String, a As Long, b As Long, i As Long, list As String
+    Dim txt As String, a As Long, b As Long
+    Dim mine As String, other As String
 
     Set shp = modBlock.SelectedBlock(problem)
     If shp Is Nothing Then
         Warn problem
         Exit Sub
+    End If
+
+    If asInterp Then
+        mine = modOutput.GetInterpLines(shp)
+        other = modOutput.GetOutputLines(shp)
+    Else
+        mine = modOutput.GetOutputLines(shp)
+        other = modOutput.GetInterpLines(shp)
     End If
 
     Set sel = Application.ActiveWindow.Selection
@@ -562,23 +577,33 @@ Public Sub DoOutputLines()
         If sel.TextRange.length > 0 Then
             b = modBlock.LineOfChar(txt, sel.TextRange.Start + sel.TextRange.length - 1)
         Else
-            ' A bare cursor marks the one line it sits on, so a single output
-            ' line needs no selecting at all.
+            ' A bare cursor marks the one line it sits on, so a single line
+            ' needs no selecting at all.
             b = a
         End If
-        ' ADDED to what is already marked, not substituted for it. A transcript
-        ' has output in several places and a selection covers only one run.
-        list = modOutput.ToggleLines(modOutput.GetOutputLines(shp), a, b)
+        ' ADDED to what is already marked, not substituted for it: a selection
+        ' covers one run, and a transcript has several.
+        mine = modOutput.ToggleLines(mine, a, b)
+        other = modOutput.RemoveRun(other, a, b)
+    Else
+        ' The shape rather than text: clear this marking.
+        mine = ""
     End If
 
     modBlock.UngroupParts shp
-    modOutput.SetOutputLines shp, list
+    If asInterp Then
+        modOutput.SetInterpLines shp, mine
+        modOutput.SetOutputLines shp, other
+    Else
+        modOutput.SetOutputLines shp, mine
+        modOutput.SetInterpLines shp, other
+    End If
     StyleBlock shp
     Reselect shp
     RefreshRibbon
     Exit Sub
 Failed:
-    Warn "DoOutputLines failed: " & Err.Description
+    Warn "Marking transcript lines failed: " & Err.Description
 End Sub
 
 ' Attaches an OUTPUT note to a line: what the program printed, dressed as a
@@ -869,7 +894,7 @@ Public Sub DoArrow()
     ' Output marking goes too: it is a rendering choice about lines, like the
     ' emphasis and the covers, and Stylize brings it all back from the tag.
     modOutput.SetOutputLines shp, ""
-    modOutput.ClearPrompt shp
+    modOutput.SetInterpLines shp, ""
     ElseIf Not modArrow.RemoveArrow(shp, ln) Then
         modArrow.AddArrow shp, ln
     End If
@@ -1355,6 +1380,10 @@ End Sub
 
 Public Sub RibbonOutputLines(control As IRibbonControl)
     DoOutputLines
+End Sub
+
+Public Sub RibbonInterpLines(control As IRibbonControl)
+    DoInterpLines
 End Sub
 
 Public Sub RibbonOutputNote(control As IRibbonControl)

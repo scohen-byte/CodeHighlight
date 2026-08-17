@@ -42,7 +42,8 @@ editable.
 | **Arrow** | Point at a line from the left margin, leaving the code at full contrast |
 | **Arrow color** | Eight syntax hues, darkened to read on a white slide. Deck-wide |
 | **Note** | Attach an explanation to a line of code |
-| **Output lines** | Mark lines as output *inside* the block, for a transcript |
+| **Prompt lines** | Mark lines as typed at the interpreter — they get `>>>` |
+| **Output lines** | Mark lines as printed by it — no prompt, no syntax colour |
 | **Output** | Attach what the code printed beside the block, as a note |
 | **Delete note** | Remove the note you have singled out, and its connector |
 | **Note size** | Font size for notes. 24pt, or Auto to size each one from its block |
@@ -258,41 +259,29 @@ deck rather than in the add-in, so it travels with the file.
 
 There are two shapes of this, and they are for different slides.
 
-**Output lines** is the transcript: statement, result, statement, result, all in
-one block.
+**Prompt lines** and **Output lines** together make a transcript.
 
-1. Type the **whole session into one block** — the code *and* what it printed,
-   as plain text. Press **Stylize**; it all looks like code at this point.
-2. Put the cursor on a line the interpreter printed — no selection needed — and
-   press **Output lines**. For several consecutive output lines, select them.
-3. Repeat for the next output. **The marking adds up**, so a transcript with
-   output in four places takes four presses.
+1. Type the **whole session into one block** — what you typed and what it
+   printed, as plain text. Press **Stylize**.
+2. Select the lines you *typed* and press **Prompt lines**. They get `>>>` in
+   front of them, and the body of a statement gets `...` instead.
+3. Select the lines it *printed* and press **Output lines**. Those lose their
+   syntax colour and their line number, because a printed value is not code.
 
-The block becomes a terminal, those lines lose their syntax colour, and the
-*code* lines get the language's prompt in a column of its own — drawn like the
-line numbers, in its own shape, so the block's text stays pure source.
+The marking **adds up**, so press once per run. A bare cursor is enough for a
+single line. Pressing again on a marked line unmarks it, and with the block
+itself selected each button clears its own marking.
 
-**The output sits at column zero and the code is indented**, which is what a
-terminal does: it indents what you typed by the width of the prompt and prints
-its reply hard against the left. Aligning the two instead — which is what making
-room for the prompt in the margin did — leaves every reply looking like a
-continuation of the statement above it, with nothing but a missing prompt in a
-narrow column to say otherwise. That is how output gets lost.
+**The prompt goes into the text.** It was a separate column at first, on the
+argument that the block's text should be pure source — and two shapes that must
+agree line for line eventually disagree, at which point the prompts land on top
+of the code. In the text there is nothing to keep in step: the prompt indents the
+code because it *is* characters in front of the code.
 
-The body of a statement gets the **continuation prompt** (`...` in Python)
-rather than `>>>`, inferred from indentation, and a blank line gets no prompt at
-all — a bare `>>>` with nothing after it reads as a statement that failed to
-render.
-
-Pressing it again on a marked line unmarks that line. With the block itself
-selected rather than text, it clears them all.
-
-Because the text stays pure, everything else keeps working. Line numbers skip
-the output lines, so they still match the file the code came from. Indent guides
-treat them as blank, since a printed value has no nesting. And **Copy code**
-drops them, so what you paste runs.
-
-With the block itself selected rather than text, it clears the marking.
+That costs the pure-source property, and **Copy code** buys it back — it strips
+the prompts and drops the output lines, so what you paste is what you would run.
+That is a better home for the guarantee anyway: it is exactly the moment anybody
+wants it.
 
 **Output** is the other shape: a note beside the block, for when the code is a
 program and the output is an aside about one line of it.
