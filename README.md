@@ -42,6 +42,7 @@ editable.
 | **Arrow** | Point at a line from the left margin, leaving the code at full contrast |
 | **Arrow color** | Eight syntax hues, darkened to read on a white slide. Deck-wide |
 | **Note** | Attach an explanation to a line of code |
+| **Output** | Attach what the code printed, dressed as a terminal |
 | **Delete note** | Remove the note you have singled out, and its connector |
 | **Note size** | Font size for notes. 24pt, or Auto to size each one from its block |
 | **Note color** | Twelve presets, each shown as its own swatch |
@@ -251,6 +252,27 @@ deck rather than in the add-in, so it travels with the file.
   pressing Stylize, and typed words cannot, so notes are treated as content.
   To clear them, press **Note** with the block itself selected. That one asks
   first.
+
+### Showing what the code printed
+
+**Output** attaches a note carrying the program's output, dressed as a terminal
+rather than as an aside: the code font, a darker panel with an edge, and a green
+arrow opening the line. It takes the line the cursor is on, or the emphasised
+line with the block itself selected — the same rule as Note.
+
+The arrow is the signal. Output is *not syntax-coloured*, which is the cue
+students already know from a terminal or a Jupyter cell, and it does far more
+work than a border. It lives in the note's text, because it sits on the output's
+own line and nothing else can, so you can delete it — Stylize puts it back.
+
+Everything a note does, an output note does: it is anchored to its line, its
+connector stretches when you drag it, two of them stack, and **Delete note**
+removes it. What it does not do is take the Note size, colour or font — those
+belong to its kind, and the pipeline restores them on every Stylize.
+
+Long output wraps flush with the first character **after** the arrow rather than
+underneath it, so a second line reads as a continuation rather than as a second
+result. Short output does not wrap at all — the note hugs it.
 
 ### Fit will sometimes refuse to be helpful, on purpose
 
