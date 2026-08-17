@@ -2351,19 +2351,31 @@ Public Function ArrowTest(ByVal srcPath As String, ByVal pngPath As String) As S
     r = r & "raw_keyword_purple_on_white=" & _
             Format$(ThemeContrast(ThemeColor(tkKeywordCtrl), RGB(255, 255, 255)), "0.00") & vbLf
 
-    ' Changing the colour repaints every arrow in the DECK, not just this slide.
-    modRibbon.DoArrowColor 3                                  ' Green
-    Dim wrong As Long, total As Long
-    For k = 1 To pres.Slides.count
-        For Each s3 In modBlock.AllShapes(pres.Slides(k))
-            If Len(s3.Tags(modArrow.TAG_ARROW_OF)) > 0 Then
-                total = total + 1
-                If s3.fill.ForeColor.RGB <> ThemeArrowPreset(3) Then wrong = wrong + 1
-            End If
-        Next s3
-    Next k
-    r = r & "recolored_deck_wide=" & Abs(CLng(total > 1 And wrong = 0)) & _
-            " (" & total & " arrows)" & vbLf
+    ' TWO ARROWS, TWO COLOURS. Uniformity is right for a walkthrough, where one
+    ' marker moves down a deck, and wrong for arrows placed by hand - which are
+    ' annotations and can mean "this is the bug" beside "this is the fix".
+    Cursor shp, 5
+    modRibbon.DoArrow
+    Cursor shp, 3
+    modRibbon.DoArrowColor 3                                  ' Green on line 3
+    Cursor shp, 5
+    modRibbon.DoArrowColor 6                                  ' Crimson on line 5
+    Dim aA As Shape, aB As Shape
+    Set aA = modArrow.FindArrow(shp, 3)
+    Set aB = modArrow.FindArrow(shp, 5)
+    r = r & "two_arrow_colours=" & _
+            Abs(CLng(aA.fill.ForeColor.RGB = ThemeArrowPreset(3) And _
+                     aB.fill.ForeColor.RGB = ThemeArrowPreset(6))) & vbLf
+
+    ' And with nothing singled out it only records the choice, which is what a
+    ' walkthrough then uses - so its arrows come out uniform on their own.
+    shp.Select
+    modRibbon.DoArrowColor 10                                 ' Royal
+    Set aA = modArrow.FindArrow(shp, 3)
+    r = r & "existing_untouched=" & _
+            Abs(CLng(aA.fill.ForeColor.RGB = ThemeArrowPreset(3))) & vbLf
+    r = r & "default_recorded=" & _
+            Abs(CLng(modOptions.ArrowColor() = ThemeArrowPreset(10))) & vbLf
 
     pres.Slides(3).Export Replace(pngPath, ".png", "-colors.png"), "PNG", 1920, 1080
 

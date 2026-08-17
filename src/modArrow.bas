@@ -130,30 +130,47 @@ Public Sub ClearArrows(ByVal shp As Shape)
     Next i
 End Sub
 
-' Repaints every arrow in the whole presentation.
+' Repaints the arrows handed to it, and only those.
 '
-' Deck-wide because arrows are uniform by design - see modOptions.ArrowColor -
-' and because the alternative is worse: a walkthrough of twenty slides built
-' before you settled on a colour would otherwise have to be recoloured slide by
-' slide.
+' It used to repaint every arrow in the PRESENTATION, on the argument that an
+' arrow means one thing so two colours would say something it does not mean.
+' That argument holds for a walkthrough - one marker moving down a deck - and
+' not for an arrow placed by hand, which is an annotation like a note and can
+' legitimately mean "this is the bug" beside "this is the fix".
 '
-' Colour is applied on CREATION and here, never in PlaceArrows. Repainting on
-' every Stylize would undo any arrow recoloured by hand with PowerPoint's own
-' tools, which is the same bargain notes get.
-Public Function RecolorAll(ByVal pres As Presentation, ByVal rgbColor As Long) As Long
-    Dim sld As Slide, s2 As Shape, n As Long
-
+' The rule that gives both: colour the arrow you singled out, and record the
+' choice for arrows made afterwards. A walkthrough then makes all of its own in
+' the recorded colour without anything special being done for it.
+Public Sub PaintArrows(ByVal arrows As Collection, ByVal rgbColor As Long)
+    Dim i As Long
     On Error Resume Next
-    For Each sld In pres.Slides
-        For Each s2 In modBlock.AllShapes(sld)
-            If Len(s2.Tags(TAG_ARROW_OF)) > 0 Then
-                s2.fill.Solid
-                s2.fill.ForeColor.RGB = rgbColor
-                n = n + 1
+    For i = 1 To arrows.count
+        arrows(i).fill.Solid
+        arrows(i).fill.ForeColor.RGB = rgbColor
+    Next i
+End Sub
+
+Public Function IsArrow(ByVal shp As Shape) As Boolean
+    On Error Resume Next
+    IsArrow = (Len(shp.Tags(TAG_ARROW_OF)) > 0)
+End Function
+
+' The block an arrow belongs to, so a command starting from a selected arrow
+' can still find its way home.
+Public Function BlockOfArrow(ByVal arrow As Shape) As Shape
+    Dim sld As Slide, s2 As Shape, blockId As String
+
+    blockId = arrow.Tags(TAG_ARROW_OF)
+    If Len(blockId) = 0 Then Exit Function
+    Set sld = modGutter.OwningSlide(arrow)
+    For Each s2 In modBlock.AllShapes(sld)
+        If s2.Tags(modBlock.TAG_BLOCK) = "1" Then
+            If s2.Tags(modBlock.TAG_ID) = blockId Then
+                Set BlockOfArrow = s2
+                Exit Function
             End If
-        Next s2
-    Next sld
-    RecolorAll = n
+        End If
+    Next s2
 End Function
 
 '------------------------------------------------------------------------------

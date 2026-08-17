@@ -47,7 +47,7 @@ editable.
 | **Note** | Attach an explanation to a line of code |
 
 | **Output** | Attach what the code printed beside the block, as a note |
-| **Delete note** | Remove the note you have singled out, and its connector |
+| **Delete** | Remove the note or output you have singled out, and its connector |
 | **Note size** | Font size for notes. 24pt, or Auto to size each one from its block |
 | **Note color** | Twelve presets, each shown as its own swatch |
 | **Note font** | Deck default, or one of four that ship with Windows |
@@ -127,213 +127,16 @@ right, as a solid shape on a white slide they look faded, which is the opposite
 of what an arrow is for. Each keeps its hue and loses enough lightness to clear
 4.5:1 on white, which the test asserts — the weakest is Gold at 4.92.
 
-Arrows are **uniform across a deck** by design: a note's colour says something
-about that note, but an arrow means one thing, so a slide with two colours of
-arrow is saying something it does not mean. Changing the colour therefore
-repaints every arrow in the presentation, which also saves recolouring a
-twenty-slide walkthrough one slide at a time. The colour is applied when an
-arrow is made and when you change it, never on Stylize, so recolouring one by
-hand still sticks until you press the swatch again.
+**Arrow color** applies to the arrow you have singled out — the one your cursor's
+line carries, or the one you have clicked into — exactly like Note colour. Two
+arrows on a slide can differ, which is the point: *this is the bug* beside *this
+is the fix*.
 
-### Building a walkthrough
-
-Select a block and press **Step through**. The slide is duplicated once per line
-of code, each copy emphasising the next line, and a final copy is added with
-nothing emphasised — so the sequence opens and closes on the whole code and you
-simply advance through the slides as you talk.
-
-**Build up** does the same except the emphasis grows downward: each slide shows
-everything covered so far rather than one line. Use Step through for tracing
-what runs next, Build up for assembling code piece by piece.
-
-Two things worth knowing:
-
-- **Blank lines get no slide of their own.** A slide emphasising an empty line
-  is a dead beat.
-- **Select text first to walk only part of a block.** Without a selection it
-  walks every line, which on a forty-line block means forty slides. Past twelve
-  it asks before going ahead.
-
-Two options change what gets built:
-
-- **Note per step** gives every generated slide a note already attached to the
-  line it emphasises, so the walkthrough arrives ready to be written into rather
-  than ready to be clicked at. Build up attaches it to the newest line.
-- **Arrow, not fade** marks each generated slide with an arrow in the left
-  margin rather than a band and a fade, so the code stays whole and readable
-  throughout. Step through moves one arrow down the margin; Build up leaves them
-  behind, so the marks accumulate the way the code does.
-- **Bold the line** renders that line in bold as well as banded. The band changes
-  the background; bold changes the letters, which is the strongest signal
-  available without moving anything. It applies wherever emphasis is used, not
-  only in a generated walkthrough.
-
-The generated slides are ordinary slides. Reorder, delete or edit any of them,
-and press Stylize on one if you change its code.
-
-### Hiding lines, to ask rather than tell
-
-Select lines inside the block and press **Hide lines**. They disappear behind a
-panel carrying a bold white question mark, and the block keeps its exact size —
-nothing shifts, so the audience can see precisely how much is missing and where.
-Press **Reveal next** and the slide is duplicated with nothing hidden, giving
-you the answer slide immediately after the question.
-
-The marking **adds up**, so you can cover several separate regions — every run
-of output in a transcript, say — one press per region. **Reveal next** then
-uncovers **one** region at a time: the one your cursor is in, or the topmost
-remaining. Four covered regions is four questions, and answering them all at the
-first press would defeat the point.
-
-To unhide without adding a slide, press **Hide lines** again on a covered
-region, or select the block itself to clear them all. **Strip** also clears it.
-
-The code is covered, not deleted. It is still in the file, and anyone who opens
-the deck can drag the panel aside. That is fine when you reveal in the room, but
-do not use it to withhold answers from a deck you hand out beforehand.
-
-### Notes on a line
-
-Put the cursor on a line and press **Note**. A note appears beside the block
-with a thin line pointing at that line of code, and its placeholder text is
-selected so you can type straight over it. No need to select anything first —
-the cursor is enough.
-
-The note is anchored, not merely placed. Edit the code above it, change the
-size, or drag the whole block, and Stylize brings the note back level with its
-line. Drag a note somewhere you prefer and Stylize leaves it there.
-
-**The pointer is a real connector**, attached at one end to an invisible marker
-on its line and at the other to the note, so PowerPoint reroutes it itself as
-you drag. Move a note across the slide and the line stretches to follow, live,
-with no need to press anything.
-
-**Delete note** removes the note you have singled out, along with its connector.
-It does not ask — one note is a small loss and Undo takes it back. To clear
-every note on a block, press **Note** with the block itself selected; that one
-asks first.
-
-**On a walkthrough slide the block itself is enough.** With the block selected
-rather than text, the note attaches to the emphasised line — so annotating a
-generated Step through is one click per slide, with nothing to aim at. Build up
-emphasises a range, and the note goes on its **last** line, which is the one
-that slide has just reached.
-
-**Note size**, **Note color** and **Note font** each change only what they are
-named after, so two notes on one slide can differ in colour, size and font
-independently. Each one applies to:
-
-- the note on the line your **cursor** is on, or
-- the note you have **clicked into**.
-
-With nothing singled out they change nothing — they only record the choice for
-the next note. That matters more than it sounds: the selection sits on the block
-after every other command, so a rule that fell back to "all of them" meant
-opening the colour list to set up your next note silently repainted the ones
-already there.
-
-The cursor route is what makes this workable. Stylize groups every note with its
-block, and reaching a shape inside a group takes two deliberate clicks. Putting
-the cursor on line 7 and picking a colour recolours line 7's note, and nothing
-else.
-
-Whatever you pick is also remembered for notes made afterwards, stored in the
-deck rather than in the add-in, so it travels with the file.
-
-- **Size.** 24pt to begin with. Auto sizes each note from the block it belongs
-  to instead — worth choosing if you resize blocks a lot, though note that code
-  is set in Consolas and prose in a proportional face, so a note at the code's
-  nominal size looks distinctly smaller than the code.
-- **Color.** Twelve presets, each shown as a swatch of itself in the list. The
-  small square beside the dropdown shows the colour in use and applies it, which
-  is how you give a second note the same colour as the first without going back
-  through the list. A fixed list rather than a full picker, because every
-  one of them is checked against the text colour it gets and an arbitrary colour
-  is not — the test asserts all twelve clear 4.5:1, and the worst is Emerald at
-  4.57. The first six are quiet, for a note that is an aside about the code; the
-  rest are saturated, for one that should be the loudest thing on the slide. The
-  text colour is whichever of light or dark reads better on the fill, so amber
-  gets dark words and crimson gets white ones, and a light preset also gets a
-  faint edge so it does not dissolve into a white slide.
-- **Font.** Deck default inherits your presentation's own body font, so a note
-  looks like the rest of the deck rather than like code. That is the default and
-  is usually right. It cannot be applied *back* to a note that already has a
-  named font — there is no font name meaning "inherit" — so choosing it affects
-  only notes made afterwards. The four alternatives all ship with Windows or
-  Office, so a note renders anywhere the deck opens.
-
-- **Two notes on nearby lines stack** rather than landing on top of each other.
-- **A block too wide to leave a margin** puts its notes below itself instead,
-  with the pointer doing the work of saying which line is meant. The slide runs
-  out after two or three, and the add-in says so rather than letting one hang
-  off the edge. Making the block smaller is usually the better answer.
-- **Strip does not remove notes.** Everything else it removes can be rebuilt by
-  pressing Stylize, and typed words cannot, so notes are treated as content.
-  To clear them, press **Note** with the block itself selected. That one asks
-  first.
-
-### Showing what the code printed
-
-There are two shapes of this, and they are for different slides.
-
-**Transcript** and **Output** live in the Stylize group, because that is what
-they are — a way of styling the block, not an annotation hung off it.
-
-1. Type the **whole session into one block** — what you typed and what it
-   printed, as plain text.
-2. Put the cursor on a line the interpreter *printed* — or select a run of them
-   — and press **Output**.
-
-That is the whole flow, and it works on a block you have never Stylized. The
-block becomes a transcript, every line you typed gets the prompt (`>>>`, with
-`...` on the body of a statement, nothing on a blank line), and the line you
-marked loses its prompt, its syntax colour and its line number.
-
-**Prompt** does the reverse — it puts the prompt back on the lines you select.
-That is how you promote a line you have just typed: a new line arrives without a
-prompt, which is to say it counts as output. They are two separate commands
-rather than one that toggles, because a button called Output that sometimes puts
-prompts *on* is not a sentence anybody should have to work out.
-
-The **Transcript** checkbox turns the prompts on and off for the whole block.
-
-**There is no stored list of output lines.** A line carrying a prompt is one
-you typed; a bare one is output. The text *is* the record, so editing cannot
-put it out of step — add a line and it starts life bare, which is to say
-output, and one press makes it input.
-
-That matters because it was a list of line numbers twice over, and both times
-the same thing went wrong: a line number is a position, and inserting a line
-near the top moves every position below it. Emphasis and hidden lines have the
-same flaw and get away with it, because a band on the wrong line is obvious and
-you re-mark it. Here the prompts are *in* the text, so a stale index does not
-look wrong — it looks like a mess.
-
-Because the prompts are real characters, indent guides measure indentation
-*after* the prompt, and **Copy code** strips the prompts and drops the output,
-so what you paste is what you would run.
-
-**Output** is the other shape: a note beside the block, for when the code is a
-program and the output is an aside about one line of it.
-
-It attaches a note carrying the program's output, dressed as a terminal rather
-than as an ordinary note: the code font, a darker panel with an edge, and a green
-arrow opening the line. It takes the line the cursor is on, or the emphasised
-line with the block itself selected — the same rule as Note.
-
-The arrow is the signal. Output is *not syntax-coloured*, which is the cue
-students already know from a terminal or a Jupyter cell, and it does far more
-work than a border. It lives in the note's text, because it sits on the output's
-own line and nothing else can, so you can delete it — Stylize puts it back.
-
-Everything a note does, an output note does: it is anchored to its line, its
-connector stretches when you drag it, two of them stack, and **Delete note**
-removes it. What it does not do is take the Note size, colour or font — those
-belong to its kind, and the pipeline restores them on every Stylize.
-
-Long output wraps flush with the first character **after** the arrow rather than
-underneath it, so a second line reads as a continuation rather than as a second
-result. Short output does not wrap at all — the note hugs it.
+With nothing singled out it only records the colour, so the next arrow gets it —
+and so does every arrow a walkthrough makes, which is why **Point at** comes out
+uniform without being told to. That is the distinction: a walkthrough's arrows
+are one marker moving down a deck and should match, while an arrow you place by
+hand is an annotation and need not.
 
 ### Fit will sometimes refuse to be helpful, on purpose
 

@@ -859,29 +859,65 @@ Done:
     Set SelectedNotes = c
 End Function
 
-' Sets the colour every arrow gets, and repaints the ones already in the deck.
+' Sets the colour arrows get, and paints the one you have singled out.
 '
-' Deck-wide, unlike the note controls. Arrows are uniform by design - two
-' colours of arrow on one slide say something the arrows do not mean - so
-' "which arrow do you mean" has no answer worth asking, and a walkthrough built
-' before you settled on a colour would otherwise need recolouring slide by slide.
+' Same rule as Note colour: the arrow you have clicked into, or the one on your
+' cursor's line. With nothing singled out it only records the choice, so the
+' next arrow - and every arrow a walkthrough makes - comes out in it.
+'
+' It used to repaint every arrow in the presentation. That was right about a
+' walkthrough, where one marker moves down a deck, and wrong about an arrow
+' placed by hand, which is an annotation like a note and can legitimately differ
+' from the one beside it.
 Public Sub DoArrowColor(ByVal presetIndex As Long)
     On Error GoTo Failed
-    Dim pres As Presentation
+    Dim c As Collection, shp As Shape, problem As String, ln As Long, arr As Shape
 
     modOptions.SetArrowColor ThemeArrowPreset(presetIndex)
     RefreshRibbon
 
-    On Error Resume Next
-    Set pres = Application.ActivePresentation
-    On Error GoTo Failed
-    If pres Is Nothing Then Exit Sub
+    Set c = SelectedArrows()
+    If c.count = 0 Then
+        Set shp = modBlock.SelectedBlock(problem)
+        If Not shp Is Nothing Then
+            ln = CursorLine(shp)
+            If ln > 0 Then
+                Set arr = modArrow.FindArrow(shp, ln)
+                If Not arr Is Nothing Then c.Add arr
+            End If
+        End If
+    End If
+    If c.count = 0 Then Exit Sub
 
-    modArrow.RecolorAll pres, ThemeArrowPreset(presetIndex)
+    modArrow.PaintArrows c, ThemeArrowPreset(presetIndex)
     Exit Sub
 Failed:
     Warn "DoArrowColor failed: " & Err.Description
 End Sub
+
+' The arrows in the current selection. Child-aware, for the reason notes are:
+' every arrow ends up inside a group with its block, and a selected group
+' reports as the group.
+Private Function SelectedArrows() As Collection
+    Dim sel As Object, sr As Object, c As Collection
+    Dim i As Long, hasChild As Boolean
+
+    Set c = New Collection
+    On Error GoTo Done
+    Set sel = Application.ActiveWindow.Selection
+    If sel.Type <> ppSelectionShapes And sel.Type <> ppSelectionText Then GoTo Done
+
+    On Error Resume Next
+    hasChild = sel.HasChildShapeRange
+    On Error GoTo Done
+
+    If hasChild Then Set sr = sel.ChildShapeRange Else Set sr = sel.ShapeRange
+    For i = 1 To sr.count
+        If modArrow.IsArrow(sr(i)) Then c.Add sr(i)
+    Next i
+Done:
+    Set SelectedArrows = c
+End Function
 
 ' Puts a block arrow in the left margin beside one line, or takes it away again.
 '
