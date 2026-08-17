@@ -88,6 +88,11 @@ Public Function SpecFitSize(ByVal lineCount As Long, ByVal maxChars As Long, _
     For i = 0 To LadderCount() - 1
         size = LadderAt(i)
         gutterW = 0
+        ' lineCount stands in for the highest number here, which is exact for a
+        ' block numbered from 1 and slightly narrow for one numbered from 98 -
+        ' a block's start number is not knowable from this signature. Worth at
+        ' most one digit of width, so Fit can pick a size a shade too large on
+        ' a continuation block. Say so rather than thread the block through.
         If withGutter Then gutterW = SpecGutter(size, lineCount)
         If SpecWidthFor(size, maxChars, gutterW) <= CONTENT_W Then
             If SpecHeight(size, lineCount) <= CONTENT_H Then best = size
@@ -137,9 +142,11 @@ End Function
 
 ' Width of the line-number gutter, which sits INSIDE the dark block. Not used by
 ' the thin slice, but it is part of the spec and belongs with the rest of it.
-Public Function SpecGutter(ByVal size As Single, ByVal lineCount As Long) As Single
+' Takes the HIGHEST LINE NUMBER that will be shown, which is not the line count
+' when the block starts its numbering somewhere other than 1.
+Public Function SpecGutter(ByVal size As Single, ByVal highestNumber As Long) As Single
     Dim digits As Long
-    digits = Len(CStr(IIf(lineCount < 1, 1, lineCount)))
+    digits = Len(CStr(IIf(highestNumber < 1, 1, highestNumber)))
     If digits < 2 Then digits = 2
     SpecGutter = Round(digits * ADVANCE * size + size * GAP_RATIO, 1)
 End Function

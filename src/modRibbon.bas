@@ -154,6 +154,30 @@ Failed:
     Warn "DoToggleGutter failed: " & Err.Description
 End Sub
 
+' Sets the number the first numbered line gets, for code split across slides.
+Public Sub DoFirstLine(ByVal n As Long)
+    On Error GoTo Failed
+    Dim shp As Shape, problem As String
+
+    Set shp = modBlock.SelectedBlock(problem)
+    If shp Is Nothing Then
+        Warn problem
+        Exit Sub
+    End If
+
+    modGutter.SetFirstLine shp, n
+    ' Numbers the user cannot see are not much use, so turning this on turns the
+    ' gutter on. Anyone setting a start number has said what they want.
+    modBlock.UngroupParts shp
+    If Not modGutter.HasGutter(shp) Then modGutter.SyncGutter shp, True
+    StyleBlock shp
+    Reselect shp
+    RefreshRibbon
+    Exit Sub
+Failed:
+    Warn "DoFirstLine failed: " & Err.Description
+End Sub
+
 Public Sub DoToggleGuides()
     On Error GoTo Failed
     Dim shp As Shape, problem As String
@@ -1025,6 +1049,27 @@ End Sub
 
 Public Sub RibbonToggleGutter(control As IRibbonControl, pressed As Boolean)
     DoToggleGutter
+End Sub
+
+Public Sub RibbonFirstLineText(control As IRibbonControl, ByRef text)
+    Dim shp As Shape, problem As String
+    Set shp = modBlock.SelectedBlock(problem)
+    If shp Is Nothing Then
+        text = "1"
+    Else
+        text = CStr(modGutter.FirstLine(shp))
+    End If
+End Sub
+
+Public Sub RibbonFirstLineChanged(control As IRibbonControl, text As String)
+    Dim n As Long
+    n = CLng(Val(text))
+    If n < 1 Or n > 99999 Then
+        Warn "Enter the number the first line should get, between 1 and 99999."
+        RefreshRibbon
+        Exit Sub
+    End If
+    DoFirstLine n
 End Sub
 
 Public Sub RibbonGuidesPressed(control As IRibbonControl, ByRef returnedVal)

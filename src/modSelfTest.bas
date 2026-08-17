@@ -1021,6 +1021,352 @@ Private Function PartOf(ByVal s2 As Shape, ByVal id As String) As Boolean
              (s2.Tags(modArrow.TAG_ARROW_OF) = id)
 End Function
 
+' Line numbering that starts somewhere other than 1, for code split across
+' slides. The width case is the one worth asserting: a block starting at 98
+' needs three digits where its line COUNT would only ask for two.
+Public Function FirstLineTest(ByVal srcPath As String, ByVal pngPath As String) As String
+    Dim pres As Presentation, sld As Slide, shp As Shape, r As String
+    Dim code As String, g As Shape, w1 As Single, w2 As Single, nums As String
+
+    On Error GoTo Failed
+    modRibbon.SetQuiet True
+    code = ReadTextFile(srcPath)
+
+    Set pres = Application.ActivePresentation
+    pres.PageSetup.SlideWidth = modSpec.SLIDE_W
+    pres.PageSetup.SlideHeight = modSpec.SLIDE_H
+    Set sld = pres.Slides.Add(pres.Slides.count + 1, ppLayoutBlank)
+    sld.Select
+
+    Set shp = modBlock.CreateBlock(sld, code, modSpec.BASE_SIZE, "python")
+    shp.Select
+    modRibbon.DoStylize
+    shp.Select
+    modRibbon.DoToggleGutter
+
+    Set g = modGutter.FindGutter(shp)
+    w1 = g.Width
+    r = "default_first=" & modGutter.FirstLine(shp) & vbLf
+    r = r & "numbers_from_1=" & Quoted(Left$(modGutter.NumberColumn( _
+            shp.TextFrame.TextRange.text), 3)) & vbLf
+
+    ' Start at 98, so the numbers cross into three digits partway down.
+    shp.Select
+    modRibbon.DoFirstLine 98
+    Set g = modGutter.FindGutter(shp)
+    w2 = g.Width
+    nums = modGutter.NumberColumn(shp.TextFrame.TextRange.text, modGutter.FirstLine(shp))
+
+    r = r & "first_after=" & modGutter.FirstLine(shp) & vbLf
+    r = r & "starts_at_98=" & Abs(CLng(Left$(nums, 2) = "98")) & vbLf
+    r = r & "gutter_widened=" & Abs(CLng(w2 > w1)) & _
+            " (" & Format$(w1, "0.0") & " -> " & Format$(w2, "0.0") & ")" & vbLf
+
+    ' It has to survive a Stylize, like every other per-block choice.
+    shp.Select
+    modRibbon.DoStylize
+    r = r & "survives_stylize=" & Abs(CLng(modGutter.FirstLine(shp) = 98)) & vbLf
+
+    sld.Export pngPath, "PNG", 1920, 1080
+    FirstLineTest = r
+    Exit Function
+Failed:
+    FirstLineTest = r & "ERROR " & Err.Number & ": " & Err.Description
+End Function
+
+' MOCKUPS for showing a program's output beside its code. Renders one slide
+' per candidate so they can be compared as a set - judging one at a time is how
+' you end up with six shades of slate.
+'
+' NOTHING here is product code. Every variant paints runs and drops shapes on
+' top by hand, so no tag and no pipeline stage has to exist yet.
+'
+' The transcript is built inline rather than read from tests/samples, because it
+' is a REPL transcript rather than a program and would fail the lexer mask diff
+' if it entered the corpus.
+Public Function OutputProbe(ByVal srcPath As String, ByVal pngPath As String) As String
+    Dim v As Long, r As String
+    For v = 1 To 9
+        r = r & Chr$(64 + v) & "=" & OneVariant(v, pngPath) & vbLf
+    Next v
+    OutputProbe = r
+End Function
+
+Private Function TranscriptText() As String
+    TranscriptText = "print(set(range(5)))" & vbCr & _
+                     "{0, 1, 2, 3, 4}" & vbCr & _
+                     "print(set(" & Chr$(34) & "hello" & Chr$(34) & "))" & vbCr & _
+                     "{'h', 'e', 'l', 'o'}"
+End Function
+
+Private Function OneVariant(ByVal v As Long, ByVal pngPath As String) As String
+    Dim pres As Presentation, sld As Slide, shp As Shape, shp2 As Shape
+    Dim png As String, plain As Long, i As Long
+
+    On Error GoTo Failed
+    modRibbon.SetQuiet True
+
+    Set pres = Application.ActivePresentation
+    pres.PageSetup.SlideWidth = modSpec.SLIDE_W
+    pres.PageSetup.SlideHeight = modSpec.SLIDE_H
+    Set sld = pres.Slides.Add(pres.Slides.count + 1, ppLayoutBlank)
+    sld.Select
+
+    Set shp = modBlock.CreateBlock(sld, TranscriptText(), modSpec.BASE_SIZE, "python")
+    shp.Left = 120
+    shp.Top = 120
+    shp.Select
+    modRibbon.DoStylize
+    modBlock.UngroupParts shp
+
+    plain = ThemeColor(tkDefault)
+
+    Select Case v
+        Case 1                                  ' A - plain, no band
+            PaintLine shp, 2, plain
+            PaintLine shp, 4, plain
+
+        Case 2                                  ' B - plain on a LIGHTER band
+            AddLineBand sld, shp, 2, 2, ThemeCoverColor()
+            AddLineBand sld, shp, 4, 4, ThemeCoverColor()
+            PaintLine shp, 2, plain
+            PaintLine shp, 4, plain
+            shp.ZOrder msoSendToBack
+
+        Case 3                                  ' C - plain, thin rule in margin
+            PaintLine shp, 2, plain
+            PaintLine shp, 4, plain
+            AddMarginRule sld, shp, 2
+            AddMarginRule sld, shp, 4
+
+        Case 4                                  ' D - dimmed, no band
+            PaintLine shp, 2, ThemeDimmed(plain)
+            PaintLine shp, 4, ThemeDimmed(plain)
+
+        Case 5                                  ' E - a second, Stripped block
+            shp.TextFrame.TextRange.text = "print(set(range(5)))" & vbCr & _
+                                           "print(set(" & Chr$(34) & "hello" & Chr$(34) & "))"
+            modBlock.FormatBlockText shp, modSpec.BASE_SIZE
+            shp.Select
+            modRibbon.DoStylize
+            modBlock.UngroupParts shp
+            Set shp2 = modBlock.CreateBlock(sld, _
+                "{0, 1, 2, 3, 4}" & vbCr & "{'h', 'e', 'l', 'o'}", _
+                modSpec.BASE_SIZE, "python")
+            shp2.TextFrame.TextRange.Font.Color.RGB = plain
+            shp2.Left = shp.Left
+            shp2.Top = shp.Top + shp.Height + 14
+            shp2.Width = shp.Width
+
+        Case 6                                  ' F - the VS Code terminal
+            ' Text set bright first: the panel goes OVER it and takes it back
+            ' down. Nothing can be placed between a shape's fill and its own
+            ' text, so a panel that darkens the background darkens the words
+            ' with it - the same constraint the emphasis bands live under.
+            PaintLine shp, 2, RGB(255, 255, 255)
+            PaintLine shp, 4, RGB(255, 255, 255)
+            TerminalPanel sld, shp, 2, 0.62, RGB(60, 60, 60), 1
+            TerminalPanel sld, shp, 4, 0.62, RGB(60, 60, 60), 1
+
+        Case 7                                  ' G - F, separation widened
+            PaintLine shp, 2, RGB(255, 255, 255)
+            PaintLine shp, 4, RGB(255, 255, 255)
+            TerminalPanel sld, shp, 4, 0.34, RGB(110, 110, 110), 2
+            TerminalPanel sld, shp, 2, 0.34, RGB(110, 110, 110), 2
+
+        Case 8                                  ' H - all terminal, prompt column
+            shp.fill.ForeColor.RGB = RGB(24, 24, 24)
+            PaintLine shp, 2, RGB(204, 204, 204)
+            PaintLine shp, 4, RGB(204, 204, 204)
+            PromptColumn sld, shp
+
+        Case Else                               ' I - notes carrying the output
+            ' The text has to shrink to the two code lines FIRST. Notes are
+            ' anchored to a line number, and anchoring to line 3 of a block
+            ' about to become two lines long points at nothing.
+            shp.TextFrame.TextRange.text = "print(set(range(5)))" & vbCr & _
+                                           "print(set(" & Chr$(34) & "hello" & Chr$(34) & "))"
+            modBlock.FormatBlockText shp, modSpec.BASE_SIZE
+            modRender.ApplyHighlight shp, "python"
+            modBlock.ResizeToContent shp
+            OutputNote sld, shp, 1, "{0, 1, 2, 3, 4}"
+            OutputNote sld, shp, 2, "{'h', 'e', 'l', 'o'}"
+            modNote.PlaceNotes shp
+    End Select
+
+    png = Replace(pngPath, ".png", "-" & Chr$(64 + v) & ".png")
+    sld.Export png, "PNG", 1920, 1080
+    OneVariant = "ok"
+    Exit Function
+Failed:
+    OneVariant = "ERROR " & Err.Number & ": " & Err.Description
+End Function
+
+'--- helpers, mockup only -----------------------------------------------------
+
+Private Sub PaintLine(ByVal shp As Shape, ByVal ln As Long, ByVal rgbColor As Long)
+    Dim a As Long, l As Long
+    modBlock.LineCharRange shp.TextFrame.TextRange.text, ln, a, l
+    If a >= 1 And l >= 1 Then
+        shp.TextFrame.TextRange.Characters(a, l).Font.Color.RGB = rgbColor
+    End If
+End Sub
+
+' Full-width band behind a run of lines, sized from the MEASURED ink the way the
+' cover panels are.
+Private Function AddLineBand(ByVal sld As Slide, ByVal shp As Shape, _
+                             ByVal ln1 As Long, ByVal ln2 As Long, _
+                             ByVal rgbColor As Long) As Shape
+    Dim t1 As Single, h1 As Single, t2 As Single, h2 As Single
+    Dim size As Single, lineH As Single, pad As Single, y0 As Single, y1 As Single
+    Dim b As Shape
+
+    size = modBlock.BlockFontSize(shp)
+    lineH = modSpec.SpecLine(size)
+    pad = modSpec.SpecPad(size)
+
+    y0 = shp.Top + pad + (ln1 - 1) * lineH
+    y1 = shp.Top + pad + ln2 * lineH
+    If modRender.LineBounds(shp, ln1, t1, h1) Then If t1 < y0 Then y0 = t1
+    If modRender.LineBounds(shp, ln2, t2, h2) Then If t2 + h2 > y1 Then y1 = t2 + h2
+
+    Set b = sld.Shapes.AddShape(msoShapeRectangle, shp.Left, y0, shp.Width, y1 - y0)
+    With b
+        .fill.Solid
+        .fill.ForeColor.RGB = rgbColor
+        .Line.Visible = msoFalse
+        .Shadow.Visible = msoFalse
+    End With
+    Set AddLineBand = b
+End Function
+
+Private Sub AddMarginRule(ByVal sld As Slide, ByVal shp As Shape, ByVal ln As Long)
+    Dim t As Single, h As Single, ru As Shape, x As Single
+    If Not modRender.LineBounds(shp, ln, t, h) Then Exit Sub
+    x = shp.Left + modSpec.SpecPad(modBlock.BlockFontSize(shp)) * 0.5
+    Set ru = sld.Shapes.AddLine(x, t, x, t + h)
+    ru.Line.ForeColor.RGB = RGB(140, 140, 140)
+    ru.Line.Weight = 2.5
+End Sub
+
+' Everything from the first output line down is darkened, with a border along
+' its top - the arrangement VS Code uses for the terminal below the editor,
+' where the panel is DARKER than the editor rather than lighter.
+'
+' Darkened by a translucent black overlay rather than an opaque panel, because
+' an opaque one would have to sit either behind the block's own fill (invisible)
+' or over its text (illegible). Transparency is the only layer available
+' between the two - see modRender.ApplyEmphasis, which hit this first.
+Private Sub TerminalPanel(ByVal sld As Slide, ByVal shp As Shape, _
+                          ByVal outLine As Long, _
+                          ByVal transp As Single, ByVal borderColor As Long, _
+                          ByVal borderWeight As Single)
+    Dim t As Single, h As Single, y0 As Single, y1 As Single
+    Dim p As Shape, ln As Shape, lineH As Single, pad As Single
+
+    If Not modRender.LineBounds(shp, outLine, t, h) Then Exit Sub
+    lineH = modSpec.SpecLine(modBlock.BlockFontSize(shp))
+    pad = modSpec.SpecPad(modBlock.BlockFontSize(shp))
+
+    ' ONE PANEL PER OUTPUT RUN, not one from here down. VS Code's terminal has a
+    ' single top edge because the editor is entirely above it - a transcript
+    ' interleaves, so a single panel swallows the code that follows. This is the
+    ' shape DrawCovers already uses.
+    y0 = shp.Top + pad + (outLine - 1) * lineH
+    y1 = shp.Top + pad + outLine * lineH
+    If t < y0 Then y0 = t
+    If t + h > y1 Then y1 = t + h
+
+    Set p = sld.Shapes.AddShape(msoShapeRectangle, shp.Left, y0, shp.Width, y1 - y0)
+    With p
+        .fill.Solid
+        .fill.ForeColor.RGB = RGB(0, 0, 0)
+        .fill.Transparency = transp
+        .Line.Visible = msoFalse
+        .Shadow.Visible = msoFalse
+        .ZOrder msoBringToFront
+    End With
+    Set ln = sld.Shapes.AddLine(shp.Left, y0, shp.Left + shp.Width, y0)
+    ln.Line.ForeColor.RGB = borderColor
+    ln.Line.Weight = borderWeight
+    ln.ZOrder msoBringToFront
+End Sub
+
+' ">>>" beside the code lines and nothing beside the output, drawn in its own
+' shape the way the line numbers are - so the block's text stays pure source.
+Private Sub PromptColumn(ByVal sld As Slide, ByVal shp As Shape)
+    Dim g As Shape, size As Single, pad As Single, w As Single
+    size = modBlock.BlockFontSize(shp)
+    pad = modSpec.SpecPad(size)
+    w = 4 * size * 0.55
+
+    shp.TextFrame.MarginLeft = pad + w
+    Set g = sld.Shapes.AddTextbox(msoTextOrientationHorizontal, _
+                                  shp.Left, shp.Top, pad + w, shp.Height)
+    g.Line.Visible = msoFalse
+    g.fill.Visible = msoFalse
+    With g.TextFrame
+        .WordWrap = msoFalse
+        .AutoSize = ppAutoSizeNone
+        .VerticalAnchor = msoAnchorTop
+        .MarginLeft = 0
+        .MarginRight = Round(size * 0.45, 1)
+        .MarginTop = pad
+        .MarginBottom = pad
+        .TextRange.text = ">>>" & vbCr & "" & vbCr & ">>>" & vbCr & ""
+        With .TextRange
+            .Font.Name = THEME_FONT
+            .Font.size = size
+            .Font.Color.RGB = RGB(106, 153, 85)
+            With .ParagraphFormat
+                .Alignment = ppAlignRight
+                .LineRuleWithin = msoFalse
+                .SpaceWithin = modSpec.SpecLine(size)
+                .LineRuleBefore = msoFalse
+                .SpaceBefore = 0
+                .LineRuleAfter = msoFalse
+                .SpaceAfter = 0
+            End With
+        End With
+    End With
+    ' Set AFTER the text. A textbox left to its own devices resizes around what
+    ' it contains, and a right-aligned one grows LEFTWARD - which put the
+    ' prompts outside the block entirely. SyncGutter pins the same three.
+    g.Left = shp.Left
+    g.Top = shp.Top
+    g.Width = pad + w
+    g.Height = shp.Height
+    g.ZOrder msoBringToFront
+End Sub
+
+' Sara's idea: an ordinary NOTE carrying the output, given the code font and a
+' terminal colour so it reads as output rather than as an aside. Costs no new
+' machinery at all - the connector already points at the exact line.
+Private Function OutputNote(ByVal sld As Slide, ByVal shp As Shape, _
+                            ByVal ln As Long, ByVal text As String) As Shape
+    Dim n As Shape
+    Set n = modNote.AddNote(shp, ln)
+    ' Wrap OFF and autofit both ways, so the note hugs the output instead of
+    ' folding it. Output is a line the interpreter printed; breaking it across
+    ' two lines makes it look like two results.
+    With n.TextFrame
+        .WordWrap = msoFalse
+        .AutoSize = ppAutoSizeShapeToFitText
+        With .TextRange
+            .text = text
+            .Font.Name = THEME_FONT
+            .Font.size = modBlock.BlockFontSize(shp)
+            .Font.Color.RGB = RGB(204, 204, 204)
+        End With
+    End With
+    n.fill.Solid
+    n.fill.ForeColor.RGB = RGB(24, 24, 24)
+    n.Line.Visible = msoTrue
+    n.Line.ForeColor.RGB = RGB(90, 90, 90)
+    n.Line.Weight = 1
+    Set OutputNote = n
+End Function
+
 ' Renders every arrow colour at once, top to bottom in list order, so the
 ' palette can be judged as a set rather than one at a time.
 Public Function ArrowPalette(ByVal srcPath As String, ByVal pngPath As String) As String

@@ -25,6 +25,23 @@ Option Explicit
 
 Public Const TAG_GUTTER_OF As String = "CODEBLOCK_GUTTER_OF"
 
+' The number the first NUMBERED line gets. Stored on the block, because it is a
+' property of this snippet rather than of the deck: code split across three
+' slides wants 1, then 24, then 51, and each block has to remember its own.
+Public Const TAG_FIRST_LINE As String = "CODEBLOCK_FIRST_LINE"
+
+Public Function FirstLine(ByVal shp As Shape) As Long
+    Dim v As Long
+    v = CLng(Val(shp.Tags(TAG_FIRST_LINE)))
+    If v < 1 Then v = 1
+    FirstLine = v
+End Function
+
+Public Sub SetFirstLine(ByVal shp As Shape, ByVal n As Long)
+    If n < 1 Then n = 1
+    shp.Tags.Add TAG_FIRST_LINE, CStr(n)
+End Sub
+
 Public Function FindGutter(ByVal shp As Shape) As Shape
     Dim sld As Slide, g As Shape, blockId As String
 
@@ -84,10 +101,13 @@ End Sub
 ' and last non-blank line is numbered consecutively, INCLUDING blank lines in
 ' the middle, which are part of the code, and including the last line, which is
 ' the whole point.
-Public Function NumberColumn(ByVal text As String) As String
+Public Function NumberColumn(ByVal text As String, _
+                             Optional ByVal startAt As Long = 1) As String
     Dim lines() As String, i As Long, firstReal As Long, lastReal As Long
     Dim n As Long, out As String
 
+    If startAt < 1 Then startAt = 1
+    n = startAt - 1
     lines = modBlock.SplitLines(text)
 
     firstReal = -1
@@ -148,7 +168,10 @@ Public Sub SyncGutter(ByVal shp As Shape, Optional ByVal create As Boolean = Fal
     size = modBlock.BlockFontSize(shp)
     pad = modSpec.SpecPad(size)
     lineCount = modBlock.CountLines(shp.TextFrame.TextRange.text)
-    gutterW = modSpec.SpecGutter(size, lineCount)
+    ' Sized from the highest number that will appear, not from the line count.
+    ' A twelve-line block starting at 98 needs three digits, and a gutter sized
+    ' for two clips them - which reads as a numbering bug and is a width bug.
+    gutterW = modSpec.SpecGutter(size, FirstLine(shp) + lineCount - 1)
     gap = Round(size * 0.45, 1)                 ' the gutter-to-code gap
 
     ' The code makes room for the numbers. With autofit on, widening this margin
@@ -171,7 +194,7 @@ Public Sub SyncGutter(ByVal shp As Shape, Optional ByVal create As Boolean = Fal
     ' block at all. Overwriting it with the numbers would silently destroy it.
     RescueStrayText shp, g
 
-    numbers = NumberColumn(shp.TextFrame.TextRange.text)
+    numbers = NumberColumn(shp.TextFrame.TextRange.text, FirstLine(shp))
 
     With g.TextFrame
         .WordWrap = msoFalse

@@ -37,6 +37,7 @@ editable.
 | **Language** | Which lexer to use. Stored per block |
 | **Line numbers** | Show or hide the numbers for the selected block. A separate shape, so the code text stays pure source. Off by default |
 | **Indent guides** | Show or hide the vertical nesting lines, drawn as real shapes. Off by default |
+| **First line** | The number the first line gets, for code split across slides. Per block |
 | **Emphasize** | Band the selected lines and fade the rest |
 | **Arrow** | Point at a line from the left margin, leaving the code at full contrast |
 | **Arrow color** | Eight syntax hues, darkened to read on a white slide. Deck-wide |
@@ -73,6 +74,17 @@ clear.
 The choice is stored on the block and survives every Stylize, which is what
 makes a walkthrough cheap: duplicate the slide, select the next line, press
 Emphasize.
+
+### Code split across several slides
+
+**First line** sets the number the first numbered line gets. Put 1 on the first
+slide's block and 24 on the second, and the numbering carries on instead of
+restarting. It is stored per block, survives Stylize, and turns the line numbers
+on when you set it — a start number with no numbers showing does nothing.
+
+The gutter widens for the highest number that will actually appear, not for the
+line count, so a twelve-line block starting at 98 gets three digits' worth of
+room rather than two.
 
 ### Pointing at a line without fading the rest
 

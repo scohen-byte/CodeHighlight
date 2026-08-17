@@ -58,6 +58,14 @@
                     onAction="RibbonToggleGutter"
                     screentip="Show or hide line numbers"
                     supertip="Numbers live in their own shape, so the code text stays pure source."/>
+          <editBox id="edtFirstLine"
+                   label="First line"
+                   sizeString="0000"
+                   maxLength="5"
+                   getText="RibbonFirstLineText"
+                   onChange="RibbonFirstLineChanged"
+                   screentip="The number the first line gets"
+                   supertip="For code split across several slides: set the second slide's block to start at 24 and its numbers carry on from the first. Stored per block. Setting it turns the line numbers on, since a start number with no numbers showing does nothing."/>
           <checkBox id="chkGuides"
                     label="Indent guides"
                     getPressed="RibbonGuidesPressed"
