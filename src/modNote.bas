@@ -56,6 +56,21 @@ Public Const TAG_ANCHOR_OF As String = "CODEBLOCK_ANCHOR_OF"
 
 Public Const NOTE_PLACEHOLDER As String = "What this line does"
 
+' An output note is a note with a KIND, not a separate species. Everything that
+' makes a note work - the anchor, the connector, the placement, the stacking,
+' Delete note - applies unchanged, and only its dress differs.
+Public Const TAG_NOTE_KIND As String = "CODEBLOCK_NOTE_KIND"
+Public Const KIND_OUTPUT   As String = "output"
+
+Public Const OUTPUT_PLACEHOLDER As String = "what it printed"
+
+' The mark that opens an output note, and the space after it.
+'
+' It lives in the note's TEXT, because it sits on the output's own line and
+' nothing else can. That costs one thing - the user can delete it - so the
+' pipeline puts it back on every Stylize, the same bargain the gutter makes
+' with text typed into it.
+'
 ' The size, colour and font new notes get live in modOptions, on the
 ' presentation, so the choice survives closing PowerPoint and travels with the
 ' deck.
@@ -83,6 +98,13 @@ Private Const DRAG_MIN  As Single = 1.5
 ' the ordinary pipeline, whose own capture becomes a no-op. PlaceNotes closes
 ' the pass.
 Private mCaptured As Boolean
+
+' A Function rather than a Const: a VBA Const takes a literal expression, and
+' ChrW is a call. As a Const this compiles nowhere and no static check here
+' would have caught it.
+Public Function OutputMark() As String
+    OutputMark = ChrW(&H2192) & " "          ' RIGHTWARDS ARROW
+End Function
 
 '------------------------------------------------------------------------------
 ' Finding notes
@@ -175,7 +197,12 @@ Public Function AddNote(ByVal shp As Shape, ByVal lineNo As Long) As Shape
         ' Wrap ON, unlike the code block: a note is prose, and its width is
         ' fixed so that it fits beside the block. Autofit then grows the height.
         .WordWrap = msoTrue
-        .VerticalAnchor = msoAnchorMiddle
+        ' TOP, not middle. With autofit on, a middle-anchored frame grows in
+        ' BOTH directions, so adding a line moves the shape's Top up by half a
+        ' line - and CaptureDrags, which reads a changed Top as a drag, records
+        ' typing into a note as though the note had been dragged. Top-anchored
+        ' it grows downward only and Top never moves on its own.
+        .VerticalAnchor = msoAnchorTop
         .MarginLeft = pad
         .MarginRight = pad
         .MarginTop = Round(pad * 0.6, 1)
@@ -518,15 +545,20 @@ Public Sub ApplyFill(ByVal notes As Collection, ByVal fill As Long)
 
     On Error Resume Next
     For i = 1 To notes.count
-        With notes(i)
-            .fill.Solid
-            .fill.ForeColor.RGB = fill
-            .fill.Transparency = 0
-            ' The text colour is not a separate choice. It is whichever of light
-            ' or dark reads better on this fill, so it has to move with it.
-            .TextFrame.TextRange.Font.Color.RGB = ThemeTextOn(fill)
-        End With
-        ApplyEdge notes(i), fill
+        ' An output note's dress belongs to its KIND, and the pipeline restores
+        ' it on every Stylize - so letting this change it would look like the
+        ' change had been rejected.
+        If Not IsOutputNote(notes(i)) Then
+            With notes(i)
+                .fill.Solid
+                .fill.ForeColor.RGB = fill
+                .fill.Transparency = 0
+                ' The text colour is not a separate choice. It is whichever of
+                ' light or dark reads better on this fill, so it moves with it.
+                .TextFrame.TextRange.Font.Color.RGB = ThemeTextOn(fill)
+            End With
+            ApplyEdge notes(i), fill
+        End If
     Next i
 End Sub
 
@@ -536,17 +568,22 @@ Public Sub ApplyFontSize(ByVal notes As Collection, ByVal pts As Single)
     On Error Resume Next
     pad = modSpec.SpecPad(pts)
     For i = 1 To notes.count
-        ' Autofit reflows the height for the new size; the width is ours to keep.
-        w = notes(i).Width
-        With notes(i).TextFrame
-            .MarginLeft = pad
-            .MarginRight = pad
-            .MarginTop = Round(pad * 0.6, 1)
-            .MarginBottom = Round(pad * 0.6, 1)
-            .TextRange.Font.size = pts
-        End With
-        notes(i).Width = w
-        notes(i).Adjustments(1) = modSpec.SpecCornerAdjust(pts, ShorterSide(notes(i)))
+        ' An output note is sized from its block, and the pipeline restores that
+        ' on every Stylize - so letting this change it would look like the
+        ' change had been rejected.
+        If Not IsOutputNote(notes(i)) Then
+            ' Autofit reflows the height for the new size; the width is ours.
+            w = notes(i).Width
+            With notes(i).TextFrame
+                .MarginLeft = pad
+                .MarginRight = pad
+                .MarginTop = Round(pad * 0.6, 1)
+                .MarginBottom = Round(pad * 0.6, 1)
+                .TextRange.Font.size = pts
+            End With
+            notes(i).Width = w
+            notes(i).Adjustments(1) = modSpec.SpecCornerAdjust(pts, ShorterSide(notes(i)))
+        End If
     Next i
 End Sub
 
@@ -561,8 +598,125 @@ Public Sub ApplyFontName(ByVal notes As Collection, ByVal fontName As String)
 
     On Error Resume Next
     For i = 1 To notes.count
-        notes(i).TextFrame.TextRange.Font.Name = fontName
+        If Not IsOutputNote(notes(i)) Then
+            notes(i).TextFrame.TextRange.Font.Name = fontName
+        End If
     Next i
+End Sub
+
+Public Function IsOutputNote(ByVal shp As Shape) As Boolean
+    On Error Resume Next
+    IsOutputNote = (shp.Tags(TAG_NOTE_KIND) = KIND_OUTPUT)
+End Function
+
+' An output note for one line, or the one already there.
+Public Function AddOutputNote(ByVal shp As Shape, ByVal lineNo As Long) As Shape
+    Dim n As Shape
+    Set n = FindNote(shp, lineNo)
+    If n Is Nothing Then
+        Set n = AddNote(shp, lineNo)
+        n.TextFrame.TextRange.text = OutputMark() & OUTPUT_PLACEHOLDER
+    End If
+    n.Tags.Add TAG_NOTE_KIND, KIND_OUTPUT
+    StyleOutputNote n, modBlock.BlockFontSize(shp), AvailableWidth(shp)
+    Set AddOutputNote = n
+End Function
+
+' Dresses one output note. Called on creation and on every Stylize, so the mark
+' comes back if it is deleted and the size follows the block.
+'
+' THE HANGING INDENT IS THE POINT OF THE PARAGRAPH SETTINGS. Output long enough
+' to wrap must continue flush with the first character AFTER the mark, not
+' underneath the mark - otherwise the second line reads as a second result.
+' PowerPoint expresses that as a ruler level whose FirstMargin is less than its
+' LeftMargin.
+Public Sub StyleOutputNote(ByVal note As Shape, ByVal blockSize As Single, _
+                           ByVal availableW As Single)
+    Dim pad As Single, markW As Single, natural As Single, txt As String
+
+    On Error GoTo Done
+    pad = modSpec.SpecPad(blockSize)
+    markW = Len(OutputMark()) * modSpec.SpecCharW(blockSize)
+
+    EnsureOutputMark note
+
+    note.fill.Solid
+    note.fill.ForeColor.RGB = ThemeOutputFill()
+    note.fill.Transparency = 0
+    note.Line.Visible = msoTrue
+    note.Line.ForeColor.RGB = ThemeOutputEdge()
+    note.Line.Weight = 1
+
+    txt = note.TextFrame.TextRange.text
+    natural = Len(txt) * modSpec.SpecCharW(blockSize) + 2 * pad
+
+    With note.TextFrame
+        .VerticalAnchor = msoAnchorTop
+        .MarginLeft = pad
+        .MarginRight = pad
+        .MarginTop = Round(pad * 0.5, 1)
+        .MarginBottom = Round(pad * 0.5, 1)
+        ' Wrap only when it will not otherwise fit. Output is a line the
+        ' interpreter printed, and folding a short one makes it look like two
+        ' results - but a long one has to go somewhere.
+        If natural <= availableW Then
+            .WordWrap = msoFalse
+        Else
+            .WordWrap = msoTrue
+        End If
+        .AutoSize = ppAutoSizeShapeToFitText
+        With .TextRange
+            .Font.Name = THEME_FONT
+            .Font.size = blockSize
+            .Font.Color.RGB = ThemeOutputText()
+            .ParagraphFormat.Alignment = ppAlignLeft
+        End With
+    End With
+
+    If natural > availableW Then note.Width = availableW
+
+    ' After the wrap decision, because changing the frame resets the ruler.
+    On Error Resume Next
+    With note.TextFrame.Ruler.Levels(1)
+        .FirstMargin = 0
+        .LeftMargin = markW
+    End With
+    On Error GoTo Done
+
+    ' The mark last, so nothing above has repainted it.
+    note.TextFrame.TextRange.Characters(1, 1).Font.Color.RGB = ThemeOutputMark()
+    note.Adjustments(1) = modSpec.SpecCornerAdjust(blockSize, ShorterSide(note))
+Done:
+End Sub
+
+' Puts the mark back if it has been typed over, and never doubles it.
+Private Sub EnsureOutputMark(ByVal note As Shape)
+    Dim txt As String
+    txt = note.TextFrame.TextRange.text
+    If Left$(txt, 1) = ChrW(&H2192) Then Exit Sub
+    note.TextFrame.TextRange.text = OutputMark() & txt
+End Sub
+
+' Room to the right of the block, which is where a note goes.
+Private Function AvailableWidth(ByVal shp As Shape) As Single
+    Dim w As Single
+    w = modSpec.SLIDE_W - MARGIN_PT - (shp.Left + shp.Width + GAP_PT)
+    If w < W_MIN Then w = modSpec.SLIDE_W - 2 * MARGIN_PT
+    AvailableWidth = w
+End Function
+
+' Every output note on a block, redressed. Runs inside the pipeline.
+Public Sub SyncOutputNotes(ByVal shp As Shape)
+    Dim arr() As Shape, n As Long, i As Long, size As Single, avail As Single
+    On Error GoTo Done
+    n = NoteArray(shp, arr)
+    If n = 0 Then Exit Sub
+    size = modBlock.BlockFontSize(shp)
+    avail = AvailableWidth(shp)
+    For i = 1 To n
+        If IsOutputNote(arr(i)) Then StyleOutputNote arr(i), size, avail
+    Next i
+Done:
 End Sub
 
 Public Function IsNote(ByVal shp As Shape) As Boolean

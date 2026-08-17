@@ -300,6 +300,31 @@ Public Function ThemeCoverMarkColor() As Long
     ThemeCoverMarkColor = RGB(255, 255, 255)                    ' FFFFFF
 End Function
 
+' An output note: the terminal, borrowed. Darker than the code block, the way
+' VS Code's panel is darker than its editor, so it reads as a different surface
+' rather than as a second block of code. The arrow that opens it is the comment
+' green, which is the palette's one colour that already means "not the code".
+Public Function ThemeOutputFill() As Long
+    ThemeOutputFill = RGB(24, 24, 24)                           ' 181818
+End Function
+
+Public Function ThemeOutputText() As Long
+    ThemeOutputText = RGB(204, 204, 204)                        ' CCCCCC
+End Function
+
+' Two dark surfaces on a light slide need an edge, or they merge into one
+' silhouette from the back of a room.
+Public Function ThemeOutputEdge() As Long
+    ThemeOutputEdge = RGB(90, 90, 90)                           ' 5A5A5A
+End Function
+
+' Stated outright rather than read from ThemeColor(tkComment). They happen to
+' be the same green, and retuning comments for a projector should not silently
+' move this.
+Public Function ThemeOutputMark() As Long
+    ThemeOutputMark = RGB(135, 199, 107)                        ' 87C76B
+End Function
+
 ' The arrow in the left margin, and the colours it can be set to.
 '
 ' These are the SYNTAX HUES, DARKENED. Taking the palette colours as they stand

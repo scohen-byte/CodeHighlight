@@ -78,6 +78,20 @@ if [[ -f "$BUILD" ]]; then
     done
 fi
 
+# 6b. Every GoTo must have a label to go to.
+#
+#     "Label not defined" is a COMPILE error, so it takes down the whole module
+#     rather than the one procedure, and VBA reports it against the module name.
+#     An edit that adds a GoTo and loses the label is invisible to every other
+#     check here, and cost a round trip through a real PowerPoint on 2026-08-17.
+for f in *.bas; do
+    for lbl in $(grep -oE '\bGoTo +[A-Za-z_][A-Za-z0-9_]*' "$f" | awk '{print $2}' | sort -u); do
+        if ! grep -qE "^ *$lbl:" "$f"; then
+            echo "$f: GoTo $lbl has no matching label"; fail=1
+        fi
+    done
+done
+
 # 7. The ribbon XML must parse. Office does not report a malformed customUI as
 #    an error - it silently drops the whole tab, which looks exactly like a
 #    failed install and sends you to the relationship types and the packaging.

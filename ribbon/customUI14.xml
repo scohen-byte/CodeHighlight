@@ -161,6 +161,13 @@
                   onAction="RibbonNote"
                   screentip="Attach a note to a line of code"
                   supertip="Puts a note beside the block with a line pointing at the code, so you can say what a line does without cramming it into a comment. Uses the line the cursor is on, or - with the block itself selected - the emphasised line, which makes annotating a walkthrough one click per slide. It stays anchored: change the size or edit the code above it and Stylize keeps it level with its line."/>
+          <button id="btnOutputNote"
+                  label="Output"
+                  size="large"
+                  imageMso="RightArrow2"
+                  onAction="RibbonOutputNote"
+                  screentip="Attach what the code printed to a line"
+                  supertip="A note dressed as a terminal - the code font, a darker panel and a green arrow - so it reads as output rather than as an aside. Uses the line the cursor is on, or the emphasised line with the block itself selected. Long output wraps flush with the first character after the arrow, not under it."/>
           <button id="btnDeleteNote"
                   label="Delete note"
                   size="large"

@@ -125,6 +125,13 @@ Public Sub StyleBlock(ByVal shp As Shape, Optional ByVal langId As String = "")
     modRender.DrawCovers shp
     ' Notes and arrows after the block has reached its final size and position,
     ' since both are placed from its edges.
+    ' Output notes are dressed BEFORE they are placed. Dressing changes a note's
+    ' width and height, and PlaceNotes records where it put each note so that
+    ' the next pass can tell a drag from a stack - so resizing afterwards looks
+    ' exactly like the user having dragged every output note, and they pile up.
+    ' The wrap decision only needs the room beside the BLOCK, which is known
+    ' without placing anything.
+    modNote.SyncOutputNotes shp
     modNote.PlaceNotes shp
     modArrow.PlaceArrows shp
     ' Back into a group, so the block and its parts drag as one.
@@ -485,6 +492,61 @@ Public Sub DoNoteColorApply()
     Exit Sub
 Failed:
     Warn "DoNoteColor failed: " & Err.Description
+End Sub
+
+' Attaches an OUTPUT note to a line: what the program printed, dressed as a
+' terminal rather than as an aside.
+'
+' Same targeting as Note, so there is one answer to "which line do you mean".
+' Pressing it on a line that already has a plain note converts that note rather
+' than adding a second - two notes cannot share a line, and converting is
+' almost certainly what was meant.
+Public Sub DoOutputNote()
+    On Error GoTo Failed
+    Dim shp As Shape, problem As String, sel As Selection
+    Dim ln As Long, note As Shape, existed As Boolean
+
+    Set shp = modBlock.SelectedBlock(problem)
+    If shp Is Nothing Then
+        Warn problem
+        Exit Sub
+    End If
+
+    Set sel = Application.ActiveWindow.Selection
+    If sel.Type = ppSelectionText Then
+        ln = modBlock.LineOfChar(shp.TextFrame.TextRange.text, sel.TextRange.Start)
+    End If
+    If ln < 1 Then ln = modBlock.LastEmphasisedLine(modBlock.GetEmphasis(shp))
+
+    If ln < 1 Then
+        Warn "Put the cursor on the line that produced the output, and press " & _
+             "Output. On a walkthrough slide the emphasised line is used, so " & _
+             "the block itself is enough."
+        Exit Sub
+    End If
+
+    existed = Not (modNote.FindNote(shp, ln) Is Nothing)
+    modBlock.UngroupParts shp
+    modNote.AddOutputNote shp, ln
+    StyleBlock shp
+
+    Set note = modNote.FindNote(shp, ln)
+    If note Is Nothing Then Exit Sub
+
+    On Error Resume Next
+    note.Select
+    ' Select the text AFTER the mark, so the first keystroke replaces the
+    ' placeholder and leaves the arrow where it is.
+    If Not existed Then
+        note.TextFrame.TextRange.Characters(Len(modNote.OutputMark()) + 1, _
+            Len(note.TextFrame.TextRange.text)).Select
+    Else
+        note.TextFrame.TextRange.Select
+    End If
+    On Error GoTo 0
+    Exit Sub
+Failed:
+    Warn "DoOutputNote failed: " & Err.Description
 End Sub
 
 ' Deletes the note you have singled out - the one you have clicked into, or the
@@ -1198,6 +1260,10 @@ End Sub
 
 Public Sub RibbonNoteColorApply(control As IRibbonControl)
     DoNoteColorApply
+End Sub
+
+Public Sub RibbonOutputNote(control As IRibbonControl)
+    DoOutputNote
 End Sub
 
 Public Sub RibbonDeleteNote(control As IRibbonControl)

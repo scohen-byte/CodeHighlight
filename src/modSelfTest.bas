@@ -1074,6 +1074,347 @@ Failed:
     FirstLineTest = r & "ERROR " & Err.Number & ": " & Err.Description
 End Function
 
+' Output notes: the dress, the mark, and the hanging indent.
+'
+' The indent is the one worth MEASURING. Output long enough to wrap must
+' continue flush with the first character after the arrow, not under the arrow -
+' otherwise the second line reads as a second result. BoundLeft says where the
+' characters actually landed, which is the only way to know.
+Public Function OutputNoteTest(ByVal srcPath As String, ByVal pngPath As String) As String
+    Dim pres As Presentation, sld As Slide, shp As Shape, r As String
+    Dim a As Long, b As Long, n As Shape, long_ As String
+    Dim afterMark As Single, wrapped As Single, i As Long, ln2 As Long
+
+    On Error GoTo Failed
+    modRibbon.SetQuiet True
+
+    Set pres = Application.ActivePresentation
+    pres.PageSetup.SlideWidth = modSpec.SLIDE_W
+    pres.PageSetup.SlideHeight = modSpec.SLIDE_H
+    Set sld = pres.Slides.Add(pres.Slides.count + 1, ppLayoutBlank)
+    sld.Select
+
+    Set shp = modBlock.CreateBlock(sld, _
+        "print(set(range(5)))" & vbCr & "print(sorted(words))", _
+        modSpec.BASE_SIZE, "python")
+    shp.Left = 60
+    shp.Top = 140
+    shp.Select
+    modRibbon.DoStylize
+
+    ' A short one: must not wrap.
+    modBlock.LineCharRange shp.TextFrame.TextRange.text, 1, a, b
+    shp.TextFrame.TextRange.Characters(a, 1).Select
+    modRibbon.DoOutputNote
+    Set n = modNote.FindNote(shp, 1)
+    n.TextFrame.TextRange.text = modNote.OutputMark() & "{0, 1, 2, 3, 4}"
+    modNote.StyleOutputNote n, modBlock.BlockFontSize(shp), 400
+
+    r = "is_output=" & Abs(CLng(modNote.IsOutputNote(n))) & vbLf
+    r = r & "mark_present=" & Abs(CLng(Left$(n.TextFrame.TextRange.text, 1) = ChrW(&H2192))) & vbLf
+    r = r & "mark_is_green=" & _
+            Abs(CLng(n.TextFrame.TextRange.Characters(1, 1).Font.Color.RGB = ThemeOutputMark())) & vbLf
+    r = r & "terminal_fill=" & Abs(CLng(n.fill.ForeColor.RGB = ThemeOutputFill())) & vbLf
+    r = r & "code_font=" & Abs(CLng(n.TextFrame.TextRange.Font.Name = THEME_FONT)) & vbLf
+    r = r & "short_does_not_wrap=" & Abs(CLng(n.TextFrame.WordWrap = msoFalse)) & vbLf
+
+    ' The mark comes back if it is typed over.
+    n.TextFrame.TextRange.text = "{0, 1, 2, 3, 4}"
+    modNote.StyleOutputNote n, modBlock.BlockFontSize(shp), 400
+    r = r & "mark_restored=" & _
+            Abs(CLng(Left$(n.TextFrame.TextRange.text, 1) = ChrW(&H2192))) & vbLf
+
+    ' A long one: must wrap, and the wrapped line must start flush with the
+    ' first character after the mark.
+    modBlock.LineCharRange shp.TextFrame.TextRange.text, 2, a, b
+    shp.TextFrame.TextRange.Characters(a, 1).Select
+    modRibbon.DoOutputNote
+    Set n = modNote.FindNote(shp, 2)
+    long_ = "['alpha', 'bravo', 'charlie', 'delta', 'echo', 'foxtrot', 'golf']"
+    n.TextFrame.TextRange.text = modNote.OutputMark() & long_
+    modNote.StyleOutputNote n, modBlock.BlockFontSize(shp), 300
+
+    r = r & "long_wraps=" & Abs(CLng(n.TextFrame.WordWrap = msoTrue)) & vbLf
+
+    ' Character 3 is the first after "arrow + space". Then find the first
+    ' character that PowerPoint has laid out on a lower line.
+    afterMark = n.TextFrame.TextRange.Characters(3, 1).BoundLeft
+    For i = 4 To Len(n.TextFrame.TextRange.text)
+        If n.TextFrame.TextRange.Characters(i, 1).BoundTop > _
+           n.TextFrame.TextRange.Characters(3, 1).BoundTop + 2 Then
+            wrapped = n.TextFrame.TextRange.Characters(i, 1).BoundLeft
+            ln2 = i
+            Exit For
+        End If
+    Next i
+
+    If ln2 = 0 Then
+        r = r & "hanging_indent=n/a (it did not actually wrap)" & vbLf
+    Else
+        r = r & "first_after_mark_x=" & Format$(afterMark, "0.0") & _
+                " wrapped_line_x=" & Format$(wrapped, "0.0") & vbLf
+        r = r & "hanging_indent=" & Abs(CLng(Abs(wrapped - afterMark) < 2)) & vbLf
+    End If
+
+    ' Survives a Stylize, and the note colour control leaves it alone.
+    shp.Select
+    modRibbon.DoStylize
+    Set n = modNote.FindNote(shp, 2)
+    r = r & "survives_stylize=" & _
+            Abs(CLng(modNote.IsOutputNote(n) And n.fill.ForeColor.RGB = ThemeOutputFill())) & vbLf
+
+    modBlock.LineCharRange shp.TextFrame.TextRange.text, 2, a, b
+    shp.TextFrame.TextRange.Characters(a, 1).Select
+    modRibbon.DoNoteColor 6                                  ' Crimson
+    Set n = modNote.FindNote(shp, 2)
+    r = r & "note_color_skips_output=" & _
+            Abs(CLng(n.fill.ForeColor.RGB = ThemeOutputFill())) & vbLf
+
+    ' Two output notes must stack, not pile up. Dressing them after placement
+    ' made the placement record a stale size, and the next pass read that as a
+    ' drag - which put both in the same spot.
+    Dim n1 As Shape
+    Set n1 = modNote.FindNote(shp, 1)
+    Set n = modNote.FindNote(shp, 2)
+    r = r & "two_outputs_stack=" & _
+            Abs(CLng(n.Top >= n1.Top + n1.Height - 0.5)) & vbLf
+
+    sld.Export pngPath, "PNG", 1920, 1080
+    OutputNoteTest = r
+    Exit Function
+Failed:
+    OutputNoteTest = r & "ERROR " & Err.Number & ": " & Err.Description
+End Function
+
+' Round two on labelling an output note: the word tightened to the top, and
+' four inline icons. An icon on the output's own line costs NO vertical space
+' at all, where even a tight word costs a line.
+Public Function OutputIconProbe(ByVal srcPath As String, ByVal pngPath As String) As String
+    Dim v As Long, r As String
+    For v = 1 To 5
+        r = r & v & "=" & OneIcon(v, pngPath) & vbLf
+    Next v
+    OutputIconProbe = r
+End Function
+
+Private Function OneIcon(ByVal v As Long, ByVal pngPath As String) As String
+    Dim pres As Presentation, sld As Slide, shp As Shape
+    Dim n1 As Shape, n2 As Shape, png As String, g As String
+
+    On Error GoTo Failed
+    modRibbon.SetQuiet True
+
+    Set pres = Application.ActivePresentation
+    pres.PageSetup.SlideWidth = modSpec.SLIDE_W
+    pres.PageSetup.SlideHeight = modSpec.SLIDE_H
+    Set sld = pres.Slides.Add(pres.Slides.count + 1, ppLayoutBlank)
+    sld.Select
+
+    Set shp = modBlock.CreateBlock(sld, _
+        "print(set(range(5)))" & vbCr & "print(set(" & Chr$(34) & "hello" & Chr$(34) & "))", _
+        modSpec.BASE_SIZE, "python")
+    shp.Left = 120
+    shp.Top = 150
+    shp.Select
+    modRibbon.DoStylize
+    modBlock.UngroupParts shp
+
+    Set n1 = OutputNote(sld, shp, 1, "{0, 1, 2, 3, 4}")
+    Set n2 = OutputNote(sld, shp, 2, "{'h', 'e', 'l', 'o'}")
+
+    Select Case v
+        Case 1                                  ' the word, pulled to the top
+            TightLabel n1, "output"
+            TightLabel n2, "output"
+        Case 2: g = ChrW(&H2192)                ' arrow
+        Case 3: g = ChrW(&H21D2)                ' double arrow, "yields"
+        Case 4: g = ChrW(&H25B6)                ' solid triangle
+        Case Else: g = ChrW(&HBB)               ' guillemets
+    End Select
+
+    If Len(g) > 0 Then
+        IconPrefix n1, g
+        IconPrefix n2, g
+    End If
+
+    modNote.PlaceNotes shp
+
+    png = Replace(pngPath, ".png", "-" & v & ".png")
+    sld.Export png, "PNG", 1920, 1080
+    OneIcon = "ok"
+    Exit Function
+Failed:
+    OneIcon = "ERROR " & Err.Number & ": " & Err.Description
+End Function
+
+' The word as the note's first paragraph, pulled tight to the top.
+'
+' Two things make the space above it: the frame's top margin, and the label
+' getting a full line of the OUTPUT's leading. Both have to shrink, or trimming
+' one just moves the gap.
+Private Sub TightLabel(ByVal note As Shape, ByVal caption As String)
+    Dim sz As Single, before As String
+    sz = LabelSize(note)
+    before = note.TextFrame.TextRange.text
+
+    note.TextFrame.MarginTop = 2
+    note.TextFrame.TextRange.text = caption & vbCr & before
+    With note.TextFrame.TextRange
+        .Font.Name = THEME_FONT
+        .Font.Color.RGB = RGB(204, 204, 204)
+        With .Paragraphs(1)
+            .Font.size = sz
+            .Font.Color.RGB = RGB(130, 130, 130)
+            With .ParagraphFormat
+                .LineRuleWithin = msoFalse
+                .SpaceWithin = sz * 1.05
+                .LineRuleAfter = msoFalse
+                .SpaceAfter = 0
+            End With
+        End With
+    End With
+End Sub
+
+' A glyph on the output's own line, dim, before the value.
+Private Sub IconPrefix(ByVal note As Shape, ByVal glyph As String)
+    Dim before As String
+    before = note.TextFrame.TextRange.text
+    note.TextFrame.TextRange.text = glyph & " " & before
+    With note.TextFrame.TextRange
+        .Font.Name = THEME_FONT
+        .Font.Color.RGB = RGB(204, 204, 204)
+        .Characters(1, 1).Font.Color.RGB = RGB(135, 199, 107)
+    End With
+End Sub
+
+' MOCKUPS for labelling an output note. Variant I won; this is only about how
+' the note announces itself. Two notes, so a label that collides with the note
+' above it shows up here rather than on a real slide.
+Public Function OutputLabelProbe(ByVal srcPath As String, ByVal pngPath As String) As String
+    Dim v As Long, r As String
+    For v = 1 To 5
+        r = r & v & "=" & OneLabel(v, pngPath) & vbLf
+    Next v
+    OutputLabelProbe = r
+End Function
+
+Private Function OneLabel(ByVal v As Long, ByVal pngPath As String) As String
+    Dim pres As Presentation, sld As Slide, shp As Shape
+    Dim n1 As Shape, n2 As Shape, png As String
+
+    On Error GoTo Failed
+    modRibbon.SetQuiet True
+
+    Set pres = Application.ActivePresentation
+    pres.PageSetup.SlideWidth = modSpec.SLIDE_W
+    pres.PageSetup.SlideHeight = modSpec.SLIDE_H
+    Set sld = pres.Slides.Add(pres.Slides.count + 1, ppLayoutBlank)
+    sld.Select
+
+    Set shp = modBlock.CreateBlock(sld, _
+        "print(set(range(5)))" & vbCr & "print(set(" & Chr$(34) & "hello" & Chr$(34) & "))", _
+        modSpec.BASE_SIZE, "python")
+    shp.Left = 120
+    shp.Top = 150
+    shp.Select
+    modRibbon.DoStylize
+    modBlock.UngroupParts shp
+
+    Set n1 = OutputNote(sld, shp, 1, "{0, 1, 2, 3, 4}")
+    Set n2 = OutputNote(sld, shp, 2, "{'h', 'e', 'l', 'o'}")
+    modNote.PlaceNotes shp
+
+    Select Case v
+        Case 1                                  ' no label at all, the control
+        Case 2                                  ' the word, above-left
+            OutLabel sld, n1, "output", -1
+            OutLabel sld, n2, "output", -1
+        Case 3                                  ' the word, below-left
+            OutLabel sld, n1, "output", 1
+            OutLabel sld, n2, "output", 1
+        Case 4                                  ' Jupyter's Out:, left of centre
+            SideLabel sld, n1, "Out:"
+            SideLabel sld, n2, "Out:"
+        Case Else                               ' inside the note, top-left
+            InsideLabel n1, "output"
+            InsideLabel n2, "output"
+    End Select
+
+    png = Replace(pngPath, ".png", "-" & v & ".png")
+    sld.Export png, "PNG", 1920, 1080
+    OneLabel = "ok"
+    Exit Function
+Failed:
+    OneLabel = "ERROR " & Err.Number & ": " & Err.Description
+End Function
+
+' side = -1 above the note, +1 below it. Left edges aligned with the note.
+Private Sub OutLabel(ByVal sld As Slide, ByVal note As Shape, _
+                     ByVal caption As String, ByVal side As Long)
+    Dim t As Shape, sz As Single, h As Single
+    sz = LabelSize(note)
+    h = sz * 1.5
+
+    Set t = sld.Shapes.AddTextbox(msoTextOrientationHorizontal, note.Left, 0, 120, h)
+    If side < 0 Then
+        t.Top = note.Top - h + sz * 0.25
+    Else
+        t.Top = note.Top + note.Height - sz * 0.25
+    End If
+    StyleLabel t, caption, sz, ppAlignLeft
+End Sub
+
+' Vertically centred to the LEFT of the note, the way Jupyter puts Out[3]:.
+Private Sub SideLabel(ByVal sld As Slide, ByVal note As Shape, ByVal caption As String)
+    Dim t As Shape, sz As Single, w As Single
+    sz = LabelSize(note)
+    w = 60
+    Set t = sld.Shapes.AddTextbox(msoTextOrientationHorizontal, _
+                                  note.Left - w - 6, note.Top + note.Height / 2 - sz, _
+                                  w, sz * 2)
+    StyleLabel t, caption, sz, ppAlignRight
+End Sub
+
+' Prefixed inside the note itself, dimmer than the output.
+Private Sub InsideLabel(ByVal note As Shape, ByVal caption As String)
+    Dim before As String
+    before = note.TextFrame.TextRange.text
+    note.TextFrame.TextRange.text = caption & vbCr & before
+    With note.TextFrame.TextRange
+        .Font.Name = THEME_FONT
+        .Font.Color.RGB = RGB(204, 204, 204)
+        .Characters(1, Len(caption)).Font.size = LabelSize(note)
+        .Characters(1, Len(caption)).Font.Color.RGB = RGB(130, 130, 130)
+    End With
+End Sub
+
+Private Function LabelSize(ByVal note As Shape) As Single
+    Dim sz As Single
+    sz = Round(note.TextFrame.TextRange.Font.size * 0.55, 0)
+    If sz < 11 Then sz = 11
+    LabelSize = sz
+End Function
+
+Private Sub StyleLabel(ByVal t As Shape, ByVal caption As String, _
+                       ByVal sz As Single, ByVal align As Long)
+    t.Line.Visible = msoFalse
+    t.fill.Visible = msoFalse
+    With t.TextFrame
+        .WordWrap = msoFalse
+        .MarginLeft = 0
+        .MarginRight = 0
+        .MarginTop = 0
+        .MarginBottom = 0
+        With .TextRange
+            .text = caption
+            .Font.Name = THEME_FONT
+            .Font.size = sz
+            .Font.Color.RGB = RGB(130, 130, 130)
+            .ParagraphFormat.Alignment = align
+        End With
+    End With
+End Sub
+
 ' MOCKUPS for showing a program's output beside its code. Renders one slide
 ' per candidate so they can be compared as a set - judging one at a time is how
 ' you end up with six shades of slate.
