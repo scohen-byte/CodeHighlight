@@ -139,10 +139,15 @@ End Function
 '
 ' Measured on a line long enough to span a tab stop, because BoundLeft resets at
 ' the start of each line - measuring across a line break would give nonsense.
+' In a TRANSCRIPT the origin has to skip the prompt. The first character of a
+' line you typed is the ">" of ">>> ", so measuring from it puts column zero at
+' the prompt and every guide lands under the prompt instead of under the code -
+' which is exactly what it did.
 Private Sub MeasureText(ByVal shp As Shape, ByRef originX As Single, _
                         ByRef advance As Single)
     Dim tr As TextRange, lines() As String, i As Long
     Dim startIdx As Long, probeLen As Long, ok As Boolean
+    Dim transcript As Boolean, lang As LangDef, skip As Long, bare As String
 
     ' Fall back to the spec metric if anything below fails.
     originX = shp.Left + shp.TextFrame.MarginLeft
@@ -153,9 +158,21 @@ Private Sub MeasureText(ByVal shp As Shape, ByRef originX As Single, _
     lines = modBlock.SplitLines(tr.text)
     probeLen = CLng(modSpec.TAB_CHARS) + 1
 
+    transcript = modOutput.IsTranscript(shp)
+    If transcript Then lang = modLangRegistry.GetLang(modBlock.BlockLangId(shp, ""))
+
     startIdx = 1
     For i = LBound(lines) To UBound(lines)
-        If Len(lines(i)) >= probeLen Then
+        skip = 0
+        bare = lines(i)
+        If transcript Then
+            skip = modOutput.PromptLen(lines(i), lang)
+            ' Only a line you TYPED can be measured: an output line has no
+            ' prompt and no indentation to take a column zero from.
+            If skip > 0 Then bare = modOutput.StripPrompt(lines(i), lang) Else bare = ""
+        End If
+        If Len(bare) >= probeLen Then
+            startIdx = startIdx + skip
             ok = True
             Exit For
         End If

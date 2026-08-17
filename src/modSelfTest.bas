@@ -1074,6 +1074,76 @@ Failed:
     FirstLineTest = r & "ERROR " & Err.Number & ": " & Err.Description
 End Function
 
+' Two things Sara asked about: whether the numbers need the checkbox clicking
+' again after adding a line, and where the indent guides land in a transcript.
+Public Function RenumberProbe(ByVal srcPath As String, ByVal pngPath As String) As String
+    Dim pres As Presentation, sld As Slide, shp As Shape, r As String
+    Dim code As String, a As Long, b As Long, g As Shape, s3 As Shape
+    Dim leftmost As Single, codeX As Single, promptX As Single
+
+    On Error GoTo Failed
+    modRibbon.SetQuiet True
+
+    Set pres = Application.ActivePresentation
+    pres.PageSetup.SlideWidth = modSpec.SLIDE_W
+    pres.PageSetup.SlideHeight = modSpec.SLIDE_H
+    Set sld = pres.Slides.Add(pres.Slides.count + 1, ppLayoutBlank)
+    sld.Select
+
+    ' --- 1. do the numbers follow an edit, with only Stylize pressed? --------
+    Set shp = modBlock.CreateBlock(sld, _
+        "a = 1" & vbCr & "b = 2" & vbCr & "c = 3", modSpec.BASE_SIZE, "python")
+    shp.Left = 120
+    shp.Top = 100
+    shp.Select
+    modRibbon.DoStylize
+    shp.Select
+    modRibbon.DoToggleGutter
+    Set g = modGutter.FindGutter(shp)
+    r = "numbers before=" & Quoted(Replace(g.TextFrame.TextRange.text, vbCr, "|")) & vbLf
+
+    ' Add a line the way typing does, then press ONLY Stylize.
+    shp.TextFrame.TextRange.InsertAfter vbCr & "d = 4"
+    shp.Select
+    modRibbon.DoStylize
+    Set g = modGutter.FindGutter(shp)
+    r = r & "numbers after Stylize=" & _
+        Quoted(Replace(g.TextFrame.TextRange.text, vbCr, "|")) & vbLf
+
+    ' --- 2. where do the guides land in a transcript? -----------------------
+    Set shp = modBlock.CreateBlock(sld, _
+        "for i in x:" & vbCr & "    if i:" & vbCr & "        print(i)" & vbCr & "done", _
+        modSpec.BASE_SIZE, "python")
+    shp.Left = 120
+    shp.Top = 320
+    Cursor shp, 4
+    modRibbon.DoOutputLines
+    shp.Select
+    modRibbon.DoToggleGuides
+
+    modBlock.LineCharRange shp.TextFrame.TextRange.text, 1, a, b
+    promptX = shp.TextFrame.TextRange.Characters(a, 1).BoundLeft
+    codeX = shp.TextFrame.TextRange.Characters(a + 4, 1).BoundLeft
+
+    leftmost = 99999
+    For Each s3 In modBlock.AllShapes(sld)
+        If s3.Tags(modGuides.TAG_GUIDE_OF) = shp.Tags(modBlock.TAG_ID) Then
+            If s3.Left < leftmost Then leftmost = s3.Left
+        End If
+    Next s3
+
+    r = r & "prompt x=" & Format$(promptX, "0") & _
+        " code x=" & Format$(codeX, "0") & _
+        " first guide x=" & Format$(leftmost, "0") & vbLf
+    r = r & "guide_starts_at_code=" & Abs(CLng(Abs(leftmost - codeX) < 6)) & vbLf
+
+    sld.Export pngPath, "PNG", 1920, 1080
+    RenumberProbe = r
+    Exit Function
+Failed:
+    RenumberProbe = r & "ERROR " & Err.Number & ": " & Err.Description
+End Function
+
 ' Sara's report, and the reason for the redesign: marking output by LINE NUMBER
 ' broke the moment the text was edited, because a line number is a position and
 ' editing moves positions. Nothing is stored now, so this asserts that editing
