@@ -91,15 +91,14 @@ End Function
 ' absence of syntax colour says so more plainly than any border.
 Private Sub PaintTranscript(ByVal shp As Shape, ByVal tr As TextRange, _
                             ByVal langId As String)
-    Dim outSpec As String, interp As String, lang As LangDef
+    Dim outSpec As String, lang As LangDef
     Dim lines() As String, i As Long, n As Long
     Dim startIdx As Long, length As Long, pl As Long
 
     outSpec = modOutput.GetOutputLines(shp)
-    interp = modOutput.GetInterpLines(shp)
 
     On Error Resume Next
-    If Len(outSpec) = 0 And Len(interp) = 0 Then
+    If Not modOutput.IsMarked(shp) Then
         ' Back to an editor. A block whose markings were cleared must not keep
         ' the terminal fill, or unmarking leaves no way back.
         shp.fill.ForeColor.RGB = ThemeBackColor()
@@ -117,7 +116,9 @@ Private Sub PaintTranscript(ByVal shp As Shape, ByVal tr As TextRange, _
             If modOutput.InList(outSpec, n) Then
                 tr.Characters(startIdx, length).Font.Color.RGB = ThemeOutputText()
                 tr.Characters(startIdx, length).Font.Bold = msoFalse
-            ElseIf modOutput.InList(interp, n) Then
+            Else
+                ' Whatever prompt this line is carrying is not code, and the
+                ' lexer has just coloured it as whatever ">>>" tokenizes to.
                 pl = modOutput.PromptLen(lines(i), lang)
                 If pl > 0 Then
                     tr.Characters(startIdx, pl).Font.Color.RGB = ThemeOutputMark()

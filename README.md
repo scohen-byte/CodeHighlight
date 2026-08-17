@@ -42,8 +42,8 @@ editable.
 | **Arrow** | Point at a line from the left margin, leaving the code at full contrast |
 | **Arrow color** | Eight syntax hues, darkened to read on a white slide. Deck-wide |
 | **Note** | Attach an explanation to a line of code |
-| **Prompt lines** | Mark lines as typed at the interpreter — they get `>>>` |
-| **Output lines** | Mark lines as printed by it — no prompt, no syntax colour |
+| **Output lines** | Mark lines as printed by the interpreter. Everything else gets `>>>` |
+| **Transcript** | Prompts on or off for the whole block |
 | **Output** | Attach what the code printed beside the block, as a note |
 | **Delete note** | Remove the note you have singled out, and its connector |
 | **Note size** | Font size for notes. 24pt, or Auto to size each one from its block |
@@ -259,18 +259,27 @@ deck rather than in the add-in, so it travels with the file.
 
 There are two shapes of this, and they are for different slides.
 
-**Prompt lines** and **Output lines** together make a transcript.
+**Output lines** makes a transcript, and it is one marking rather than two.
 
 1. Type the **whole session into one block** — what you typed and what it
    printed, as plain text. Press **Stylize**.
-2. Select the lines you *typed* and press **Prompt lines**. They get `>>>` in
-   front of them, and the body of a statement gets `...` instead.
-3. Select the lines it *printed* and press **Output lines**. Those lose their
-   syntax colour and their line number, because a printed value is not code.
+2. Put the cursor on a line the interpreter *printed* — or select a run of them
+   — and press **Output lines**.
 
-The marking **adds up**, so press once per run. A bare cursor is enough for a
-single line. Pressing again on a marked line unmarks it, and with the block
-itself selected each button clears its own marking.
+That is it. The block becomes a transcript, that line loses its syntax colour
+and its line number, and **everything else gets the prompt**: `>>>` in Python,
+with `...` on the body of a statement, and nothing on a blank line.
+
+The marking **adds up**, so press once per run of output. Pressing again on a
+marked line unmarks it, and with the block itself selected it clears them all.
+The **Transcript** checkbox turns the prompts on and off independently, for a
+session that happens to print nothing.
+
+There is deliberately no second marking for "lines I typed". There was at first,
+kept mutually exclusive with the output one, and it was a trap: marking the code
+as typed is naturally done by selecting the whole block, and that silently took
+every output line back out again. "Everything else" is the absence of a marking,
+so there is nothing to overwrite.
 
 **The prompt goes into the text.** It was a separate column at first, on the
 argument that the block's text should be pure source — and two shapes that must

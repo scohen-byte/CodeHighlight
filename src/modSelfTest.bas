@@ -1209,6 +1209,66 @@ Private Sub BandRuns(ByVal sld As Slide, ByVal shp As Shape, ByVal spec As Strin
     Next i
 End Sub
 
+' Reproduces Sara's report: marking one output line appears to turn every other
+' line into a prompt line, and a second non-consecutive output cannot be added.
+Public Function OutputBugProbe(ByVal srcPath As String, ByVal pngPath As String) As String
+    Dim pres As Presentation, sld As Slide, shp As Shape, r As String
+    Dim code As String, a As Long, b As Long
+
+    On Error GoTo Failed
+    modRibbon.SetQuiet True
+
+    Set pres = Application.ActivePresentation
+    pres.PageSetup.SlideWidth = modSpec.SLIDE_W
+    pres.PageSetup.SlideHeight = modSpec.SLIDE_H
+    Set sld = pres.Slides.Add(pres.Slides.count + 1, ppLayoutBlank)
+    sld.Select
+
+    code = "print(1)" & vbCr & "1" & vbCr & "print(2)" & vbCr & "2" & vbCr & "print(3)"
+    Set shp = modBlock.CreateBlock(sld, code, modSpec.BASE_SIZE, "python")
+    shp.Select
+    modRibbon.DoStylize
+    r = "start    transcript=" & Abs(CLng(modOutput.IsTranscript(shp))) & _
+        " output=" & Quoted(modOutput.GetOutputLines(shp)) & vbLf
+
+    ' Cursor on line 2, press Output lines.
+    Cursor shp, 2
+    modRibbon.DoOutputLines
+    r = r & "after L2 transcript=" & Abs(CLng(modOutput.IsTranscript(shp))) & _
+        " output=" & Quoted(modOutput.GetOutputLines(shp)) & vbLf
+    r = r & "         text=" & Quoted(Replace(shp.TextFrame.TextRange.text, vbCr, "|")) & vbLf
+
+    ' Cursor on line 4, press Output lines again.
+    Cursor shp, 4
+    modRibbon.DoOutputLines
+    r = r & "after L4 transcript=" & Abs(CLng(modOutput.IsTranscript(shp))) & _
+        " output=" & Quoted(modOutput.GetOutputLines(shp)) & vbLf
+    r = r & "         text=" & Quoted(Replace(shp.TextFrame.TextRange.text, vbCr, "|")) & vbLf
+
+    ' The sequence that used to destroy the marking: prompting the whole block
+    ' after marking output. There is nothing left to destroy it with, but the
+    ' toggle is exercised anyway.
+    shp.Select
+    modRibbon.DoTranscript
+    shp.Select
+    modRibbon.DoTranscript
+    r = r & "after toggle transcript=" & Abs(CLng(modOutput.IsTranscript(shp))) & _
+        " output=" & Quoted(modOutput.GetOutputLines(shp)) & vbLf
+    r = r & "         text=" & Quoted(Replace(shp.TextFrame.TextRange.text, vbCr, "|")) & vbLf
+
+    sld.Export pngPath, "PNG", 1920, 1080
+    OutputBugProbe = r
+    Exit Function
+Failed:
+    OutputBugProbe = r & "ERROR " & Err.Number & ": " & Err.Description
+End Function
+
+Private Sub Cursor(ByVal shp As Shape, ByVal ln As Long)
+    Dim a As Long, b As Long
+    modBlock.LineCharRange shp.TextFrame.TextRange.text, ln, a, b
+    shp.TextFrame.TextRange.Characters(a, 1).Select
+End Sub
+
 ' The transcript form: prompts in the TEXT, output lines uncoloured.
 Public Function OutputLinesTest(ByVal srcPath As String, ByVal pngPath As String) As String
     Dim pres As Presentation, sld As Slide, shp As Shape, r As String
@@ -1237,13 +1297,14 @@ Public Function OutputLinesTest(ByVal srcPath As String, ByVal pngPath As String
     shp.Select
     modRibbon.DoStylize
 
-    ' Lines 1, 2, 4 and 5 were typed; 3, 6 and 7 were printed.
-    MarkRun shp, 1, 2, True
-    MarkRun shp, 4, 5, True
-    MarkRun shp, 3, 3, False
-    MarkRun shp, 6, 7, False
+    ' Lines 3, 6 and 7 were printed. Everything else was typed, and needs no
+    ' marking of its own - that is the whole point of the flag.
+    shp.Select
+    modRibbon.DoTranscript
+    MarkRun shp, 3, 3
+    MarkRun shp, 6, 7
 
-    r = "interp=" & Quoted(modOutput.GetInterpLines(shp)) & vbLf
+    r = "transcript=" & Abs(CLng(modOutput.IsTranscript(shp))) & vbLf
     r = r & "output=" & Quoted(modOutput.GetOutputLines(shp)) & vbLf
     r = r & "text=" & Quoted(Replace(shp.TextFrame.TextRange.text, vbCr, "|")) & vbLf
 
@@ -1290,9 +1351,9 @@ Public Function OutputLinesTest(ByVal srcPath As String, ByVal pngPath As String
 
     ' Clearing takes the prompts back out of the text and the terminal off.
     shp.Select
-    modRibbon.DoInterpLines
-    shp.Select
     modRibbon.DoOutputLines
+    shp.Select
+    modRibbon.DoTranscript
     Set shp = modBlock.SelectedBlock(code)
     r = r & "cleared_text=" & Quoted(Replace(shp.TextFrame.TextRange.text, vbCr, "|")) & vbLf
     r = r & "cleared_fill=" & Abs(CLng(shp.fill.ForeColor.RGB = ThemeBackColor())) & vbLf
@@ -1305,13 +1366,12 @@ End Function
 
 ' Selects a run of lines and presses one of the two marking buttons, which is
 ' what a user does - the test must not reach past the command and set the tag.
-Private Sub MarkRun(ByVal shp As Shape, ByVal ln1 As Long, ByVal ln2 As Long, _
-                    ByVal asInterp As Boolean)
+Private Sub MarkRun(ByVal shp As Shape, ByVal ln1 As Long, ByVal ln2 As Long)
     Dim a As Long, b As Long, c As Long, d As Long
     modBlock.LineCharRange shp.TextFrame.TextRange.text, ln1, a, b
     modBlock.LineCharRange shp.TextFrame.TextRange.text, ln2, c, d
     shp.TextFrame.TextRange.Characters(a, (c + d) - a).Select
-    If asInterp Then modRibbon.DoInterpLines Else modRibbon.DoOutputLines
+    modRibbon.DoOutputLines
 End Sub
 
 ' Output notes: the dress, the mark, and the hanging indent.

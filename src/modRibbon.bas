@@ -338,7 +338,7 @@ Public Sub DoStrip()
     ' Output marking goes too: it is a rendering choice about lines, like the
     ' emphasis and the covers, and Stylize brings it all back from the tag.
     modOutput.SetOutputLines shp, ""
-    modOutput.SetInterpLines shp, ""
+    modOutput.SetTranscript shp, False
 
     modBlock.ResizeToContent shp
     ' Notes SURVIVE a strip. Everything else this removes can be rebuilt by
@@ -536,25 +536,17 @@ Failed:
     Warn "DoNoteColor failed: " & Err.Description
 End Sub
 
-' The two transcript markings. Select the lines and press: one for what you
-' typed at the interpreter, one for what it printed back.
+' Marks the lines the interpreter PRINTED. Everything else in a transcript is
+' something you typed, so it gets the prompt - there is no second marking to
+' keep in step with this one, and no order of operations that destroys it.
 '
-' They are mutually exclusive - a line cannot be both - so marking a run as one
-' takes it out of the other. With the SHAPE selected rather than text, each
-' clears its own, the way Emphasize and Hide lines do.
-Public Sub DoInterpLines()
-    MarkTranscript True
-End Sub
-
+' Pressing it on a block that is not yet a transcript makes it one, because
+' that is plainly what you meant. With the SHAPE selected rather than text it
+' clears the output lines, the way Emphasize and Hide lines do.
 Public Sub DoOutputLines()
-    MarkTranscript False
-End Sub
-
-Private Sub MarkTranscript(ByVal asInterp As Boolean)
     On Error GoTo Failed
     Dim shp As Shape, problem As String, sel As Selection
-    Dim txt As String, a As Long, b As Long
-    Dim mine As String, other As String
+    Dim txt As String, a As Long, b As Long, spec As String
 
     Set shp = modBlock.SelectedBlock(problem)
     If shp Is Nothing Then
@@ -562,14 +554,7 @@ Private Sub MarkTranscript(ByVal asInterp As Boolean)
         Exit Sub
     End If
 
-    If asInterp Then
-        mine = modOutput.GetInterpLines(shp)
-        other = modOutput.GetOutputLines(shp)
-    Else
-        mine = modOutput.GetOutputLines(shp)
-        other = modOutput.GetInterpLines(shp)
-    End If
-
+    spec = modOutput.GetOutputLines(shp)
     Set sel = Application.ActiveWindow.Selection
     If sel.Type = ppSelectionText Then
         txt = shp.TextFrame.TextRange.text
@@ -577,33 +562,48 @@ Private Sub MarkTranscript(ByVal asInterp As Boolean)
         If sel.TextRange.length > 0 Then
             b = modBlock.LineOfChar(txt, sel.TextRange.Start + sel.TextRange.length - 1)
         Else
-            ' A bare cursor marks the one line it sits on, so a single line
-            ' needs no selecting at all.
+            ' A bare cursor marks the one line it sits on.
             b = a
         End If
-        ' ADDED to what is already marked, not substituted for it: a selection
-        ' covers one run, and a transcript has several.
-        mine = modOutput.ToggleLines(mine, a, b)
-        other = modOutput.RemoveRun(other, a, b)
+        ' ADDED to what is already marked: a selection covers one run, and a
+        ' transcript has several.
+        spec = modOutput.ToggleLines(spec, a, b)
+        modOutput.SetTranscript shp, True
     Else
-        ' The shape rather than text: clear this marking.
-        mine = ""
+        spec = ""
     End If
 
     modBlock.UngroupParts shp
-    If asInterp Then
-        modOutput.SetInterpLines shp, mine
-        modOutput.SetOutputLines shp, other
-    Else
-        modOutput.SetOutputLines shp, mine
-        modOutput.SetInterpLines shp, other
-    End If
+    modOutput.SetOutputLines shp, spec
     StyleBlock shp
     Reselect shp
     RefreshRibbon
     Exit Sub
 Failed:
-    Warn "Marking transcript lines failed: " & Err.Description
+    Warn "DoOutputLines failed: " & Err.Description
+End Sub
+
+' Turns the whole block into a session at an interpreter, or back into a plain
+' listing. A block-level property rather than a per-line one, which is what
+' stops it from fighting the output marking.
+Public Sub DoTranscript()
+    On Error GoTo Failed
+    Dim shp As Shape, problem As String
+
+    Set shp = modBlock.SelectedBlock(problem)
+    If shp Is Nothing Then
+        Warn problem
+        Exit Sub
+    End If
+
+    modBlock.UngroupParts shp
+    modOutput.SetTranscript shp, Not modOutput.IsTranscript(shp)
+    StyleBlock shp
+    Reselect shp
+    RefreshRibbon
+    Exit Sub
+Failed:
+    Warn "DoTranscript failed: " & Err.Description
 End Sub
 
 ' Attaches an OUTPUT note to a line: what the program printed, dressed as a
@@ -894,7 +894,7 @@ Public Sub DoArrow()
     ' Output marking goes too: it is a rendering choice about lines, like the
     ' emphasis and the covers, and Stylize brings it all back from the tag.
     modOutput.SetOutputLines shp, ""
-    modOutput.SetInterpLines shp, ""
+    modOutput.SetTranscript shp, False
     ElseIf Not modArrow.RemoveArrow(shp, ln) Then
         modArrow.AddArrow shp, ln
     End If
@@ -1382,8 +1382,18 @@ Public Sub RibbonOutputLines(control As IRibbonControl)
     DoOutputLines
 End Sub
 
-Public Sub RibbonInterpLines(control As IRibbonControl)
-    DoInterpLines
+Public Sub RibbonTranscriptPressed(control As IRibbonControl, ByRef returnedVal)
+    Dim shp As Shape, problem As String
+    Set shp = modBlock.SelectedBlock(problem)
+    If shp Is Nothing Then
+        returnedVal = False
+    Else
+        returnedVal = modOutput.IsTranscript(shp)
+    End If
+End Sub
+
+Public Sub RibbonToggleTranscript(control As IRibbonControl, pressed As Boolean)
+    DoTranscript
 End Sub
 
 Public Sub RibbonOutputNote(control As IRibbonControl)

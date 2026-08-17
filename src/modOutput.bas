@@ -3,12 +3,22 @@ Attribute VB_Name = "modOutput"
 ' modOutput - transcripts: lines that are typed AT an interpreter, and lines
 '             that are printed BY one.
 '
-' Two line kinds, chosen the way emphasis is chosen - select the lines, press
-' the button. A line that is neither is ordinary code.
+' ONE FLAG AND ONE LIST, not two lists.
 '
-'   INTERPRETER  gets the language's prompt, and its code is coloured normally
-'   OUTPUT       gets no prompt and no syntax colour, because a printed value
-'                is not code and the absence of colour says so
+'   TRANSCRIPT   a property of the BLOCK: this is a session at an interpreter
+'   OUTPUT       a list of LINES: these are the ones it printed back
+'
+' Everything in a transcript that is not output is therefore something you
+' typed, and gets the prompt. There is no third state and no way to disagree
+' with yourself.
+'
+' It was two line lists at first - one for typed lines, one for printed - kept
+' mutually exclusive so a line could not be both. That is where it went wrong.
+' Marking the code as typed is naturally done by selecting the whole block, and
+' that took every output line back out again, silently. Either order of
+' operations destroyed the other marking. A flag has no such edge, because
+' "everything else" is not a marking that can be overwritten - it is the
+' absence of one.
 '
 ' THE PROMPT IS IN THE TEXT, and that is a deliberate reversal.
 '
@@ -37,8 +47,8 @@ Option Explicit
 
 ' Comma lists of line numbers, read the same way the emphasis and hidden lists
 ' are. Both live on the block.
-Public Const TAG_OUTPUT As String = "CODEBLOCK_OUTPUT"
-Public Const TAG_INTERP As String = "CODEBLOCK_INTERP"
+Public Const TAG_OUTPUT     As String = "CODEBLOCK_OUTPUT"
+Public Const TAG_TRANSCRIPT As String = "CODEBLOCK_TRANSCRIPT"
 
 Public Function GetOutputLines(ByVal shp As Shape) As String
     GetOutputLines = shp.Tags(TAG_OUTPUT)
@@ -48,20 +58,22 @@ Public Sub SetOutputLines(ByVal shp As Shape, ByVal lineList As String)
     shp.Tags.Add TAG_OUTPUT, lineList
 End Sub
 
-Public Function GetInterpLines(ByVal shp As Shape) As String
-    GetInterpLines = shp.Tags(TAG_INTERP)
+Public Function IsTranscript(ByVal shp As Shape) As Boolean
+    IsTranscript = (shp.Tags(TAG_TRANSCRIPT) = "1")
 End Function
 
-Public Sub SetInterpLines(ByVal shp As Shape, ByVal lineList As String)
-    shp.Tags.Add TAG_INTERP, lineList
+Public Sub SetTranscript(ByVal shp As Shape, ByVal on_ As Boolean)
+    shp.Tags.Add TAG_TRANSCRIPT, IIf(on_, "1", "")
 End Sub
 
 Public Function HasOutput(ByVal shp As Shape) As Boolean
     HasOutput = (Len(GetOutputLines(shp)) > 0)
 End Function
 
-Public Function IsTranscript(ByVal shp As Shape) As Boolean
-    IsTranscript = (Len(GetOutputLines(shp)) > 0 Or Len(GetInterpLines(shp)) > 0)
+' Anything the renderer has to treat specially: a transcript, or a block that
+' has output lines even without being one.
+Public Function IsMarked(ByVal shp As Shape) As Boolean
+    IsMarked = IsTranscript(shp) Or HasOutput(shp)
 End Function
 
 ' Membership by string search rather than by parsing, the same way the emphasis
@@ -130,24 +142,6 @@ Public Function ToggleLines(ByVal spec As String, ByVal firstLine As Long, _
     ToggleLines = out
 End Function
 
-' Takes a run out of a list without touching the rest, for keeping the two
-' markings mutually exclusive - a line cannot be both typed and printed.
-Public Function RemoveRun(ByVal spec As String, ByVal firstLine As Long, _
-                          ByVal lastLine As Long) As String
-    Dim parts() As String, i As Long, v As Long, out As String
-
-    If Len(spec) = 0 Then Exit Function
-    parts = Split(spec, ",")
-    For i = LBound(parts) To UBound(parts)
-        v = CLng(Val(parts(i)))
-        If v < firstLine Or v > lastLine Then
-            If Len(out) > 0 Then out = out & ","
-            out = out & CStr(v)
-        End If
-    Next i
-    RemoveRun = out
-End Function
-
 '------------------------------------------------------------------------------
 ' The prompts, in the text
 '------------------------------------------------------------------------------
@@ -162,13 +156,13 @@ End Function
 ' five Stylizes would give you ">>> >>> >>> >>> >>> x = 1".
 Public Function SyncPrompts(ByVal shp As Shape, ByVal langId As String) As Boolean
     Dim lang As LangDef, lines() As String, i As Long, n As Long
-    Dim interp As String, want As String, bare As String
+    Dim outSpec As String, want As String, bare As String
     Dim out As String, changed As Boolean, before As String
 
     lang = modLangRegistry.GetLang(langId)
     If Len(lang.PromptText) = 0 Then Exit Function
 
-    interp = GetInterpLines(shp)
+    outSpec = GetOutputLines(shp)
     before = shp.TextFrame.TextRange.text
     If Len(before) = 0 Then Exit Function
     lines = modBlock.SplitLines(before)
@@ -177,8 +171,11 @@ Public Function SyncPrompts(ByVal shp As Shape, ByVal langId As String) As Boole
         n = i - LBound(lines) + 1
         bare = StripPrompt(lines(i), lang)
 
+        ' Everything that is not output is something you typed.
         want = ""
-        If InList(interp, n) Then want = PromptFor(lines, LBound(lines), i, interp, lang)
+        If IsTranscript(shp) And Not InList(outSpec, n) Then
+            want = PromptFor(lines, LBound(lines), i, outSpec, lang)
+        End If
 
         If i > LBound(lines) Then out = out & vbCr
         out = out & want & bare
@@ -199,14 +196,14 @@ End Function
 ' Measured on the line WITHOUT its prompt, or a line would stop being a
 ' continuation the moment it was given one.
 Private Function PromptFor(ByRef lines() As String, ByVal lo As Long, _
-                           ByVal idx As Long, ByVal interp As String, _
+                           ByVal idx As Long, ByVal outSpec As String, _
                            ByRef lang As LangDef) As String
     Dim j As Long, n As Long, indent As Long, baseIndent As Long
     Dim started As Boolean, bare As String
 
     For j = lo To idx
         n = j - lo + 1
-        If Not InList(interp, n) Then GoTo NextLine
+        If InList(outSpec, n) Then GoTo NextLine
 
         bare = StripPrompt(lines(j), lang)
         If Len(Trim$(bare)) = 0 Then
