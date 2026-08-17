@@ -603,6 +603,59 @@ Failed:
     EditFlowTest = r & "ERROR " & Err.Number & ": " & Err.Description
 End Function
 
+' Picking the only block on the slide when nothing is selected, and refusing to
+' do so where "nothing selected" would mean "clear this".
+Public Function AutoPickTest(ByVal srcPath As String, ByVal pngPath As String) As String
+    Dim pres As Presentation, sld As Slide, shp As Shape, shp2 As Shape, r As String
+    Dim problem As String, auto As Boolean, got As Shape, a As Long, b As Long
+
+    On Error GoTo Failed
+    modRibbon.SetQuiet True
+
+    Set pres = Application.ActivePresentation
+    pres.PageSetup.SlideWidth = modSpec.SLIDE_W
+    pres.PageSetup.SlideHeight = modSpec.SLIDE_H
+    Set sld = pres.Slides.Add(pres.Slides.count + 1, ppLayoutBlank)
+    sld.Select
+
+    Set shp = modBlock.CreateBlock(sld, "a = 1" & vbCr & "b = 2", modSpec.BASE_SIZE, "python")
+    shp.Select
+    modRibbon.DoStylize
+
+    ' Nothing selected at all.
+    Application.ActiveWindow.Selection.Unselect
+    Set got = modBlock.SelectedBlock(problem, auto)
+    r = "one block, nothing selected: found=" & Abs(CLng(Not got Is Nothing)) & _
+        " auto=" & Abs(CLng(auto)) & vbLf
+
+    ' A whole-block command should just work.
+    Application.ActiveWindow.Selection.Unselect
+    modRibbon.DoStylize
+    r = r & "Stylize with nothing selected ok=" & _
+        Abs(CLng(Len(modRibbon.LastWarning()) = 0)) & vbLf
+
+    ' Emphasize must NOT clear when it had to guess the block.
+    modBlock.SetEmphasis shp, "2"
+    shp.Select
+    modRibbon.DoStylize
+    Application.ActiveWindow.Selection.Unselect
+    modRibbon.DoEmphasize
+    r = r & "Emphasize refused, marking kept=" & _
+        Abs(CLng(modBlock.GetEmphasis(shp) = "2")) & vbLf
+
+    ' Two blocks: no way to guess, so it asks.
+    Set shp2 = modBlock.CreateBlock(sld, "c = 3", modSpec.BASE_SIZE, "python")
+    Application.ActiveWindow.Selection.Unselect
+    Set got = modBlock.SelectedBlock(problem, auto)
+    r = r & "two blocks: found=" & Abs(CLng(Not got Is Nothing)) & _
+        " says=" & Quoted(problem) & vbLf
+
+    AutoPickTest = r
+    Exit Function
+Failed:
+    AutoPickTest = r & "ERROR " & Err.Number & ": " & Err.Description
+End Function
+
 ' Hiding several regions, and revealing them one at a time.
 Public Function HideRunsTest(ByVal srcPath As String, ByVal pngPath As String) As String
     Dim pres As Presentation, sld As Slide, shp As Shape, r As String

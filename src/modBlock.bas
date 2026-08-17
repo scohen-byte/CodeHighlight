@@ -487,10 +487,21 @@ End Sub
 ' problem. Deliberately permissive: PLAN.md section 8 says any selected shape
 ' with text counts, tagged or not, so a block pasted from an old deck or from a
 ' colleague still works. Nothing about DISPLAY depends on the tag surviving.
-Public Function SelectedBlock(ByRef problem As String) As Shape
+' autoPicked comes back True when nothing suitable was selected and the slide
+' happened to hold exactly one block, so that one was used.
+'
+' That saves a click on almost every command - most of them act on the whole
+' block and there is usually only one. But it is reported rather than hidden,
+' because three commands read "the shape is selected, not text inside it" as
+' CLEAR THIS: Emphasize, Hide lines and Arrow. Without the flag, pressing any of
+' them with nothing selected would silently throw away the marking, which is the
+' opposite of a convenience.
+Public Function SelectedBlock(ByRef problem As String, _
+                              Optional ByRef autoPicked As Boolean) As Shape
     Dim sel As Selection, shp As Shape
 
     problem = ""
+    autoPicked = False
     On Error GoTo NoWindow
     Set sel = Application.ActiveWindow.Selection
     On Error GoTo 0
@@ -498,12 +509,22 @@ Public Function SelectedBlock(ByRef problem As String) As Shape
     Select Case sel.Type
         Case ppSelectionShapes, ppSelectionText
             If sel.ShapeRange.count = 0 Then
-                problem = "Select a code block first."
+                Set SelectedBlock = OnlyBlockOnSlide()
+                If SelectedBlock Is Nothing Then
+                    problem = "Select a code block first."
+                Else
+                    autoPicked = True
+                End If
                 Exit Function
             End If
             Set shp = sel.ShapeRange(1)
         Case Else
-            problem = "Select a code block first."
+            Set SelectedBlock = OnlyBlockOnSlide()
+            If SelectedBlock Is Nothing Then
+                problem = "Select a code block first."
+            Else
+                autoPicked = True
+            End If
             Exit Function
     End Select
 
@@ -534,6 +555,27 @@ Public Function SelectedBlock(ByRef problem As String) As Shape
 
 NoWindow:
     problem = "Open a slide in Normal view first."
+End Function
+
+' The one code block on the current slide, or Nothing when there are none or
+' more than one. With two blocks there is no way to guess which was meant, and
+' guessing wrong is worse than asking.
+Public Function OnlyBlockOnSlide() As Shape
+    Dim sld As Slide, s2 As Shape, found As Shape, n As Long
+
+    On Error GoTo Done
+    Set sld = Application.ActiveWindow.View.Slide
+    If sld Is Nothing Then Exit Function
+
+    For Each s2 In AllShapes(sld)
+        If s2.Tags(TAG_BLOCK) = "1" Then
+            n = n + 1
+            If n > 1 Then Exit Function
+            Set found = s2
+        End If
+    Next s2
+    If n = 1 Then Set OnlyBlockOnSlide = found
+Done:
 End Function
 
 '------------------------------------------------------------------------------

@@ -67,6 +67,15 @@ editable.
 The block grows as you type. Press **Stylize** after editing to re-colour it —
 PowerPoint gives an add-in no way to notice that you changed the text.
 
+**You usually need not select the block first.** When a slide holds exactly one
+code block, the buttons use it. With two there is no way to guess which you
+meant, so they ask.
+
+Three buttons are the exception — **Emphasize**, **Hide lines** and **Arrow** —
+because for those, "the block is selected rather than text inside it" *means*
+clear this. Pressing one with nothing selected would silently throw the marking
+away, so they ask you to select first.
+
 ## Using it
 
 ### Emphasising lines

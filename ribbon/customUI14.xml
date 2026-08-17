@@ -232,15 +232,6 @@
         <group id="grpLook" label="Appearance">
           <box id="boxNotes" boxStyle="horizontal">
             <labelControl id="lblNotes" label="Notes"/>
-            <comboBox id="cboNoteSize"
-                        label="Note size"
-                        sizeString="Auto"
-                        showLabel="false" getText="RibbonNoteSizeText"
-                        onChange="RibbonNoteSizeChanged"
-                        getItemCount="RibbonNoteSizeCount"
-                        getItemLabel="RibbonNoteSizeLabel"
-                        screentip="Font size for notes"
-                        supertip="Auto sizes each note from the block it belongs to. Pick a rung or type any size to pin it instead. Applies to the note on the line your cursor is on, or the note you have clicked into. With nothing singled out it only records the choice for the next note, so opening this list can never repaint a note you were not pointing at. Each of the three note controls changes only what it is named after, so notes on one slide can differ. The choice is also remembered for notes made afterwards."/>
             <dropDown id="ddNoteColor"
                         label="Note color"
                         sizeString="Crimson"
@@ -266,6 +257,15 @@
                         showLabel="false" onAction="RibbonNoteFontChanged"
                         screentip="Font for notes"
                         supertip="Default font inherits your presentation's own body font, so a note looks like the rest of the deck rather than like code. It cannot be applied back to a note that already has a named font, so it only affects notes made afterwards. The others ship with Windows or Office, and apply to the note on the line your cursor is on, or the note you have clicked into, and otherwise only to notes made afterwards."/>
+            <comboBox id="cboNoteSize"
+                        label="Note size"
+                        sizeString="Auto"
+                        showLabel="false" getText="RibbonNoteSizeText"
+                        onChange="RibbonNoteSizeChanged"
+                        getItemCount="RibbonNoteSizeCount"
+                        getItemLabel="RibbonNoteSizeLabel"
+                        screentip="Font size for notes"
+                        supertip="Auto sizes each note from the block it belongs to. Pick a rung or type any size to pin it instead. Applies to the note on the line your cursor is on, or the note you have clicked into. With nothing singled out it only records the choice for the next note, so opening this list can never repaint a note you were not pointing at. Each of the three note controls changes only what it is named after, so notes on one slide can differ. The choice is also remembered for notes made afterwards."/>
           </box>
           <box id="boxArrow" boxStyle="horizontal">
             <labelControl id="lblArrow" label="Arrow"/>

@@ -226,12 +226,19 @@ End Sub
 ' slide.
 Public Sub DoEmphasize()
     On Error GoTo Failed
-    Dim shp As Shape, problem As String, sel As Selection
+    Dim shp As Shape, problem As String, autoPicked As Boolean, sel As Selection
     Dim txt As String, a As Long, b As Long, i As Long, list As String
 
-    Set shp = modBlock.SelectedBlock(problem)
+    Set shp = modBlock.SelectedBlock(problem, autoPicked)
     If shp Is Nothing Then
         Warn problem
+        Exit Sub
+    End If
+    ' Picking the only block on the slide is a convenience everywhere else, but
+    ' here "the shape is selected" MEANS clear - so an unselected block would
+    ' silently lose its marking. Ask instead.
+    If autoPicked Then
+        Warn "Click into the block and select the lines you want to emphasise, then press again."
         Exit Sub
     End If
 
@@ -374,12 +381,19 @@ End Sub
 ' Emphasize clears itself.
 Public Sub DoHide()
     On Error GoTo Failed
-    Dim shp As Shape, problem As String, sel As Selection
+    Dim shp As Shape, problem As String, autoPicked As Boolean, sel As Selection
     Dim txt As String, a As Long, b As Long, list As String
 
-    Set shp = modBlock.SelectedBlock(problem)
+    Set shp = modBlock.SelectedBlock(problem, autoPicked)
     If shp Is Nothing Then
         Warn problem
+        Exit Sub
+    End If
+    ' Picking the only block on the slide is a convenience everywhere else, but
+    ' here "the shape is selected" MEANS clear - so an unselected block would
+    ' silently lose its marking. Ask instead.
+    If autoPicked Then
+        Warn "Click into the block and select the lines you want to hide, then press again."
         Exit Sub
     End If
 
@@ -882,11 +896,18 @@ End Sub
 ' confirmation for that, unlike notes: an arrow holds nothing you typed.
 Public Sub DoArrow()
     On Error GoTo Failed
-    Dim shp As Shape, problem As String, sel As Selection, ln As Long
+    Dim shp As Shape, problem As String, autoPicked As Boolean, sel As Selection, ln As Long
 
-    Set shp = modBlock.SelectedBlock(problem)
+    Set shp = modBlock.SelectedBlock(problem, autoPicked)
     If shp Is Nothing Then
         Warn problem
+        Exit Sub
+    End If
+    ' Picking the only block on the slide is a convenience everywhere else, but
+    ' here "the shape is selected" MEANS clear - so an unselected block would
+    ' silently lose its marking. Ask instead.
+    If autoPicked Then
+        Warn "Click into the block and select the line you want to point at, then press again."
         Exit Sub
     End If
 
