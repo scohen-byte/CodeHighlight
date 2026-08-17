@@ -37,13 +37,14 @@ editable.
 | **Language** | Which lexer to use. Stored per block |
 | **Line numbers** | Show or hide the numbers for the selected block. A separate shape, so the code text stays pure source. Off by default |
 | **Indent guides** | Show or hide the vertical nesting lines, drawn as real shapes. Off by default |
+| **Transcript** | Style the block as a session at an interpreter — prompts on every line you typed |
+| **Output** | Take the prompt off the selected lines: these were printed, not typed |
 | **First line** | The number the first line gets, for code split across slides. Per block |
 | **Emphasize** | Band the selected lines and fade the rest |
 | **Arrow** | Point at a line from the left margin, leaving the code at full contrast |
 | **Arrow color** | Eight syntax hues, darkened to read on a white slide. Deck-wide |
 | **Note** | Attach an explanation to a line of code |
-| **Output lines** | Mark lines as printed by the interpreter. Everything else gets `>>>` |
-| **Transcript** | Prompts on or off for the whole block |
+
 | **Output** | Attach what the code printed beside the block, as a note |
 | **Delete note** | Remove the note you have singled out, and its connector |
 | **Note size** | Font size for notes. 24pt, or Auto to size each one from its block |
@@ -259,38 +260,37 @@ deck rather than in the add-in, so it travels with the file.
 
 There are two shapes of this, and they are for different slides.
 
-**Output lines** makes a transcript, and it is one marking rather than two.
+**Transcript** and **Output** live in the Stylize group, because that is what
+they are — a way of styling the block, not an annotation hung off it.
 
 1. Type the **whole session into one block** — what you typed and what it
-   printed, as plain text. Press **Stylize**.
+   printed, as plain text.
 2. Put the cursor on a line the interpreter *printed* — or select a run of them
-   — and press **Output lines**.
+   — and press **Output**.
 
-That is it. The block becomes a transcript, that line loses its syntax colour
-and its line number, and **everything else gets the prompt**: `>>>` in Python,
-with `...` on the body of a statement, and nothing on a blank line.
+That is the whole flow, and it works on a block you have never Stylized. The
+block becomes a transcript, every line you typed gets the prompt (`>>>`, with
+`...` on the body of a statement, nothing on a blank line), and the line you
+marked loses its prompt, its syntax colour and its line number.
 
-The marking **adds up**, so press once per run of output. Pressing again on a
-marked line unmarks it, and with the block itself selected it clears them all.
-The **Transcript** checkbox turns the prompts on and off independently, for a
-session that happens to print nothing.
+Press **Output** again on a marked line to make it input again. The
+**Transcript** checkbox turns the prompts on and off for the whole block.
 
-There is deliberately no second marking for "lines I typed". There was at first,
-kept mutually exclusive with the output one, and it was a trap: marking the code
-as typed is naturally done by selecting the whole block, and that silently took
-every output line back out again. "Everything else" is the absence of a marking,
-so there is nothing to overwrite.
+**There is no stored list of output lines.** A line carrying a prompt is one
+you typed; a bare one is output. The text *is* the record, so editing cannot
+put it out of step — add a line and it starts life bare, which is to say
+output, and one press makes it input.
 
-**The prompt goes into the text.** It was a separate column at first, on the
-argument that the block's text should be pure source — and two shapes that must
-agree line for line eventually disagree, at which point the prompts land on top
-of the code. In the text there is nothing to keep in step: the prompt indents the
-code because it *is* characters in front of the code.
+That matters because it was a list of line numbers twice over, and both times
+the same thing went wrong: a line number is a position, and inserting a line
+near the top moves every position below it. Emphasis and hidden lines have the
+same flaw and get away with it, because a band on the wrong line is obvious and
+you re-mark it. Here the prompts are *in* the text, so a stale index does not
+look wrong — it looks like a mess.
 
-That costs the pure-source property, and **Copy code** buys it back — it strips
-the prompts and drops the output lines, so what you paste is what you would run.
-That is a better home for the guarantee anyway: it is exactly the moment anybody
-wants it.
+Because the prompts are real characters, indent guides measure indentation
+*after* the prompt, and **Copy code** strips the prompts and drops the output,
+so what you paste is what you would run.
 
 **Output** is the other shape: a note beside the block, for when the code is a
 program and the output is an aside about one line of it.

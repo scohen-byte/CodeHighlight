@@ -85,22 +85,21 @@ End Function
 
 ' Repaints the two kinds of transcript line after the spans are on.
 '
-' The PROMPT is coloured green: it is not code, and the lexer has just coloured
-' it as whatever ">>>" happens to tokenize as. The OUTPUT loses its colour
-' entirely, which is the whole signal - a printed value is not code, and the
-' absence of syntax colour says so more plainly than any border.
+' Which is which is read from the TEXT, not from a stored list: a line carrying
+' a prompt is something you typed, a line without one is something the
+' interpreter printed. The prompt is coloured green because it is not code and
+' the lexer has just coloured it as whatever ">>>" tokenizes to; the output
+' loses its colour entirely, which is the signal - a printed value is not code,
+' and the absence of syntax colour says so more plainly than any border.
 Private Sub PaintTranscript(ByVal shp As Shape, ByVal tr As TextRange, _
                             ByVal langId As String)
-    Dim outSpec As String, lang As LangDef
-    Dim lines() As String, i As Long, n As Long
+    Dim lang As LangDef, lines() As String, i As Long, n As Long
     Dim startIdx As Long, length As Long, pl As Long
 
-    outSpec = modOutput.GetOutputLines(shp)
-
     On Error Resume Next
-    If Not modOutput.IsMarked(shp) Then
-        ' Back to an editor. A block whose markings were cleared must not keep
-        ' the terminal fill, or unmarking leaves no way back.
+    If Not modOutput.IsTranscript(shp) Then
+        ' Back to an editor. A block that is no longer a transcript must not
+        ' keep the terminal fill, or turning it off leaves no way back.
         shp.fill.ForeColor.RGB = ThemeBackColor()
         Exit Sub
     End If
@@ -111,20 +110,19 @@ Private Sub PaintTranscript(ByVal shp As Shape, ByVal tr As TextRange, _
 
     For i = LBound(lines) To UBound(lines)
         n = i - LBound(lines) + 1
+        If Len(Trim$(lines(i))) = 0 Then GoTo NextLine
+
         modBlock.LineCharRange tr.text, n, startIdx, length
-        If startIdx >= 1 And length >= 1 Then
-            If modOutput.InList(outSpec, n) Then
-                tr.Characters(startIdx, length).Font.Color.RGB = ThemeOutputText()
-                tr.Characters(startIdx, length).Font.Bold = msoFalse
-            Else
-                ' Whatever prompt this line is carrying is not code, and the
-                ' lexer has just coloured it as whatever ">>>" tokenizes to.
-                pl = modOutput.PromptLen(lines(i), lang)
-                If pl > 0 Then
-                    tr.Characters(startIdx, pl).Font.Color.RGB = ThemeOutputMark()
-                End If
-            End If
+        If startIdx < 1 Or length < 1 Then GoTo NextLine
+
+        pl = modOutput.PromptLen(lines(i), lang)
+        If pl > 0 Then
+            tr.Characters(startIdx, pl).Font.Color.RGB = ThemeOutputMark()
+        Else
+            tr.Characters(startIdx, length).Font.Color.RGB = ThemeOutputText()
+            tr.Characters(startIdx, length).Font.Bold = msoFalse
         End If
+NextLine:
     Next i
 End Sub
 

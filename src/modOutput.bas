@@ -1,62 +1,43 @@
 Attribute VB_Name = "modOutput"
 '==============================================================================
-' modOutput - transcripts: lines that are typed AT an interpreter, and lines
-'             that are printed BY one.
+' modOutput - transcripts: a block that is a session at an interpreter.
 '
-' ONE FLAG AND ONE LIST, not two lists.
+' THERE IS NO LIST OF OUTPUT LINES, and that is the whole design.
 '
-'   TRANSCRIPT   a property of the BLOCK: this is a session at an interpreter
-'   OUTPUT       a list of LINES: these are the ones it printed back
+' A transcript block carries one flag. Which lines are input and which are
+' output is then read off the TEXT: a line carrying a prompt is something you
+' typed, a line without one is something the interpreter printed. Nothing is
+' stored separately, so nothing can fall out of step.
 '
-' Everything in a transcript that is not output is therefore something you
-' typed, and gets the prompt. There is no third state and no way to disagree
-' with yourself.
+' It was a list of line numbers twice over, and both times the same thing went
+' wrong. Line numbers are positions, and positions are invalidated by editing:
+' insert a blank line near the top and every marking below it points one line
+' too high. Emphasis and hidden lines have the same flaw and get away with it,
+' because a band on the wrong line is obvious and you re-mark it. Here the
+' prompts are IN the text, so a stale index does not look wrong, it looks like
+' a mess - Sara sent three screenshots of exactly that.
 '
-' It was two line lists at first - one for typed lines, one for printed - kept
-' mutually exclusive so a line could not be both. That is where it went wrong.
-' Marking the code as typed is naturally done by selecting the whole block, and
-' that took every output line back out again, silently. Either order of
-' operations destroyed the other marking. A flag has no such edge, because
-' "everything else" is not a marking that can be overwritten - it is the
-' absence of one.
+' Deriving it from the text costs one thing: the prompts have to be right in the
+' first place. Turning a block into a transcript prompts every non-blank line,
+' and Output takes the prompt back off the lines you select. After that the text
+' is the record, and editing it is how you change the record.
 '
-' THE PROMPT IS IN THE TEXT, and that is a deliberate reversal.
+' What Stylize still recomputes is which of the two prompts a line gets - the
+' statement prompt or the continuation one - since that follows indentation and
+' indentation changes as you type.
 '
-' It was a separate shape, on the same argument the line numbers are made from:
-' the block's text is the source, so nothing that is not source should be in it.
-' The argument is sound and the result was not. Two shapes that must agree
-' LINE FOR LINE will eventually disagree - they have different frames, only one
-' has autofit, and a single soft break or a wrapped line puts them out of step -
-' and when these two disagree the prompts land on top of the code. The numbers
-' survive the same fragility only because they are a narrow right-aligned column
-' with a gap, so drift shows up as a wobble rather than as a collision.
+' What all this costs is the pure-source property, and Copy code buys it back:
+' it strips the prompts, so what you paste is what you would run. That is a
+' better home for the guarantee anyway - it is exactly the moment anybody wants
+' it, and it gives Copy code a reason to exist beyond convenience.
 '
-' In the text there is nothing to keep in step. The prompt indents the code
-' because it IS characters in front of the code, and no ruler level, no second
-' frame and no alignment nudge is involved.
-'
-' What that costs is the pure-source property, and Copy code buys it back: it
-' strips the prompts and drops the output, so what you paste is what you would
-' run. That is a better home for the guarantee anyway - it is exactly the moment
-' anybody wants it.
-'
-' The prompts themselves come from the language table. ">>> " and "... " are
-' Python's, and nothing outside modLang*.bas is allowed to know that.
+' The prompts come from the language table. ">>> " and "... " are Python's, and
+' nothing outside modLang*.bas is allowed to know that.
 '==============================================================================
 Option Explicit
 
-' Comma lists of line numbers, read the same way the emphasis and hidden lists
-' are. Both live on the block.
-Public Const TAG_OUTPUT     As String = "CODEBLOCK_OUTPUT"
+' One flag on the block. Everything else is read from the text.
 Public Const TAG_TRANSCRIPT As String = "CODEBLOCK_TRANSCRIPT"
-
-Public Function GetOutputLines(ByVal shp As Shape) As String
-    GetOutputLines = shp.Tags(TAG_OUTPUT)
-End Function
-
-Public Sub SetOutputLines(ByVal shp As Shape, ByVal lineList As String)
-    shp.Tags.Add TAG_OUTPUT, lineList
-End Sub
 
 Public Function IsTranscript(ByVal shp As Shape) As Boolean
     IsTranscript = (shp.Tags(TAG_TRANSCRIPT) = "1")
@@ -66,115 +47,44 @@ Public Sub SetTranscript(ByVal shp As Shape, ByVal on_ As Boolean)
     shp.Tags.Add TAG_TRANSCRIPT, IIf(on_, "1", "")
 End Sub
 
-Public Function HasOutput(ByVal shp As Shape) As Boolean
-    HasOutput = (Len(GetOutputLines(shp)) > 0)
-End Function
-
-' Anything the renderer has to treat specially: a transcript, or a block that
-' has output lines even without being one.
-Public Function IsMarked(ByVal shp As Shape) As Boolean
-    IsMarked = IsTranscript(shp) Or HasOutput(shp)
-End Function
-
-' Membership by string search rather than by parsing, the same way the emphasis
-' and hidden lists are read. "1,10" must not match line 0 or line 101, which is
-' what the commas either side are for.
-Public Function InList(ByVal spec As String, ByVal lineNo As Long) As Boolean
-    If Len(spec) = 0 Then Exit Function
-    InList = (InStr("," & spec & ",", "," & CStr(lineNo) & ",") > 0)
-End Function
-
-Public Function IsOutputLine(ByVal spec As String, ByVal lineNo As Long) As Boolean
-    IsOutputLine = InList(spec, lineNo)
-End Function
-
-' Adds a run of lines to a marking, or takes it out again.
-'
-' ACCUMULATES, and this is the whole usability of it. A transcript has output in
-' several places and a text selection covers only one run at a time, so a
-' command that REPLACED the list could never mark both.
-'
-' Toggling on the whole run rather than per line: if every line in the selection
-' is already marked, the gesture plainly means "no it is not".
-Public Function ToggleLines(ByVal spec As String, ByVal firstLine As Long, _
-                            ByVal lastLine As Long) As String
-    Dim marked() As Boolean, hi As Long, i As Long, allOn As Boolean
-    Dim parts() As String, v As Long, out As String
-
-    If lastLine < firstLine Then Exit Function
-
-    hi = lastLine
-    If Len(spec) > 0 Then
-        parts = Split(spec, ",")
-        For i = LBound(parts) To UBound(parts)
-            v = CLng(Val(parts(i)))
-            If v > hi Then hi = v
-        Next i
-    End If
-    If hi < 1 Then Exit Function
-    ReDim marked(1 To hi)
-
-    If Len(spec) > 0 Then
-        For i = LBound(parts) To UBound(parts)
-            v = CLng(Val(parts(i)))
-            If v >= 1 And v <= hi Then marked(v) = True
-        Next i
-    End If
-
-    allOn = True
-    For i = firstLine To lastLine
-        If Not marked(i) Then
-            allOn = False
-            Exit For
-        End If
-    Next i
-
-    For i = firstLine To lastLine
-        marked(i) = Not allOn
-    Next i
-
-    For i = 1 To hi
-        If marked(i) Then
-            If Len(out) > 0 Then out = out & ","
-            out = out & CStr(i)
-        End If
-    Next i
-    ToggleLines = out
-End Function
-
 '------------------------------------------------------------------------------
 ' The prompts, in the text
 '------------------------------------------------------------------------------
 
-' Brings every line's prompt into line with the markings. True when the text
-' changed, so the caller can reapply the block formatting - assigning to
-' TextRange.text drops every run.
+' Recomputes WHICH prompt each prompted line carries, and nothing else.
 '
-' Idempotent, because it runs on every Stylize: a line already carrying the
-' right prompt is left alone, one carrying the wrong prompt has it swapped, and
-' a line that is no longer an interpreter line has its taken off. Without that,
-' five Stylizes would give you ">>> >>> >>> >>> >>> x = 1".
+' A line that has no prompt is output and is left alone - that is how the text
+' records the marking. A line that has one keeps one, but it may swap between
+' the statement prompt and the continuation prompt, since that follows the
+' indentation and the indentation changes as you type.
+'
+' True when the text changed, so the caller can reapply the block formatting:
+' assigning to TextRange.text drops every run.
 Public Function SyncPrompts(ByVal shp As Shape, ByVal langId As String) As Boolean
-    Dim lang As LangDef, lines() As String, i As Long, n As Long
-    Dim outSpec As String, want As String, bare As String
-    Dim out As String, changed As Boolean, before As String
+    Dim lang As LangDef, lines() As String, i As Long
+    Dim want As String, bare As String, out As String
+    Dim changed As Boolean, before As String, prompted() As Boolean, n As Long
 
     lang = modLangRegistry.GetLang(langId)
     If Len(lang.PromptText) = 0 Then Exit Function
 
-    outSpec = GetOutputLines(shp)
     before = shp.TextFrame.TextRange.text
     If Len(before) = 0 Then Exit Function
     lines = modBlock.SplitLines(before)
+    n = UBound(lines) - LBound(lines) + 1
+    If n < 1 Then Exit Function
+
+    ReDim prompted(1 To n)
+    For i = LBound(lines) To UBound(lines)
+        prompted(i - LBound(lines) + 1) = _
+            (PromptLen(lines(i), lang) > 0) And IsTranscript(shp)
+    Next i
 
     For i = LBound(lines) To UBound(lines)
-        n = i - LBound(lines) + 1
         bare = StripPrompt(lines(i), lang)
-
-        ' Everything that is not output is something you typed.
         want = ""
-        If IsTranscript(shp) And Not InList(outSpec, n) Then
-            want = PromptFor(lines, LBound(lines), i, outSpec, lang)
+        If prompted(i - LBound(lines) + 1) Then
+            want = PromptFor(lines, LBound(lines), i, prompted, lang)
         End If
 
         If i > LBound(lines) Then out = out & vbCr
@@ -184,6 +94,82 @@ Public Function SyncPrompts(ByVal shp As Shape, ByVal langId As String) As Boole
 
     If changed Then shp.TextFrame.TextRange.text = out
     SyncPrompts = changed
+End Function
+
+' Puts a prompt on every non-blank line, or takes them all off. This is the one
+' moment the marking is CREATED - after it, the text is the record.
+Public Function SetAllPrompts(ByVal shp As Shape, ByVal langId As String, _
+                              ByVal on_ As Boolean) As Boolean
+    Dim lang As LangDef, lines() As String, i As Long
+    Dim bare As String, out As String, changed As Boolean
+
+    lang = modLangRegistry.GetLang(langId)
+    If Len(lang.PromptText) = 0 Then Exit Function
+    lines = modBlock.SplitLines(shp.TextFrame.TextRange.text)
+
+    For i = LBound(lines) To UBound(lines)
+        bare = StripPrompt(lines(i), lang)
+        If i > LBound(lines) Then out = out & vbCr
+        ' A blank line is not a statement, so it never gets a prompt: a bare
+        ' ">>>" with nothing after it reads as one that failed to render.
+        If on_ And Len(Trim$(bare)) > 0 Then
+            out = out & lang.PromptText & bare
+        Else
+            out = out & bare
+        End If
+        If out <> "" Then changed = True
+    Next i
+
+    changed = (out <> shp.TextFrame.TextRange.text)
+    If changed Then shp.TextFrame.TextRange.text = out
+    SetAllPrompts = changed
+End Function
+
+' Toggles the prompt off a run of lines, or back on. Off is "this is output".
+'
+' Whole-run rather than per line: if every line in the selection is already
+' output, the gesture plainly means the opposite.
+Public Function TogglePrompts(ByVal shp As Shape, ByVal langId As String, _
+                              ByVal ln1 As Long, ByVal ln2 As Long) As Boolean
+    Dim lang As LangDef, lines() As String, i As Long, n As Long
+    Dim bare As String, out As String, allBare As Boolean, wantOn As Boolean
+
+    lang = modLangRegistry.GetLang(langId)
+    If Len(lang.PromptText) = 0 Then Exit Function
+    lines = modBlock.SplitLines(shp.TextFrame.TextRange.text)
+
+    allBare = True
+    For i = LBound(lines) To UBound(lines)
+        n = i - LBound(lines) + 1
+        If n >= ln1 And n <= ln2 Then
+            If PromptLen(lines(i), lang) > 0 Then
+                allBare = False
+                Exit For
+            End If
+        End If
+    Next i
+    wantOn = allBare
+
+    For i = LBound(lines) To UBound(lines)
+        n = i - LBound(lines) + 1
+        bare = StripPrompt(lines(i), lang)
+        If i > LBound(lines) Then out = out & vbCr
+
+        If n >= ln1 And n <= ln2 Then
+            If wantOn And Len(Trim$(bare)) > 0 Then
+                out = out & lang.PromptText & bare
+            Else
+                out = out & bare
+            End If
+        Else
+            out = out & lines(i)
+        End If
+    Next i
+
+    If out <> shp.TextFrame.TextRange.text Then
+        shp.TextFrame.TextRange.text = out
+        TogglePrompts = True
+    End If
 End Function
 
 ' Which prompt one interpreter line should carry.
@@ -196,14 +182,14 @@ End Function
 ' Measured on the line WITHOUT its prompt, or a line would stop being a
 ' continuation the moment it was given one.
 Private Function PromptFor(ByRef lines() As String, ByVal lo As Long, _
-                           ByVal idx As Long, ByVal outSpec As String, _
+                           ByVal idx As Long, ByRef prompted() As Boolean, _
                            ByRef lang As LangDef) As String
     Dim j As Long, n As Long, indent As Long, baseIndent As Long
     Dim started As Boolean, bare As String
 
     For j = lo To idx
         n = j - lo + 1
-        If InList(outSpec, n) Then GoTo NextLine
+        If Not prompted(n) Then GoTo NextLine
 
         bare = StripPrompt(lines(j), lang)
         If Len(Trim$(bare)) = 0 Then
@@ -279,9 +265,8 @@ End Function
 ' This is where the pure-source guarantee lives now. Keeping the prompts out of
 ' the block's text bought that property at every moment EXCEPT the one where
 ' anybody wants it. Doing it here buys it at exactly that moment.
-Public Function CodeOnly(ByVal text As String, ByVal outputSpec As String, _
-                         ByVal langId As String) As String
-    Dim lang As LangDef, lines() As String, i As Long, n As Long
+Public Function CodeOnly(ByVal text As String, ByVal langId As String) As String
+    Dim lang As LangDef, lines() As String, i As Long
     Dim out As String, first As Boolean
 
     lang = modLangRegistry.GetLang(langId)
@@ -289,8 +274,9 @@ Public Function CodeOnly(ByVal text As String, ByVal outputSpec As String, _
     first = True
 
     For i = LBound(lines) To UBound(lines)
-        n = i - LBound(lines) + 1
-        If Not InList(outputSpec, n) Then
+        ' A prompted line is one you typed, so it survives with its prompt
+        ' stripped. A bare one is output, and output is not code.
+        If PromptLen(lines(i), lang) > 0 Then
             If Not first Then out = out & vbCr
             out = out & StripPrompt(lines(i), lang)
             first = False

@@ -122,15 +122,20 @@ End Sub
 ' and last non-blank line is numbered consecutively, INCLUDING blank lines in
 ' the middle, which are part of the code, and including the last line, which is
 ' the whole point.
+' promptChars(i) > 0 marks a line as one you typed at an interpreter. In a
+' transcript only those are numbered: an output line is not a line OF the
+' program, and numbering it would stop the numbers matching the file.
 Public Function NumberColumn(ByVal text As String, _
                              Optional ByVal startAt As Long = 1, _
-                             Optional ByVal outputSpec As String = "") As String
+                             Optional ByVal transcript As Boolean = False, _
+                             Optional ByVal langId As String = "") As String
     Dim lines() As String, i As Long, firstReal As Long, lastReal As Long
-    Dim n As Long, out As String, ln As Long
+    Dim n As Long, out As String, ln As Long, lang As LangDef
 
     If startAt < 1 Then startAt = 1
     n = startAt - 1
     lines = modBlock.SplitLines(text)
+    If transcript Then lang = modLangRegistry.GetLang(langId)
 
     firstReal = -1
     lastReal = -1
@@ -144,11 +149,8 @@ Public Function NumberColumn(ByVal text As String, _
     For i = LBound(lines) To UBound(lines)
         ln = i - LBound(lines) + 1
         If i > LBound(lines) Then out = out & vbCr
-        ' An output line is not a line OF the program, so it gets no number and
-        ' does not advance the count - otherwise the numbers stop matching the
-        ' file the code came from, which is the only thing they are for.
         If firstReal >= 0 And i >= firstReal And i <= lastReal Then
-            If Not modOutput.InList(outputSpec, ln) Then
+            If (Not transcript) Or modOutput.PromptLen(lines(i), lang) > 0 Then
                 n = n + 1
                 out = out & CStr(n)
             End If
@@ -223,7 +225,8 @@ Public Sub SyncGutter(ByVal shp As Shape, Optional ByVal create As Boolean = Fal
     RescueStrayText shp, g
 
     numbers = NumberColumn(shp.TextFrame.TextRange.text, FirstLine(shp), _
-                           modOutput.GetOutputLines(shp))
+                           modOutput.IsTranscript(shp), _
+                           modBlock.BlockLangId(shp, ""))
 
     With g.TextFrame
         .WordWrap = msoFalse

@@ -276,7 +276,6 @@ Public Sub DoCopyCode()
     If modOutput.IsTranscript(shp) Then
         CopyTextViaScratch shp, _
             modOutput.CodeOnly(shp.TextFrame.TextRange.text, _
-                               modOutput.GetOutputLines(shp), _
                                modBlock.BlockLangId(shp, CurrentLangId()))
     Else
         shp.TextFrame.TextRange.Copy
@@ -337,7 +336,7 @@ Public Sub DoStrip()
     modArrow.ClearArrows shp
     ' Output marking goes too: it is a rendering choice about lines, like the
     ' emphasis and the covers, and Stylize brings it all back from the tag.
-    modOutput.SetOutputLines shp, ""
+    modOutput.SetAllPrompts shp, modBlock.BlockLangId(shp, CurrentLangId()), False
     modOutput.SetTranscript shp, False
 
     modBlock.ResizeToContent shp
@@ -536,17 +535,20 @@ Failed:
     Warn "DoNoteColor failed: " & Err.Description
 End Sub
 
-' Marks the lines the interpreter PRINTED. Everything else in a transcript is
-' something you typed, so it gets the prompt - there is no second marking to
-' keep in step with this one, and no order of operations that destroys it.
+' Turns the prompt off the selected lines, making them output - or back on.
 '
-' Pressing it on a block that is not yet a transcript makes it one, because
-' that is plainly what you meant. With the SHAPE selected rather than text it
-' clears the output lines, the way Emphasize and Hide lines do.
+' There is no stored list. A line carrying a prompt is one you typed and a bare
+' one is output, so this edits the TEXT and the text is the record. Editing the
+' block afterwards cannot desynchronise anything, because there is nothing to
+' desynchronise: add a line and it starts life bare, which is to say output, and
+' pressing this puts a prompt on it.
+'
+' Pressing it on a block that is not yet a transcript makes it one first, so
+' marking your first output line is a single gesture rather than two.
 Public Sub DoOutputLines()
     On Error GoTo Failed
     Dim shp As Shape, problem As String, sel As Selection
-    Dim txt As String, a As Long, b As Long, spec As String
+    Dim txt As String, a As Long, b As Long, langId As String
 
     Set shp = modBlock.SelectedBlock(problem)
     If shp Is Nothing Then
@@ -554,28 +556,34 @@ Public Sub DoOutputLines()
         Exit Sub
     End If
 
-    spec = modOutput.GetOutputLines(shp)
     Set sel = Application.ActiveWindow.Selection
-    If sel.Type = ppSelectionText Then
-        txt = shp.TextFrame.TextRange.text
-        a = modBlock.LineOfChar(txt, sel.TextRange.Start)
-        If sel.TextRange.length > 0 Then
-            b = modBlock.LineOfChar(txt, sel.TextRange.Start + sel.TextRange.length - 1)
-        Else
-            ' A bare cursor marks the one line it sits on.
-            b = a
-        End If
-        ' ADDED to what is already marked: a selection covers one run, and a
-        ' transcript has several.
-        spec = modOutput.ToggleLines(spec, a, b)
-        modOutput.SetTranscript shp, True
+    If sel.Type <> ppSelectionText Then
+        Warn "Put the cursor on the line the interpreter printed - or select a " & _
+             "run of them - and press Output. Use the Transcript button to turn " & _
+             "the prompts on and off for the whole block."
+        Exit Sub
+    End If
+
+    langId = modBlock.BlockLangId(shp, CurrentLangId())
+    txt = shp.TextFrame.TextRange.text
+    a = modBlock.LineOfChar(txt, sel.TextRange.Start)
+    If sel.TextRange.length > 0 Then
+        b = modBlock.LineOfChar(txt, sel.TextRange.Start + sel.TextRange.length - 1)
     Else
-        spec = ""
+        ' A bare cursor takes the one line it sits on.
+        b = a
     End If
 
     modBlock.UngroupParts shp
-    modOutput.SetOutputLines shp, spec
-    StyleBlock shp
+    ' A block that was never a transcript has no prompts at all, so every line
+    ' would look like output. Prompt them, then take this run's prompt off.
+    If Not modOutput.IsTranscript(shp) Then
+        modOutput.SetTranscript shp, True
+        modOutput.SetAllPrompts shp, langId, True
+    End If
+    modOutput.TogglePrompts shp, langId, a, b
+    modBlock.FormatBlockText shp, modBlock.BlockFontSize(shp)
+    StyleBlock shp, langId
     Reselect shp
     RefreshRibbon
     Exit Sub
@@ -584,11 +592,11 @@ Failed:
 End Sub
 
 ' Turns the whole block into a session at an interpreter, or back into a plain
-' listing. A block-level property rather than a per-line one, which is what
-' stops it from fighting the output marking.
+' listing. Turning it ON is the one moment the marking is created: every
+' non-blank line gets a prompt, and Output takes them off again where you say.
 Public Sub DoTranscript()
     On Error GoTo Failed
-    Dim shp As Shape, problem As String
+    Dim shp As Shape, problem As String, langId As String, wantOn As Boolean
 
     Set shp = modBlock.SelectedBlock(problem)
     If shp Is Nothing Then
@@ -596,9 +604,14 @@ Public Sub DoTranscript()
         Exit Sub
     End If
 
+    langId = modBlock.BlockLangId(shp, CurrentLangId())
+    wantOn = Not modOutput.IsTranscript(shp)
+
     modBlock.UngroupParts shp
-    modOutput.SetTranscript shp, Not modOutput.IsTranscript(shp)
-    StyleBlock shp
+    modOutput.SetTranscript shp, wantOn
+    modOutput.SetAllPrompts shp, langId, wantOn
+    modBlock.FormatBlockText shp, modBlock.BlockFontSize(shp)
+    StyleBlock shp, langId
     Reselect shp
     RefreshRibbon
     Exit Sub
@@ -893,7 +906,7 @@ Public Sub DoArrow()
         modArrow.ClearArrows shp
     ' Output marking goes too: it is a rendering choice about lines, like the
     ' emphasis and the covers, and Stylize brings it all back from the tag.
-    modOutput.SetOutputLines shp, ""
+    modOutput.SetAllPrompts shp, modBlock.BlockLangId(shp, CurrentLangId()), False
     modOutput.SetTranscript shp, False
     ElseIf Not modArrow.RemoveArrow(shp, ln) Then
         modArrow.AddArrow shp, ln

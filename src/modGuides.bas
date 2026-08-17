@@ -83,7 +83,8 @@ Public Function DrawGuides(ByVal shp As Shape) As Long
     ClearGuides sld, blockId
     If Not GuidesEnabled(shp) Then Exit Function
 
-    lineCount = IndentLevels(shp.TextFrame.TextRange.text, levels, modOutput.GetOutputLines(shp))
+    lineCount = IndentLevels(shp.TextFrame.TextRange.text, levels, _
+                             modOutput.IsTranscript(shp), modBlock.BlockLangId(shp, ""))
     If lineCount = 0 Then Exit Function
 
     size = modBlock.BlockFontSize(shp)
@@ -193,28 +194,38 @@ End Sub
 ' A blank line takes the SMALLER of its neighbours' levels, which is what an
 ' editor does: a blank line inside a loop body keeps the guide running through
 ' it, but a blank line between two functions does not sprout one.
-' outputSpec names lines that are OUTPUT rather than code. They are treated
-' exactly as blank lines are: a printed value has no indentation to speak of,
-' and reading its leading spaces as a nesting level would sprout a guide from
-' nowhere in the middle of a transcript.
+' In a TRANSCRIPT every line you typed begins with a prompt, so its indentation
+' has to be measured after the prompt or every line looks flush left and no
+' guide is ever drawn - which is what happened. Output lines are treated exactly
+' as blank ones: a printed value has no nesting to show.
 Public Function IndentLevels(ByVal text As String, ByRef levels() As Long, _
-                             Optional ByVal outputSpec As String = "") As Long
+                             Optional ByVal transcript As Boolean = False, _
+                             Optional ByVal langId As String = "") As Long
     Dim lines() As String, n As Long, i As Long, j As Long
     Dim cols() As Long, blank() As Boolean
-    Dim prevLevel As Long, nextLevel As Long
+    Dim prevLevel As Long, nextLevel As Long, lang As LangDef, bare As String
 
     lines = modBlock.SplitLines(text)
     n = UBound(lines) - LBound(lines) + 1
     If n <= 0 Then Exit Function
+    If transcript Then lang = modLangRegistry.GetLang(langId)
 
     ReDim levels(0 To n - 1)
     ReDim cols(0 To n - 1)
     ReDim blank(0 To n - 1)
 
     For i = 0 To n - 1
-        blank(i) = (Len(Trim$(lines(i))) = 0)
-        If modOutput.InList(outputSpec, i - LBound(lines) + 1) Then blank(i) = True
-        cols(i) = LeadingColumns(lines(i))
+        bare = lines(i)
+        If transcript Then
+            If modOutput.PromptLen(lines(i), lang) > 0 Then
+                bare = modOutput.StripPrompt(lines(i), lang)
+            Else
+                ' No prompt in a transcript means output, which has no nesting.
+                bare = ""
+            End If
+        End If
+        blank(i) = (Len(Trim$(bare)) = 0)
+        cols(i) = LeadingColumns(bare)
     Next i
 
     For i = 0 To n - 1
