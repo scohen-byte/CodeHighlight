@@ -16,32 +16,34 @@
     <tabs>
       <tab id="tabCode" label="Code" insertAfterMso="TabHome">
 
-        <group id="grpBlock" label="Code block">
-          <button id="btnNew"
-                  label="New block"
-                  size="large"
-                  imageMso="TextBoxInsert"
-                  onAction="RibbonNewBlock"
-                  screentip="Insert a code block"
-                  supertip="Adds an empty dark code block at the default size, ready to type into."/>
-          <!--
-            The language list is driven by modLangRegistry, not hardcoded here.
-            Adding a language means registering it there - this XML never changes.
-          -->
-          <dropDown id="ddLang"
-                    label="Language"
-                    sizeString="Python XXXX"
-                    getItemCount="RibbonLangCount"
-                    getItemLabel="RibbonLangLabel"
-                    getSelectedItemIndex="RibbonLangSelected"
-                    onAction="RibbonLangChanged"
-                    screentip="Language for the selected block"
-                    supertip="Sets which lexer the Stylize button uses. Stored on the shape, so each block remembers its own language."/>
-        </group>
-
-        <group id="grpStylize" label="Stylize">
-          <!-- imageMso ids verified with tools/check-imagemso.ps1. "Repaint" and
-               "ListNumbering" look plausible and do not exist in PowerPoint. -->
+        <!-- Grouped by WHAT THE CONTROL ACTS ON: the block, its lines, the
+             slides a walkthrough makes, and the deck's own appearance. The
+             previous arrangement had grown by accretion - a group called
+             "Emphasis and text" held two line markings, two whole-block
+             operations and a colour setting. -->
+        <group id="grpBlock" label="Block">
+          <splitButton id="sbNewBlock" size="large">
+            <button id="btnNew"
+                    label="New block"
+                    imageMso="TextBoxInsert"
+                    onAction="RibbonNewBlock"
+                    screentip="Insert a code block"
+                    supertip="Adds an empty dark code block at the default size, ready to type into."/>
+            <menu id="mnuNewBlock" label="New block">
+              <button id="btnNewCode"
+                      label="Code block"
+                      imageMso="TextBoxInsert"
+                      onAction="RibbonNewCodeBlock"
+                      screentip="Insert a listing"
+                      supertip="An ordinary code block: syntax colours, no prompts."/>
+              <button id="btnNewTranscript"
+                      label="Transcript"
+                      imageMso="MacroPlay"
+                      onAction="RibbonNewTranscript"
+                      screentip="Insert a session at an interpreter"
+                      supertip="A block that is a transcript from the start. Type the session into it and press Stylize: every line gets the prompt, once. After that a newly typed line stays bare until you press Prompt, and Output takes a prompt off."/>
+            </menu>
+          </splitButton>
           <button id="btnStylize"
                   label="Stylize"
                   size="large"
@@ -49,11 +51,18 @@
                   onAction="RibbonStylize"
                   screentip="Stylize the selected block"
                   supertip="Re-colors the selected code block from scratch. Safe to press as often as you like."/>
-          <!-- Boxed into columns. A group packs its own controls into rows three
-               at a time, which scattered these across two columns in an order
-               nobody chose. A vertical box says which things belong together:
-               everything about the left margin in one, the transcript in the
-               other. -->
+          <button id="btnStrip"
+                  label="Strip"
+                  imageMso="ClearFormatting"
+                  onAction="RibbonStrip"
+                  screentip="Return the block to plain text"
+                  supertip="Removes the colours, emphasis, numbers and guides. The block stays, and Stylize brings it all back."/>
+          <button id="btnCopyCode"
+                  label="Copy code"
+                  imageMso="Copy"
+                  onAction="RibbonCopyCode"
+                  screentip="Copy the block's code to the clipboard"
+                  supertip="Copies the text, not the shape, so pasting into an editor gives you the source."/>
           <box id="boxMargin" boxStyle="vertical">
             <checkBox id="chkGuides"
                       label="Indent guides"
@@ -75,26 +84,6 @@
                      onChange="RibbonFirstLineChanged"
                      screentip="The number the first line gets"
                      supertip="For code split across several slides: set the second slide's block to start at 24 and its numbers carry on from the first. Stored per block. Setting it turns the line numbers on, since a start number with no numbers showing does nothing."/>
-          </box>
-          <box id="boxTranscript" boxStyle="vertical">
-            <checkBox id="chkTranscript"
-                      label="Transcript"
-                      getPressed="RibbonTranscriptPressed"
-                      onAction="RibbonToggleTranscript"
-                      screentip="This block is a session at an interpreter"
-                      supertip="Puts the language's prompt in front of every line you typed - &gt;&gt;&gt; for Python, and ... on the body of a statement. Blank lines and lines marked as Output get none. The prompt goes into the text, so nothing can drift out of alignment with it, and Copy code strips it back off."/>
-            <button id="btnPromptLines"
-                    label="Prompt"
-                    imageMso="MacroPlay"
-                    onAction="RibbonPromptLines"
-                    screentip="These lines were typed at the interpreter"
-                    supertip="Puts the prompt back on the lines you select. A line you have just typed starts without one, which is to say it counts as output, so this is how you promote it. A bare cursor is enough for one line."/>
-            <button id="btnOutputLines"
-                    label="Output"
-                    imageMso="QueryShowTable"
-                    onAction="RibbonOutputLines"
-                    screentip="These lines were printed by the interpreter"
-                    supertip="Takes the prompt off the lines you select, which is what makes them output: they lose their syntax color and their line number, because a printed value is not code. Pressing it on a block that is not yet a transcript makes it one first, so marking your first output line is a single press. Use Prompt to put a line back. A bare cursor is enough for one line."/>
           </box>
         </group>
 
@@ -121,129 +110,67 @@
                   screentip="Step down the size ladder"/>
           <button id="btnFit"
                   label="Fit"
-                  size="large"
                   imageMso="SizeToControlHeight"
                   onAction="RibbonFit"
                   screentip="Pick the largest size that fits"
                   supertip="Warns instead of shrinking silently when the code will not read from the back of the room."/>
         </group>
 
-        <group id="grpTools" label="Emphasis and text">
+        <group id="grpLines" label="Lines">
           <button id="btnEmphasise"
                   label="Emphasize"
-                  size="large"
                   imageMso="TextHighlightColorPicker"
                   onAction="RibbonEmphasize"
                   screentip="Emphasize the selected lines"
                   supertip="Select text inside the block and press this to band those lines. With the block itself selected rather than text, it clears the emphasis. The choice is stored on the block, so duplicating the slide and moving the emphasis down a line is two clicks."/>
           <button id="btnArrow"
                   label="Arrow"
-                  size="large"
                   imageMso="ShapeRightArrow"
                   onAction="RibbonArrow"
                   screentip="Point at a line from the left margin"
                   supertip="Puts a block arrow beside one line and leaves the code at full contrast, which is what you want when the whole snippet has to stay readable. Uses the line the cursor is on, or - with the block itself selected - the emphasised line. Press it again on the same line to take it away, or with the block selected and nothing emphasised to clear them all."/>
-          <button id="btnCopyCode"
-                  label="Copy code"
-                  imageMso="Copy"
-                  onAction="RibbonCopyCode"
-                  screentip="Copy the block's code to the clipboard"
-                  supertip="Copies the text, not the shape, so pasting into an editor gives you the source."/>
-          <button id="btnStrip"
-                  label="Strip"
-                  imageMso="ClearFormatting"
-                  onAction="RibbonStrip"
-                  screentip="Return the block to plain text"
-                  supertip="Removes the colours, emphasis, numbers and guides. The block stays, and Stylize brings it all back."/>
-          <!-- Boxed with its swatch, the same way Note color is: a dropDown
-               shows its selected item's label and has no image of its own. -->
-          <box id="boxArrowColor" boxStyle="horizontal">
-            <dropDown id="ddArrowColor"
-                      label="Arrow color"
-                      sizeString="Crimson"
-                      getItemCount="RibbonArrowColorCount"
-                      getItemLabel="RibbonArrowColorLabel"
-                      getItemImage="RibbonArrowColorImage"
-                      getSelectedItemIndex="RibbonArrowColorSelected"
-                      onAction="RibbonArrowColorChanged"
-                      screentip="Color for the margin arrows"
-                      supertip="The syntax colors, darkened until they read on a white slide - the palette itself is chosen against the block background and looks faded on one. Arrows are uniform by design, so this repaints every arrow in the presentation, not only the ones in front of you."/>
-            <button id="btnArrowColorNow"
-                    showLabel="false"
-                    getImage="RibbonArrowColorFace"
-                    onAction="RibbonArrowColorApply"
-                    screentip="The color arrows are set to"
-                    supertip="Shows the color in use. Press it to repaint every arrow in the presentation with it, which is worth doing after recoloring one by hand."/>
-          </box>
+        </group>
+
+        <group id="grpTranscript" label="Transcript">
+          <checkBox id="chkTranscript"
+                    label="Transcript"
+                    getPressed="RibbonTranscriptPressed"
+                    onAction="RibbonToggleTranscript"
+                    screentip="This block is a session at an interpreter"
+                    supertip="Puts the language's prompt in front of every line you typed - &gt;&gt;&gt; for Python, and ... on the body of a statement. Blank lines and lines marked as Output get none. The prompt goes into the text, so nothing can drift out of alignment with it, and Copy code strips it back off."/>
+          <button id="btnPromptLines"
+                  label="Prompt"
+                  imageMso="MacroPlay"
+                  onAction="RibbonPromptLines"
+                  screentip="These lines were typed at the interpreter"
+                  supertip="Puts the prompt back on the lines you select. A line you have just typed starts without one, which is to say it counts as output, so this is how you promote it. A bare cursor is enough for one line."/>
+          <button id="btnOutputLines"
+                  label="Output"
+                  imageMso="ReturnToTaskList"
+                  onAction="RibbonOutputLines"
+                  screentip="These lines were printed by the interpreter"
+                  supertip="Takes the prompt off the lines you select, which is what makes them output: they lose their syntax color and their line number, because a printed value is not code. Pressing it on a block that is not yet a transcript makes it one first, so marking your first output line is a single press. Use Prompt to put a line back. A bare cursor is enough for one line."/>
         </group>
 
         <group id="grpNotes" label="Notes">
           <button id="btnNote"
                   label="Note"
-                  size="large"
                   imageMso="ReviewNewComment"
                   onAction="RibbonNote"
                   screentip="Attach a note to a line of code"
                   supertip="Puts a note beside the block with a line pointing at the code, so you can say what a line does without cramming it into a comment. Uses the line the cursor is on, or - with the block itself selected - the emphasised line, which makes annotating a walkthrough one click per slide. It stays anchored: change the size or edit the code above it and Stylize keeps it level with its line."/>
           <button id="btnOutputNote"
                   label="Output"
-                  size="large"
-                  imageMso="RightArrow2"
+                  imageMso="ShapeRoundedRectangularCallout"
                   onAction="RibbonOutputNote"
                   screentip="Attach what the code printed to a line"
                   supertip="A note dressed as a terminal - the code font, a darker panel and a green arrow - so it reads as output rather than as an aside. Uses the line the cursor is on, or the emphasised line with the block itself selected. Long output wraps flush with the first character after the arrow, not under it."/>
           <button id="btnDeleteNote"
                   label="Delete note"
-                  size="large"
                   imageMso="ReviewDeleteComment"
                   onAction="RibbonDeleteNote"
                   screentip="Delete the note you have singled out"
                   supertip="Removes the note on the line your cursor is on, or the note you have clicked into, along with its connector. Same rule as the color and size controls, so there is one answer to which note is meant. To remove every note on a block at once, press Note with the block itself selected - that one asks first."/>
-          <comboBox id="cboNoteSize"
-                    label="Note size"
-                    sizeString="Auto"
-                    getText="RibbonNoteSizeText"
-                    onChange="RibbonNoteSizeChanged"
-                    getItemCount="RibbonNoteSizeCount"
-                    getItemLabel="RibbonNoteSizeLabel"
-                    screentip="Font size for notes"
-                    supertip="Auto sizes each note from the block it belongs to. Pick a rung or type any size to pin it instead. Applies to the note on the line your cursor is on, or the note you have clicked into. With nothing singled out it only records the choice for the next note, so opening this list can never repaint a note you were not pointing at. Each of the three note controls changes only what it is named after, so notes on one slide can differ. The choice is also remembered for notes made afterwards."/>
-          <!-- A dropDown rather than a gallery, so it reads the same way as
-               Note size and Note font: label on the left, control on the
-               right. dropDown items carry images too, which is what the
-               swatches need - the name of a colour is not the colour.
-
-               Boxed with the swatch button, because a group packs its controls
-               into rows on its own and put the button on a row of its own,
-               under the label, where it read as unrelated. A horizontal box is
-               the only way to say "these two are one control". -->
-          <box id="boxNoteColor" boxStyle="horizontal">
-            <dropDown id="ddNoteColor"
-                      label="Note color"
-                      sizeString="Crimson"
-                      getItemCount="RibbonNoteColorCount"
-                      getItemLabel="RibbonNoteColorLabel"
-                      getItemImage="RibbonNoteColorImage"
-                      getSelectedItemIndex="RibbonNoteColorSelected"
-                      onAction="RibbonNoteColorChanged"
-                      screentip="Color for notes"
-                      supertip="The first six are quiet, for a note that is an aside about the code; the rest are saturated, for one that should be the loudest thing on the slide. Applies to the note on the line your cursor is on, or the note you have clicked into. With nothing singled out it only records the choice for the next note, so opening this list can never repaint a note you were not pointing at. Each of the three note controls changes only what it is named after, so notes on one slide can differ. The text color follows the fill, so a light preset gets dark words."/>
-            <button id="btnNoteColorNow"
-                    showLabel="false"
-                    getImage="RibbonNoteColorFace"
-                    onAction="RibbonNoteColorApply"
-                    screentip="The color notes are set to"
-                    supertip="Shows the color currently chosen, and applies it to the note you have singled out - by putting the cursor on its line, or by clicking into it. Press it to give a second note the same color as the first without going back through the list."/>
-          </box>
-          <dropDown id="ddNoteFont"
-                    label="Note font"
-                    sizeString="Deck default"
-                    getItemCount="RibbonNoteFontCount"
-                    getItemLabel="RibbonNoteFontLabel"
-                    getSelectedItemIndex="RibbonNoteFontSelected"
-                    onAction="RibbonNoteFontChanged"
-                    screentip="Font for notes"
-                    supertip="Deck default inherits your presentation's own body font, so a note looks like the rest of the deck rather than like code. It cannot be applied back to a note that already has a named font, so it only affects notes made afterwards. The others ship with Windows or Office, and apply to the note on the line your cursor is on, or the note you have clicked into, and otherwise only to notes made afterwards."/>
         </group>
 
         <group id="grpWalk" label="Walkthrough">
@@ -276,24 +203,91 @@
                     supertip="Each slide the walkthrough builds arrives with a note already attached to the line it emphasises, so you fill them in rather than clicking to create them. Build up attaches it to the newest line."/>
         </group>
 
-        <!-- Its own group. Hiding a line and asking the room what goes there is
-             a different move from stepping through code, and sitting in the
-             Walkthrough group made it read as part of building one. -->
+        <!-- Kept apart from Lines on purpose. Hiding a line and asking the room
+             what belongs there changes what the audience KNOWS; emphasis and
+             arrows change how the code LOOKS. -->
         <group id="grpAsk" label="Hide and reveal">
           <button id="btnHide"
                   label="Hide lines"
-                  size="large"
                   imageMso="BlackAndWhiteBlack"
                   onAction="RibbonHide"
                   screentip="Hide the selected lines behind a question mark"
                   supertip="Select lines inside the block and press this to cover them, keeping their space. Ask the class what belongs there. With the block itself selected rather than text, it reveals them again."/>
           <button id="btnReveal"
                   label="Reveal next"
-                  size="large"
                   imageMso="VisibilityVisible"
                   onAction="RibbonReveal"
                   screentip="Add the answer on the next slide"
                   supertip="Duplicates this slide with nothing hidden, so the reveal follows the question."/>
+        </group>
+
+        <!-- The only deck-level settings on the tab, and the only controls you
+             touch once and then never again. They were scattered through the
+             working controls, which is why they are here instead. -->
+        <group id="grpLook" label="Appearance">
+          <comboBox id="cboNoteSize"
+                    label="Note size"
+                    sizeString="Auto"
+                    getText="RibbonNoteSizeText"
+                    onChange="RibbonNoteSizeChanged"
+                    getItemCount="RibbonNoteSizeCount"
+                    getItemLabel="RibbonNoteSizeLabel"
+                    screentip="Font size for notes"
+                    supertip="Auto sizes each note from the block it belongs to. Pick a rung or type any size to pin it instead. Applies to the note on the line your cursor is on, or the note you have clicked into. With nothing singled out it only records the choice for the next note, so opening this list can never repaint a note you were not pointing at. Each of the three note controls changes only what it is named after, so notes on one slide can differ. The choice is also remembered for notes made afterwards."/>
+          <box id="boxNoteColor" boxStyle="horizontal">
+            <dropDown id="ddNoteColor"
+                      label="Note color"
+                      sizeString="Crimson"
+                      getItemCount="RibbonNoteColorCount"
+                      getItemLabel="RibbonNoteColorLabel"
+                      getItemImage="RibbonNoteColorImage"
+                      getSelectedItemIndex="RibbonNoteColorSelected"
+                      onAction="RibbonNoteColorChanged"
+                      screentip="Color for notes"
+                      supertip="The first six are quiet, for a note that is an aside about the code; the rest are saturated, for one that should be the loudest thing on the slide. Applies to the note on the line your cursor is on, or the note you have clicked into. With nothing singled out it only records the choice for the next note, so opening this list can never repaint a note you were not pointing at. Each of the three note controls changes only what it is named after, so notes on one slide can differ. The text color follows the fill, so a light preset gets dark words."/>
+            <button id="btnNoteColorNow"
+                    showLabel="false"
+                    getImage="RibbonNoteColorFace"
+                    onAction="RibbonNoteColorApply"
+                    screentip="The color notes are set to"
+                    supertip="Shows the color currently chosen, and applies it to the note you have singled out - by putting the cursor on its line, or by clicking into it. Press it to give a second note the same color as the first without going back through the list."/>
+          </box>
+          <dropDown id="ddNoteFont"
+                    label="Note font"
+                    sizeString="Deck default"
+                    getItemCount="RibbonNoteFontCount"
+                    getItemLabel="RibbonNoteFontLabel"
+                    getSelectedItemIndex="RibbonNoteFontSelected"
+                    onAction="RibbonNoteFontChanged"
+                    screentip="Font for notes"
+                    supertip="Deck default inherits your presentation's own body font, so a note looks like the rest of the deck rather than like code. It cannot be applied back to a note that already has a named font, so it only affects notes made afterwards. The others ship with Windows or Office, and apply to the note on the line your cursor is on, or the note you have clicked into, and otherwise only to notes made afterwards."/>
+          <box id="boxArrowColor" boxStyle="horizontal">
+            <dropDown id="ddArrowColor"
+                      label="Arrow color"
+                      sizeString="Crimson"
+                      getItemCount="RibbonArrowColorCount"
+                      getItemLabel="RibbonArrowColorLabel"
+                      getItemImage="RibbonArrowColorImage"
+                      getSelectedItemIndex="RibbonArrowColorSelected"
+                      onAction="RibbonArrowColorChanged"
+                      screentip="Color for the margin arrows"
+                      supertip="The syntax colors, darkened until they read on a white slide - the palette itself is chosen against the block background and looks faded on one. Arrows are uniform by design, so this repaints every arrow in the presentation, not only the ones in front of you."/>
+            <button id="btnArrowColorNow"
+                    showLabel="false"
+                    getImage="RibbonArrowColorFace"
+                    onAction="RibbonArrowColorApply"
+                    screentip="The color arrows are set to"
+                    supertip="Shows the color in use. Press it to repaint every arrow in the presentation with it, which is worth doing after recoloring one by hand."/>
+          </box>
+          <dropDown id="ddLang"
+                    label="Language"
+                    sizeString="Python XXXX"
+                    getItemCount="RibbonLangCount"
+                    getItemLabel="RibbonLangLabel"
+                    getSelectedItemIndex="RibbonLangSelected"
+                    onAction="RibbonLangChanged"
+                    screentip="Language for the selected block"
+                    supertip="Sets which lexer the Stylize button uses. Stored on the shape, so each block remembers its own language."/>
         </group>
 
       </tab>

@@ -39,12 +39,29 @@ Option Explicit
 ' One flag on the block. Everything else is read from the text.
 Public Const TAG_TRANSCRIPT As String = "CODEBLOCK_TRANSCRIPT"
 
+' Whether this transcript has been given its prompts yet.
+'
+' A ONE-SHOT, and it has to be, for a reason worth spelling out. A block made as
+' a transcript starts empty: you type the session into it, and those lines have
+' no prompts, so something must put them there. But "a transcript with no
+' prompts gets prompted" cannot be a standing rule - mark every line as Output
+' and the next Stylize would put them all back, which is a loop you cannot get
+' out of, and an all-output block is a real thing to want (a traceback).
+'
+' So it fires once, when a transcript first has text to prompt, and after that
+' the text is the record and a newly typed line stays bare until you say
+' otherwise.
+Public Const TAG_PROMPTED As String = "CODEBLOCK_PROMPTED"
+
 Public Function IsTranscript(ByVal shp As Shape) As Boolean
     IsTranscript = (shp.Tags(TAG_TRANSCRIPT) = "1")
 End Function
 
 Public Sub SetTranscript(ByVal shp As Shape, ByVal on_ As Boolean)
     shp.Tags.Add TAG_TRANSCRIPT, IIf(on_, "1", "")
+    ' Turning it off forgets that it was ever prompted, so turning it back on
+    ' prompts again rather than leaving a bare block looking like all output.
+    If Not on_ Then shp.Tags.Add TAG_PROMPTED, ""
 End Sub
 
 '------------------------------------------------------------------------------
@@ -74,6 +91,15 @@ Public Function SyncPrompts(ByVal shp As Shape, ByVal langId As String) As Boole
     n = UBound(lines) - LBound(lines) + 1
     If n < 1 Then Exit Function
 
+    ' First text a transcript has ever had: prompt all of it. See TAG_PROMPTED.
+    If IsTranscript(shp) And shp.Tags(TAG_PROMPTED) <> "1" Then
+        If AnyContent(lines) Then
+            shp.Tags.Add TAG_PROMPTED, "1"
+            SyncPrompts = SetAllPrompts(shp, langId, True)
+            Exit Function
+        End If
+    End If
+
     ReDim prompted(1 To n)
     For i = LBound(lines) To UBound(lines)
         prompted(i - LBound(lines) + 1) = _
@@ -96,8 +122,24 @@ Public Function SyncPrompts(ByVal shp As Shape, ByVal langId As String) As Boole
     SyncPrompts = changed
 End Function
 
+Private Function AnyContent(ByRef lines() As String) As Boolean
+    Dim i As Long
+    For i = LBound(lines) To UBound(lines)
+        If Len(Trim$(lines(i))) > 0 Then
+            AnyContent = True
+            Exit Function
+        End If
+    Next i
+End Function
+
 ' Puts a prompt on every non-blank line, or takes them all off. This is the one
 ' moment the marking is CREATED - after it, the text is the record.
+'
+' It owns TAG_PROMPTED, and every caller therefore agrees about it. Leaving that
+' to the callers meant a block turned into a transcript by pressing Output was
+' prompted here, had the one line's prompt taken off, and was then prompted all
+' over again by the one-shot rule on the very next Stylize - which undid the
+' thing the press was for.
 Public Function SetAllPrompts(ByVal shp As Shape, ByVal langId As String, _
                               ByVal on_ As Boolean) As Boolean
     Dim lang As LangDef, lines() As String, i As Long
@@ -122,6 +164,7 @@ Public Function SetAllPrompts(ByVal shp As Shape, ByVal langId As String, _
 
     changed = (out <> shp.TextFrame.TextRange.text)
     If changed Then shp.TextFrame.TextRange.text = out
+    shp.Tags.Add TAG_PROMPTED, IIf(on_, "1", "")
     SetAllPrompts = changed
 End Function
 

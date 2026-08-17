@@ -44,7 +44,10 @@ End Sub
 ' Commands. These are the real work, and they are callable from a script.
 '------------------------------------------------------------------------------
 
-Public Sub DoNewBlock()
+' asTranscript makes the new block a session at an interpreter rather than a
+' listing. The prompts arrive on the first Stylize after there is something to
+' prompt - see modOutput.TAG_PROMPTED - because the block starts empty.
+Public Sub DoNewBlock(Optional ByVal asTranscript As Boolean = False)
     Dim sld As Slide, shp As Shape, lang As LangDef
 
     Set sld = ActiveSlide()
@@ -55,6 +58,7 @@ Public Sub DoNewBlock()
 
     lang = modLangRegistry.LangAt(mLangIndex)
     Set shp = modBlock.CreateBlock(sld, PlaceholderFor(lang), modSpec.BASE_SIZE, lang.id)
+    If asTranscript Then modOutput.SetTranscript shp, True
     modRender.ApplyHighlight shp, lang.id
 
     ' Select the placeholder TEXT, not just the shape, so the first keystroke
@@ -1206,6 +1210,14 @@ End Sub
 
 Public Sub RibbonNewBlock(control As IRibbonControl)
     DoNewBlock
+End Sub
+
+Public Sub RibbonNewCodeBlock(control As IRibbonControl)
+    DoNewBlock False
+End Sub
+
+Public Sub RibbonNewTranscript(control As IRibbonControl)
+    DoNewBlock True
 End Sub
 
 Public Sub RibbonStylize(control As IRibbonControl)
