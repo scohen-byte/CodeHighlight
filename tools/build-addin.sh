@@ -27,12 +27,27 @@ die() { printf 'build-addin: %s\n' "$*" >&2; exit 1; }
 INSTALL=0
 [[ "${1:-}" == "--install" ]] && INSTALL=1
 
-# pgrep cannot see Windows processes from WSL, so ask Windows. Exit 1 means
-# PowerPoint is running.
-powershell.exe -NoProfile -Command \
-    'if (Get-Process POWERPNT -ErrorAction SilentlyContinue) { exit 1 } else { exit 0 }' \
-    >/dev/null 2>&1 \
-    || die "PowerPoint is running. Close it first - it holds the add-in open."
+# pgrep cannot see Windows processes from WSL, so ask Windows.
+#
+# It REPORTS what it found rather than just refusing. Most of the time the thing
+# holding the add-in open is not PowerPoint at all but an orphan left by a test
+# run that did not shut down cleanly - it has no window, so there is nothing on
+# screen to close, and "close PowerPoint first" sends you looking for something
+# that is not there. A process with no window title is one of those.
+HOLDING=$(powershell.exe -NoProfile -Command '
+    $p = Get-Process POWERPNT -ErrorAction SilentlyContinue
+    if (-not $p) { exit 0 }
+    $p | ForEach-Object {
+        $t = $_.MainWindowTitle
+        if (-not $t) { $t = "(no window - orphan from a test run)" }
+        "  PID {0,-8} {1}  started {2:HH:mm:ss}" -f $_.Id, $t, $_.StartTime
+    }
+    exit 1' 2>/dev/null) || {
+    printf 'build-addin: PowerPoint is holding the add-in open:\n%s\n' "$HOLDING" >&2
+    printf '\nClose any real window, then for anything left:\n' >&2
+    printf '  powershell.exe -NoProfile -Command "Stop-Process -Name POWERPNT -Force"\n' >&2
+    exit 1
+}
 
 rm -rf "$STAGE"
 mkdir -p "$STAGE/src"
