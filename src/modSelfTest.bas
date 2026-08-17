@@ -2166,6 +2166,19 @@ Public Function ArrowTest(ByVal srcPath As String, ByVal pngPath As String) As S
     modRibbon.DoArrow
     r = r & "toggled_off=" & Abs(CLng(modArrow.ArrowCount(shp) = 0)) & vbLf
 
+    ' A HAND-PLACED ARROW MUST NOT BOLD ITS LINE. An arrow points at code that
+    ' stays exactly as it reads; only a walkthrough, which says outright which
+    ' line its slide is about, gets the bold.
+    modBlock.LineCharRange shp.TextFrame.TextRange.text, 3, a, b
+    shp.TextFrame.TextRange.Characters(a, 1).Select
+    modRibbon.DoArrow
+    shp.Select
+    modRibbon.DoStylize
+    modBlock.LineCharRange shp.TextFrame.TextRange.text, 3, a, b
+    r = r & "hand_arrow_not_bold=" & _
+            Abs(CLng(shp.TextFrame.TextRange.Characters(a, 1).Font.Bold <> msoTrue)) & vbLf
+    r = r & "no_focus_tag=" & Abs(CLng(modBlock.GetFocusLine(shp) = 0)) & vbLf
+
     ' A walkthrough that points instead of fading.
     shp.Select
     modRibbon.DoStepThrough False, True

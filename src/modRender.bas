@@ -144,22 +144,22 @@ NextLine:
     Next i
 End Sub
 
-' Bolds whatever line the slide is singling out - the newest emphasised one, or
-' failing that the one an arrow points at.
+' Bolds the line the slide is about: the newest emphasised one, or the one a
+' walkthrough recorded when it built the slide.
 '
-' Always, rather than behind an option. The band is a background change and the
-' arrow sits outside the block; bold changes the letters themselves, which is
-' the strongest signal available without moving anything, and a slide that has
-' gone to the trouble of picking out one line wants all three.
+' NOT the line an arrow points at. That was the first version and it bolded a
+' line whenever an arrow was placed by hand, which is not what an arrow is for -
+' an arrow points at code that stays exactly as it reads. A generated slide says
+' outright which line it is about, so nothing has to be inferred.
 '
-' The NEWEST line, not all of them: Build up emphasises everything so far, and
-' bolding the lot would say nothing about where it has got to.
+' The NEWEST emphasised line, not all of them: Build up emphasises everything so
+' far, and bolding the lot would say nothing about where it has got to.
 Private Sub BoldFocusLine(ByVal shp As Shape, ByVal tr As TextRange, _
                           ByVal emph As String)
     Dim ln As Long, startIdx As Long, length As Long
 
     ln = modBlock.LastEmphasisedLine(emph)
-    If ln < 1 Then ln = modArrow.LastArrowLine(shp)
+    If ln < 1 Then ln = modBlock.GetFocusLine(shp)
     If ln < 1 Then Exit Sub
 
     modBlock.LineCharRange tr.text, ln, startIdx, length

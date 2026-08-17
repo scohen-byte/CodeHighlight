@@ -326,6 +326,7 @@ Public Sub DoStrip()
     modGuides.SetGuidesEnabled shp, False
     modGuides.DrawGuides shp
     modBlock.SetEmphasis shp, ""
+    modBlock.SetFocusLine shp, 0
 
     shp.TextFrame.TextRange.Font.Color.RGB = ThemeColor(tkDefault)
     modRender.ClearBands shp
@@ -991,6 +992,7 @@ Public Sub DoStepThrough(ByVal cumulative As Boolean, _
 
     ' The starting slide shows the code with nothing picked out.
     modBlock.SetEmphasis shp, ""
+    modBlock.SetFocusLine shp, 0
     StyleBlock shp
 
     base = sld.SlideIndex
@@ -1021,6 +1023,10 @@ Public Sub DoStepThrough(ByVal cumulative As Boolean, _
             ' earlier walkthrough that was undone, is inherited by every
             ' duplicate otherwise.
             modArrow.ClearArrows target
+            ' The slide records which line it is about, so the renderer can
+            ' bold it without guessing from the arrow - which would bold a
+            ' hand-placed one too.
+            modBlock.SetFocusLine target, steps(k)
             If useArrow Then
                 modBlock.SetEmphasis target, ""
                 modArrow.AddArrow target, steps(k)
@@ -1049,10 +1055,11 @@ Public Sub DoStepThrough(ByVal cumulative As Boolean, _
         Set target = BlockOnSlide(dup, shp.Tags(modBlock.TAG_ID))
         If Not target Is Nothing Then
             modBlock.SetEmphasis target, ""
-            ' Arrows too. This slide's whole job is to hand the code back
-            ' whole, with nothing singled out - and it is a duplicate of the
-            ' source, so it inherits whatever the source is carrying.
+            ' Arrows and the focus line too. This slide's whole job is to hand
+            ' the code back whole, with nothing singled out - and it is a
+            ' duplicate of the source, so it inherits what the source carries.
             modArrow.ClearArrows target
+            modBlock.SetFocusLine target, 0
             StyleBlock target
         End If
     End If

@@ -29,6 +29,15 @@ Public Const TAG_BAND_OF As String = "CODEBLOCK_BAND_OF"
 ' the cover shapes themselves.
 Public Const TAG_HIDDEN As String = "CODEBLOCK_HIDDEN"
 Public Const TAG_COVER_OF As String = "CODEBLOCK_COVER_OF"
+' The line a generated walkthrough slide is ABOUT, so the renderer can bold it.
+'
+' Set by the walkthrough and by nothing else. It used to be inferred - bold
+' whatever line was emphasised, or failing that whatever line an arrow pointed
+' at - and that quietly bolded a line whenever an arrow was placed by hand,
+' which is not what an arrow is for. A slide cannot be asked what built it, so
+' the thing that built it says so.
+Public Const TAG_FOCUS As String = "CODEBLOCK_FOCUS"
+
 ' Notes live in modNote, which owns their tags. Listed here only because
 ' GroupParts has to know about every kind of part a block can have.
 
@@ -181,6 +190,18 @@ End Sub
 ' the same. Build up emphasises everything so far, and there the last line is
 ' the one the slide has just reached - the earlier ones are already explained.
 ' Both the bold rendering and the walkthrough notes want that line.
+Public Function GetFocusLine(ByVal shp As Shape) As Long
+    GetFocusLine = CLng(Val(shp.Tags(TAG_FOCUS)))
+End Function
+
+Public Sub SetFocusLine(ByVal shp As Shape, ByVal lineNo As Long)
+    If lineNo < 1 Then
+        shp.Tags.Add TAG_FOCUS, ""
+    Else
+        shp.Tags.Add TAG_FOCUS, CStr(lineNo)
+    End If
+End Sub
+
 Public Function LastEmphasisedLine(ByVal spec As String) As Long
     Dim parts() As String, i As Long, v As Long
 
