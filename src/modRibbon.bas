@@ -141,7 +141,7 @@ Public Sub StyleBlock(ByVal shp As Shape, Optional ByVal langId As String = "")
     ' exactly like the user having dragged every output note, and they pile up.
     ' The wrap decision only needs the room beside the BLOCK, which is known
     ' without placing anything.
-    modNote.SyncOutputNotes shp
+    modNote.FitNotes shp
     modNote.PlaceNotes shp
     modArrow.PlaceArrows shp
     ' Back into a group, so the block and its parts drag as one.

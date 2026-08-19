@@ -194,9 +194,6 @@ Public Function AddNote(ByVal shp As Shape, ByVal lineNo As Long) As Shape
     End With
 
     With r.TextFrame
-        ' Wrap ON, unlike the code block: a note is prose, and its width is
-        ' fixed so that it fits beside the block. Autofit then grows the height.
-        .WordWrap = msoTrue
         ' TOP, not middle. With autofit on, a middle-anchored frame grows in
         ' BOTH directions, so adding a line moves the shape's Top up by half a
         ' line - and CaptureDrags, which reads a changed Top as a drag, records
@@ -218,17 +215,78 @@ Public Function AddNote(ByVal shp As Shape, ByVal lineNo As Long) As Shape
             .Font.Color.RGB = ThemeTextOn(fill)
             .ParagraphFormat.Alignment = ppAlignLeft
         End With
-        ' Autofit last, so the first height is measured from the real text and
-        ' the real margins rather than from the placeholder box.
-        .AutoSize = ppAutoSizeShapeToFitText
     End With
 
-    r.Width = w
+    ' Hugs its text from the start, and goes on hugging it - see FitNote.
+    FitNote r, w
     r.Adjustments(1) = modSpec.SpecCornerAdjust(nSize, ShorterSide(r))
     ApplyEdge r, fill
 
     Set AddNote = r
 End Function
+
+' Sizes a note to its own text: as wide as the words need, no wider.
+'
+' MEASURED BY POWERPOINT, not computed. A note is set in the deck's body font,
+' which is proportional, so there is no character width to multiply by - the
+' Consolas advance the rest of this add-in uses would be wrong for it. Turning
+' wrap off with autofit on makes PowerPoint size the shape to the text in both
+' directions, and the width it lands on is the answer.
+'
+' Only then is it worth asking whether it fits. If it does not, wrap goes back
+' on and the width is capped, and autofit grows the height instead.
+'
+' The cost is that a note widened by hand snaps back on the next Stylize. That
+' is the bargain: notes that hug their text cannot also keep a width you set,
+' and short notes sitting in a box twice their size was the complaint.
+Public Sub FitNote(ByVal note As Shape, ByVal availableW As Single)
+    On Error Resume Next
+
+    ' Wrap off plus autofit makes PowerPoint report the text's natural width.
+    With note.TextFrame
+        .WordWrap = msoFalse
+        .AutoSize = ppAutoSizeShapeToFitText
+    End With
+    If note.Width <= availableW Then Exit Sub
+
+    ' Too wide, so it has to fold. AUTOFIT OFF FIRST. Assigning Width while
+    ' autofit is on is simply discarded - PowerPoint recomputes the width from
+    ' the text and puts 924pt back - and the note stays one long line running
+    ' off the slide. Off, set the width, then on again to grow the height.
+    With note.TextFrame
+        .AutoSize = ppAutoSizeNone
+        .WordWrap = msoTrue
+    End With
+    note.Width = availableW
+    note.TextFrame.AutoSize = ppAutoSizeShapeToFitText
+End Sub
+
+' Re-fits every note on a block, output notes included.
+'
+' BEFORE PlaceNotes, never after. Fitting changes a note's width and height, and
+' PlaceNotes records where it put each note so the next pass can tell a drag
+' from a stack - so resizing afterwards looks exactly like the user having
+' dragged them, and they pile up. That bug has been made once already.
+Public Sub FitNotes(ByVal shp As Shape)
+    Dim arr() As Shape, n As Long, i As Long, avail As Single, size As Single
+
+    On Error GoTo Done
+    n = NoteArray(shp, arr)
+    If n = 0 Then Exit Sub
+    avail = AvailableWidth(shp)
+    size = modBlock.BlockFontSize(shp)
+
+    For i = 1 To n
+        If IsOutputNote(arr(i)) Then
+            StyleOutputNote arr(i), size, avail
+        Else
+            FitNote arr(i), avail
+            arr(i).Adjustments(1) = modSpec.SpecCornerAdjust( _
+                arr(i).TextFrame.TextRange.Font.size, ShorterSide(arr(i)))
+        End If
+    Next i
+Done:
+End Sub
 
 ' A light note on a light slide has no edge of its own and reads as words
 ' floating in space. A dark one does not need the help and looks busier for it.
@@ -572,8 +630,6 @@ Public Sub ApplyFontSize(ByVal notes As Collection, ByVal pts As Single)
         ' on every Stylize - so letting this change it would look like the
         ' change had been rejected.
         If Not IsOutputNote(notes(i)) Then
-            ' Autofit reflows the height for the new size; the width is ours.
-            w = notes(i).Width
             With notes(i).TextFrame
                 .MarginLeft = pad
                 .MarginRight = pad
@@ -581,7 +637,8 @@ Public Sub ApplyFontSize(ByVal notes As Collection, ByVal pts As Single)
                 .MarginBottom = Round(pad * 0.6, 1)
                 .TextRange.Font.size = pts
             End With
-            notes(i).Width = w
+            ' The width is NOT put back. It belongs to the text now, and the
+            ' next Stylize measures it afresh.
             notes(i).Adjustments(1) = modSpec.SpecCornerAdjust(pts, ShorterSide(notes(i)))
         End If
     Next i
@@ -704,20 +761,6 @@ Private Function AvailableWidth(ByVal shp As Shape) As Single
     If w < W_MIN Then w = modSpec.SLIDE_W - 2 * MARGIN_PT
     AvailableWidth = w
 End Function
-
-' Every output note on a block, redressed. Runs inside the pipeline.
-Public Sub SyncOutputNotes(ByVal shp As Shape)
-    Dim arr() As Shape, n As Long, i As Long, size As Single, avail As Single
-    On Error GoTo Done
-    n = NoteArray(shp, arr)
-    If n = 0 Then Exit Sub
-    size = modBlock.BlockFontSize(shp)
-    avail = AvailableWidth(shp)
-    For i = 1 To n
-        If IsOutputNote(arr(i)) Then StyleOutputNote arr(i), size, avail
-    Next i
-Done:
-End Sub
 
 Public Function IsNote(ByVal shp As Shape) As Boolean
     On Error Resume Next

@@ -877,6 +877,39 @@ Public Function NoteTest(ByVal srcPath As String, ByVal pngPath As String) As St
              (n1.Left + n1.Width <= shp.Left)
     r = r & "side=" & IIf(beside, "beside", "below") & vbLf
 
+    ' A note is as wide as its words and no wider. Short text used to leave a
+    ' fixed-width box with empty space in it, which had to be dragged narrower
+    ' by hand. Text too long for the room beside the block wraps instead, and
+    ' the box grows downward.
+    '
+    ' Measured against ITSELF at two lengths rather than against a number. The
+    ' width a proportional font lands on is PowerPoint's business, and asserting
+    ' a figure here would only record whatever it happened to do once.
+    Dim shortW As Single, shortH As Single, longW As Single, longH As Single
+    n1.TextFrame.TextRange.text = "ok"
+    shp.Select
+    modRibbon.DoStylize
+    Set n1 = modNote.FindNote(shp, 1)
+    shortW = n1.Width: shortH = n1.Height
+
+    n1.TextFrame.TextRange.text = _
+        "the quick brown fox jumps over the lazy dog " & _
+        "and then the lazy dog got up and jumped straight back over the fox"
+    shp.Select
+    modRibbon.DoStylize
+    Set n1 = modNote.FindNote(shp, 1)
+    longW = n1.Width: longH = n1.Height
+
+    r = r & "short_note_narrow=" & Abs(CLng(shortW < longW - 20)) & vbLf
+    r = r & "long_note_wrapped=" & Abs(CLng(longH > shortH + 5)) & vbLf
+
+    ' Back to something short, so the placement checks further down are not
+    ' measuring a note tall enough to be pushed off the slide.
+    n1.TextFrame.TextRange.text = "ok"
+    shp.Select
+    modRibbon.DoStylize
+    Set n1 = modNote.FindNote(shp, 1)
+
     sld.Export pngPath, "PNG", 1920, 1080
 
     ' The leader must be a real connector, attached at both ends, and it must

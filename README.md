@@ -280,6 +280,11 @@ for one that should be the loudest thing on the slide. The text colour is
 whichever of light or dark reads better on the fill, so amber gets dark words and
 crimson gets white ones.
 
+A note is only as wide as its words. Type a short one and the box shrinks to
+fit it, so there is nothing to drag narrower by hand. Type past the room beside
+the block and it wraps and grows downward instead. That is measured on every
+Stylize, which means a width you set yourself does not survive one.
+
 Size is 24pt to begin with; **Auto** sizes each note from its block instead.
 **Default font** inherits your presentation's own body font, which is the default
 and usually right — it cannot be applied *back* to a note that already has a
