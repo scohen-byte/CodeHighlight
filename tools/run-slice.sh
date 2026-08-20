@@ -20,8 +20,9 @@ REPO="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 LANG_ID="${LANG_ID:-python}"
 NAME="${1:-lab_snippet}"
 
-WIN_STAGE='C:\Users\User\ppt-lab\slice'
-STAGE="/mnt/c/Users/User/ppt-lab/slice"
+source "$REPO/tools/win-lab.sh"
+WIN_STAGE="$WIN_LAB\\slice"
+STAGE="$LAB/slice"
 
 SAMPLES="$REPO/tests/samples/$LANG_ID"
 OUT="$REPO/dist/slice"

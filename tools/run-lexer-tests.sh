@@ -17,8 +17,9 @@ set -uo pipefail
 REPO="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 LANG_ID="${LANG_ID:-python}"
 
-WIN_STAGE='C:\Users\User\ppt-lab\lexer'
-STAGE="/mnt/c/Users/User/ppt-lab/lexer"
+source "$REPO/tools/win-lab.sh"
+WIN_STAGE="$WIN_LAB\\lexer"
+STAGE="$LAB/lexer"
 
 SAMPLES="$REPO/tests/samples/$LANG_ID"
 EXPECTED="$REPO/dist/lexer/expected"

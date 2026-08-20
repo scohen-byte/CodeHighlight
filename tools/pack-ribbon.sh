@@ -5,7 +5,11 @@
 # A .ppam is an ordinary zip. PowerPoint's UI offers no way to add a ribbon tab
 # to one, so the customUI part and its relationship are written in by hand here.
 #
-#   tools/pack-ribbon.sh /mnt/c/Users/User/AppData/Roaming/Microsoft/Addins/CodeHighlight.ppam
+#   tools/pack-ribbon.sh dist/CodeHighlight.ppam
+#
+# tools/build-addin.sh calls this as its last step, so a normal build needs no
+# separate run. By hand is for re-injecting the ribbon into an add-in you
+# already have - the installed one lives in $ADDINS, from tools/win-lab.sh.
 #
 # Safe to re-run: any previous ribbon part and relationship are replaced, not
 # duplicated. The previous file is kept alongside as <name>.ppam.bak.

@@ -15,8 +15,9 @@ LANG_ID="${LANG_ID:-python}"
 PROC="${1:?usage: run-feature.sh <SelfTestFunction> [sample]}"
 NAME="${2:-lab_snippet}"
 
-WIN_STAGE='C:\Users\User\ppt-lab\feature'
-STAGE="/mnt/c/Users/User/ppt-lab/feature"
+source "$REPO/tools/win-lab.sh"
+WIN_STAGE="$WIN_LAB\\feature"
+STAGE="$LAB/feature"
 
 SAMPLES="$REPO/tests/samples/$LANG_ID"
 OUT="$REPO/dist/slice"

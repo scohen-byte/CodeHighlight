@@ -26,8 +26,9 @@ $MODULES = @('modTheme', 'modSpec', 'modLangRegistry', 'modLangPython',
              'modLexer', 'modBlock', 'modRender', 'modGutter', 'modGuides',
              'modOptions', 'modSwatch', 'modOutput', 'modNote', 'modArrow', 'modRibbon', 'modSelfTest')
 
-$Scratch = "C:\Users\User\ppt-lab\feature-" +
+$Scratch = (Join-Path $env:USERPROFILE "ppt-lab\feature-") +
            [guid]::NewGuid().ToString('N').Substring(0, 8) + '.pptm'
+New-Item -ItemType Directory -Path (Split-Path $Scratch -Parent) -Force | Out-Null
 $ppSaveAsOpenXMLPresentationMacroEnabled = 25
 
 New-Item -ItemType Directory -Path (Split-Path $Png -Parent) -Force | Out-Null

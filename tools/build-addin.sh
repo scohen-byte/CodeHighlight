@@ -17,10 +17,12 @@ set -uo pipefail
 REPO="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 NAME="CodeHighlight.ppam"
 
-WIN_SRC='C:\Users\User\ppt-lab\build\src'
-WIN_OUT='C:\Users\User\ppt-lab\build\CodeHighlight.pptm'
-STAGE="/mnt/c/Users/User/ppt-lab/build"
-INSTALL_DIR="/mnt/c/Users/User/AppData/Roaming/Microsoft/Addins"
+source "$REPO/tools/win-lab.sh"
+
+WIN_SRC="$WIN_LAB\\build\\src"
+WIN_OUT="$WIN_LAB\\build\\CodeHighlight.pptm"
+STAGE="$LAB/build"
+INSTALL_DIR="$ADDINS"
 
 die() { printf 'build-addin: %s\n' "$*" >&2; exit 1; }
 

@@ -68,6 +68,23 @@ if ($null -eq $warn) {
     if ($src -like '*Policies*') { Write-Output "  (set by IT policy - you cannot change this yourself)" }
 }
 
+# --- VBA project access --------------------------------------------------
+# Only the BUILD needs this, never the install: tools/build-addin.ps1 imports
+# the modules over COM, and that goes through the VBA project object model.
+# Off is the Office default and is reported as such, not as a failure - someone
+# who was handed a .ppam is fine without it.
+Write-Output ""
+Write-Output "=== VBA project access (build machines only) ==="
+$vbom = (Get-ItemProperty -Path "HKCU:\Software\Microsoft\Office\$ver\PowerPoint\Security" `
+                          -Name AccessVBOM -EA SilentlyContinue).AccessVBOM
+if ($vbom -eq 1) {
+    Write-Output "AccessVBOM = 1 : trusted - tools/build-addin.sh can build the add-in."
+} else {
+    Write-Output "AccessVBOM = $(if ($null -eq $vbom) { 'not set' } else { $vbom }) : blocked - installing works, BUILDING does not."
+    Write-Output "  To build: File > Options > Trust Center > Trust Center Settings >"
+    Write-Output "            Macro Settings > Trust access to the VBA project object model"
+}
+
 # --- trusted locations ---------------------------------------------------
 Write-Output ""
 Write-Output "=== Trusted Locations (PowerPoint) ==="

@@ -1,7 +1,7 @@
 # PowerPoint COM helpers, invoked from WSL via powershell.exe.
 #
 #   powershell.exe -NoProfile -File "$(wslpath -w tools/ppt.ps1)" -Action export `
-#       -Path C:\Users\User\ppt-lab\lab.pptx -Out C:\Users\User\ppt-lab\png
+#       -Path $env:USERPROFILE\ppt-lab\lab.pptx -Out $env:USERPROFILE\ppt-lab\png
 #
 param(
     [Parameter(Mandatory = $true)][ValidateSet('export', 'runmacro')] [string]$Action,

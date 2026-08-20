@@ -30,6 +30,10 @@ before installing.
 
 ## 2. Install
 
+You need the file itself first. Either someone sends you
+**`CodeHighlight.ppam`**, or you build it from this repository — that is
+**section 5**, and it is a one-line build.
+
 1. Copy **`CodeHighlight.ppam`** into:
 
    ```
@@ -97,6 +101,39 @@ once on first load, which also survives later updates to the file.
 If add-ins are blocked outright, your decks still open and edit perfectly on
 that machine. Only re-styling is lost. That is a deliberate design goal,
 not a workaround.
+
+## 5. Building it from source
+
+Only for changing the add-in. To *use* it you need nothing in this section —
+the built file is self-contained, and section 2 is the whole install.
+
+You need **WSL** alongside PowerPoint, since the build drives PowerPoint over
+COM from a shell script. From the repository root:
+
+```
+tools/build-addin.sh              # builds dist/CodeHighlight.ppam
+tools/build-addin.sh --install    # builds, then replaces the installed copy
+```
+
+Three things have to be true, and the script says which one is missing rather
+than failing obscurely:
+
+- **PowerPoint must be closed.** It holds the add-in open while loaded, and a
+  rebuild behind its back is silently discarded. The script names the process
+  it found, including a windowless orphan left by a test run — that one is easy
+  to miss, because there is nothing on screen to close.
+- **VBA project access must be trusted:** File → Options → Trust Center →
+  Trust Center Settings → Macro Settings → **Trust access to the VBA project
+  object model**. The build imports the modules through that object model, so
+  without it there is nothing to import into. `tools/check-env.ps1` reports this
+  along with everything else.
+- **A Windows profile reachable from WSL.** The build stages files under
+  `%USERPROFILE%\ppt-lab`, which it derives per machine — nothing here assumes
+  a particular user name.
+
+`--install` keeps the previous add-in beside the new one as
+`CodeHighlight.ppam.prev`, so a bad build is one rename away from undone. The
+build itself never touches the installed copy.
 
 ---
 

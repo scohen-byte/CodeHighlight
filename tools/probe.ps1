@@ -16,7 +16,8 @@ $ErrorActionPreference = 'Stop'
 # run reused one file, and any run that died badly left it locked so that every
 # later run failed on a file it could not delete. The comment claimed a unique
 # name per run and the parameter quietly took it away.
-if (-not $Scratch) { $Scratch = "C:\Users\User\ppt-lab\probe-run-" + [guid]::NewGuid().ToString('N').Substring(0,8) + '.pptm' }
+if (-not $Scratch) { $Scratch = (Join-Path $env:USERPROFILE "ppt-lab\probe-run-") + [guid]::NewGuid().ToString('N').Substring(0,8) + '.pptm' }
+New-Item -ItemType Directory -Path (Split-Path $Scratch -Parent) -Force | Out-Null
 $MODULES = @('modTheme','modSpec','modLangRegistry','modLangPython',
              'modLexer','modBlock','modRender','modGutter','modGuides',
              'modOptions','modSwatch','modOutput','modNote','modArrow','modRibbon','modSelfTest')
