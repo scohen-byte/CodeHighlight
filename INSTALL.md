@@ -30,9 +30,13 @@ before installing.
 
 ## 2. Install
 
-You need the file itself first. Either someone sends you
-**`CodeHighlight.ppam`**, or you build it from this repository — that is
-**section 5**, and it is a one-line build.
+You need the file itself first. **Download it here:**
+
+<https://github.com/scohen-byte/CodeHighlight/releases/latest/download/CodeHighlight.ppam>
+
+That link always points at the current release, so it stays good. No GitHub
+account is needed. (You can also build it yourself — that is **section 5** —
+but nobody installing it has any reason to.)
 
 1. Copy **`CodeHighlight.ppam`** into:
 
@@ -44,10 +48,11 @@ You need the file itself first. Either someone sends you
    is a Trusted Location on a stock Office install, which is why installing here
    avoids the macro-security prompt entirely.
 
-2. If the file arrived by email, chat or download: **right-click it →
-   Properties → tick Unblock → OK.** A Trusted Location does bypass the
-   mark-of-the-web block, but unblocking costs one click and removes a whole
-   class of confusion.
+2. **Right-click the file → Properties → tick Unblock → OK.** Windows marks
+   everything that came from the web, and this clears that mark. A Trusted
+   Location does bypass the block on its own, but unblocking costs one click
+   and removes a whole class of confusion. Skip it only if you built the file
+   yourself, in which case there is no mark to clear.
 
 3. In PowerPoint: **File → Options → Add-ins**. At the bottom, set
    **Manage: PowerPoint Add-ins** and click **Go**. Then **Add New…**, pick the
