@@ -6,7 +6,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "python3 \"${CLAUDE_PROJECT_DIR:-.}/.claude/guard-rm.py\"",
+            "command": "python3 \"/home/sara/projects/work/coding/CodeHighlight/CodeHighlight/.claude/guard-rm.py\"",
             "timeout": 10,
             "statusMessage": "Checking for unsafe deletes"
           }
