@@ -196,6 +196,12 @@ Private Sub AddGuideLine(ByVal sld As Slide, ByVal blockId As String, _
     With ln.Line
         .ForeColor.RGB = RGB(GUIDE_R, GUIDE_G, GUIDE_B)
         .Weight = GUIDE_WEIGHT
+        ' Stated, not assumed. AddLine takes the deck's default line style, and
+        ' in a deck whose default carries an arrowhead every guide grew one -
+        ' arrows pointing down the indentation, which is nobody's intention.
+        ' A guide is a rule, so both ends are always bare.
+        .BeginArrowheadStyle = msoArrowheadNone
+        .EndArrowheadStyle = msoArrowheadNone
     End With
     ln.Tags.Add TAG_GUIDE_OF, blockId
     ' In front of the block's fill. Repeated grouping and ungrouping reorders

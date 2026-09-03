@@ -397,7 +397,12 @@ End Function
 ' Drives the size ladder through the real commands, including both guards from
 ' PLAN.md section 5a: Larger capped at the fitting size, and Fit warning rather
 ' than silently shrinking below the teaching floor.
-Public Function SizeTest(ByVal srcPath As String) As String
+' pngPath is accepted and ignored: tools/feature-test.ps1 calls every self-test
+' with (sample, png), and without it this one could not be run from the harness
+' at all - it failed with "Sub or function not defined", which reads like a
+' missing function rather than an arity mismatch.
+Public Function SizeTest(ByVal srcPath As String, _
+                         Optional ByVal pngPath As String = "") As String
     Dim pres As Presentation, sld As Slide, shp As Shape
     Dim r As String, code As String, i As Long, before As Single
 
@@ -421,15 +426,30 @@ Public Function SizeTest(ByVal srcPath As String) As String
     modRibbon.DoSizeDown
     r = r & "after_smaller=" & Format$(modBlock.BlockFontSize(shp), "0") & vbLf
 
-    ' Larger repeatedly, until the cap stops it. Ten steps is more rungs than
-    ' the ladder has, so this must terminate at the fitting size.
+    ' Larger repeatedly. It NO LONGER stops at the size that fits: overflowing
+    ' the content area is the author's business, since the title band and the
+    ' footer strip it keeps clear are theirs to spend. Ten steps is more rungs
+    ' than the ladder has, so this lands on the top rung and stays there.
     For i = 1 To 10
         modRibbon.DoSizeUp
     Next i
     r = r & "after_10x_larger=" & Format$(modBlock.BlockFontSize(shp), "0") & vbLf
+    r = r & "top_rung=" & Format$(modSpec.LadderAt(modSpec.LadderCount() - 1), "0") & vbLf
+    ' Nothing may be said about it: growing past the slide is now allowed, and
+    ' allowed silently. A warning here would mean the cap came back.
     r = r & "cap_warned=" & Quoted(modRibbon.LastWarning()) & vbLf
+    ' Recorded, not asserted. Whether it still fits depends on the sample, and
+    ' at the top rung a long one is EXPECTED not to - that is the point.
     r = r & "fits_width=" & Abs(CLng(shp.Width <= modSpec.CONTENT_W + 0.5)) & _
             " fits_height=" & Abs(CLng(shp.Height <= modSpec.CONTENT_H + 0.5)) & vbLf
+
+    ' The typed box, the other way a size is set, and the other place the cap
+    ' used to bite. 40pt is off-ladder and far past what this sample fits at,
+    ' so it exercises both halves at once. The control argument is unused by
+    ' the callback, so Nothing is a fair stand-in for a real ribbon control.
+    modRibbon.RibbonSizeChanged Nothing, "40"
+    r = r & "after_typed_40=" & Format$(modBlock.BlockFontSize(shp), "0") & vbLf
+    r = r & "typed_warned=" & Quoted(modRibbon.LastWarning()) & vbLf
 
     ' Fit from a deliberately silly size.
     modBlock.ApplySize shp, 10
@@ -3088,6 +3108,90 @@ Private Function ReadTextFile(ByVal path As String) As String
     buf = Replace(buf, vbCr, vbLf)
     ReadTextFile = buf
 End Function
+
+' Guides and leaders must not inherit the deck's default arrowheads.
+'
+' Reported from a real deck: every indentation guide had an arrow on it. A line
+' made with Shapes.AddLine takes the deck's default line style, and in a deck
+' whose default carries an arrowhead so does the guide. Nothing in the add-in
+' asked for it, which is exactly why nothing in the add-in cleared it.
+'
+' So the test SETS that default first, via SetShapesDefaultProperties, and then
+' checks what comes out. Against a stock deck it would pass without the fix and
+' prove nothing at all.
+Public Function GuideArrowTest(ByVal srcPath As String, ByVal pngPath As String) As String
+    Dim pres As Presentation, sld As Slide, shp As Shape, s2 As Shape
+    Dim seed As Shape, code As String, r As String
+    Dim guides As Long, leaders As Long, bad As Long, a As Long, b As Long
+    Dim s3 As Shape, drawn As Long
+
+    On Error GoTo Failed
+    modRibbon.SetQuiet True
+    code = ReadTextFile(srcPath)
+
+    Set pres = Application.ActivePresentation
+    pres.PageSetup.SlideWidth = modSpec.SLIDE_W
+    pres.PageSetup.SlideHeight = modSpec.SLIDE_H
+    Set sld = pres.Slides.Add(pres.Slides.count + 1, ppLayoutBlank)
+    sld.Select
+
+    ' Make an arrowheaded line the deck default - the reported condition.
+    Set seed = sld.Shapes.AddLine(10, 10, 100, 100)
+    seed.Line.BeginArrowheadStyle = msoArrowheadTriangle
+    seed.Line.EndArrowheadStyle = msoArrowheadTriangle
+    seed.SetShapesDefaultProperties
+    seed.Delete
+
+    Set shp = modBlock.CreateBlock(sld, code, modSpec.BASE_SIZE, "python")
+    shp.Select
+    modRibbon.DoStylize
+
+    ' The note goes on FIRST. DoNote restyles the block, and a guide drawn
+    ' before that is swept away with everything else the restyle rebuilds.
+    modBlock.LineCharRange shp.TextFrame.TextRange.text, 1, a, b
+    shp.TextFrame.TextRange.Characters(a, 1).Select
+    modRibbon.DoNote
+
+    modGuides.SetGuidesEnabled shp, True
+    drawn = modGuides.DrawGuides(shp)
+
+    ' Descends into groups. Stylize groups the block with its parts, and a
+    ' leader inside that group is invisible to a flat walk of sld.Shapes -
+    ' which reported leaders=0 and looked like no leader had been made at all.
+    For Each s2 In sld.Shapes
+        If s2.Type = msoGroup Then
+            For Each s3 In s2.GroupItems
+                ScoreArrowShape s3, guides, leaders, bad
+            Next s3
+        Else
+            ScoreArrowShape s2, guides, leaders, bad
+        End If
+    Next s2
+
+    r = "drawn=" & drawn & " guides=" & guides & " notes=" & modNote.NoteCount(shp) & _
+        " leaders=" & leaders & " arrowheaded=" & bad & vbLf
+    r = r & IIf(guides > 0 And leaders > 0 And bad = 0, "PASS", "FAIL")
+    sld.Export pngPath, "PNG"
+    GuideArrowTest = r
+    Exit Function
+Failed:
+    GuideArrowTest = "ERROR " & Err.Number & ": " & Err.Description
+End Function
+
+' Counts one shape towards GuideArrowTest, and flags an arrowhead on it.
+Private Sub ScoreArrowShape(ByVal s As Shape, ByRef guides As Long, _
+                            ByRef leaders As Long, ByRef bad As Long)
+    Dim isGuide As Boolean, isLeader As Boolean
+
+    On Error Resume Next
+    isGuide = (s.Tags(modGuides.TAG_GUIDE_OF) <> "")
+    isLeader = (s.Tags(modNote.TAG_LEADER_OF) <> "")
+    If Not (isGuide Or isLeader) Then Exit Sub
+
+    If isGuide Then guides = guides + 1 Else leaders = leaders + 1
+    If s.Line.BeginArrowheadStyle <> msoArrowheadNone Or _
+       s.Line.EndArrowheadStyle <> msoArrowheadNone Then bad = bad + 1
+End Sub
 
 Private Sub WriteTextFile(ByVal path As String, ByVal content As String)
     Dim f As Integer

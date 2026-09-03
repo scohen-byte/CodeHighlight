@@ -1203,13 +1203,18 @@ Failed:
     Warn "DoFit failed: " & Err.Description
 End Sub
 
-' Larger is CAPPED at the fitting size. The lab showed what happens without
-' that guard: at 32pt a long line clipped off the right edge and the block
-' overran the top. Growth stops where the content stops fitting, not where the
-' ladder ends.
+' Larger USED TO STOP at the size that fits the content area. It no longer
+' does. The content area leaves a title band and a footer strip clear, and
+' whether those are worth keeping is the author's call, not this add-in's: a
+' slide with no title on it has that room going spare, and refusing to grow
+' into it made the block unusable at the size the room actually allows.
+'
+' So overflow is now permitted and visible - you can see the block run past the
+' edge and decide. Fit still picks the largest size that fits, which is what
+' anyone wanting the old behaviour should press.
 Private Sub StepSize(ByVal direction As Long)
     Dim shp As Shape, problem As String
-    Dim idx As Long, newSize As Single, capSize As Single
+    Dim idx As Long, newSize As Single
 
     Set shp = modBlock.SelectedBlock(problem)
     If shp Is Nothing Then
@@ -1221,14 +1226,6 @@ Private Sub StepSize(ByVal direction As Long)
     If idx < 0 Then idx = 0
     If idx > modSpec.LadderCount() - 1 Then idx = modSpec.LadderCount() - 1
     newSize = modSpec.LadderAt(idx)
-
-    If direction > 0 Then
-        capSize = FitSizeFor(shp)
-        If newSize > capSize Then
-            Warn "Already as large as this block can go and still fit the slide."
-            Exit Sub
-        End If
-    End If
 
     Resize shp, newSize
 End Sub
@@ -1645,9 +1642,10 @@ Public Sub RibbonSizeText(control As IRibbonControl, ByRef text)
 End Sub
 
 ' Accepts any size, not only a rung - typing 23 is a reasonable thing to do.
-' Still capped at what fits, for the same reason Larger is.
+' Not capped at what fits, for the same reason Larger is not. The 6..96 bound
+' stays: it catches a typo, not an overflow.
 Public Sub RibbonSizeChanged(control As IRibbonControl, text As String)
-    Dim shp As Shape, problem As String, want As Single, capSize As Single
+    Dim shp As Shape, problem As String, want As Single
 
     Set shp = modBlock.SelectedBlock(problem)
     If shp Is Nothing Then
@@ -1658,14 +1656,6 @@ Public Sub RibbonSizeChanged(control As IRibbonControl, text As String)
     want = Val(text)
     If want < 6 Or want > 96 Then
         Warn "Enter a size between 6 and 96 points."
-        RefreshRibbon
-        Exit Sub
-    End If
-
-    capSize = FitSizeFor(shp)
-    If want > capSize Then
-        Warn "At " & Format$(want, "0") & "pt this block would not fit the slide." & _
-             vbCrLf & "The largest that fits is " & Format$(capSize, "0") & "pt."
         RefreshRibbon
         Exit Sub
     End If

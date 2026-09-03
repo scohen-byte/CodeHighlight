@@ -543,6 +543,11 @@ Private Sub AddLeader(ByVal sld As Slide, ByVal shp As Shape, ByVal note As Shap
         .Line.Visible = msoTrue
         .Line.ForeColor.RGB = ThemeLeaderColor()
         .Line.Weight = 1.25
+        ' Same inherited-default trap as the indentation guides: a connector
+        ' picks up the deck's arrowheads unless told otherwise. The leader
+        ' already ends ON the note it belongs to, so an arrow adds nothing.
+        .Line.BeginArrowheadStyle = msoArrowheadNone
+        .Line.EndArrowheadStyle = msoArrowheadNone
         .Tags.Add TAG_LEADER_OF, blockId
         ' Behind everything: the leader starts ON the block's edge, so it has
         ' nothing to cover, and in front it would draw across the note's corner.
