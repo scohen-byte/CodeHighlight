@@ -57,7 +57,7 @@ Public Function LadderAt(ByVal i As Long) As Single
         Case 6: LadderAt = 22
         Case 7: LadderAt = 24
         Case 8: LadderAt = 28
-        Case Else: LadderAt = 32
+        Case Else: LadderAt = 36
     End Select
 End Function
 

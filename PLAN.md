@@ -517,14 +517,14 @@ Measured against a 12.23in × 5.95in content area on a 16:9 slide.
 | **22** | **15** | **67** | **default** |
 | 24 | 13 | 61 | |
 | 28 | 11 | 52 | |
-| 32 | 10 | 44 | |
+| 36 | 8 | 39 | |
 
 ### Resizing rules
 
 Three ribbon controls, all operating on the selected block:
 
 - **A+ / A−** step through the ladder
-  `10, 12, 14, 16, 18, 20, 22, 24, 28, 32`.
+  `10, 12, 14, 16, 18, 20, 22, 24, 28, 36`.
 - **Fit** picks the largest ladder size at which the block's longest line and
   total line count both fit the content area. Paste code, press once, done.
 

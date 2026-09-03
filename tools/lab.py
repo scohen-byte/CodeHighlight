@@ -120,7 +120,7 @@ SPACING_RATIOS = [1.20, 1.35]   # 1.35 is VS Code's own default line height
 # --------------------------------------------------------------------------
 
 BASE_SIZE = 22.0            # default pt size for a new code block
-SIZE_LADDER = [10, 12, 14, 16, 18, 20, 22, 24, 28, 32]   # A+ / A- steps
+SIZE_LADDER = [10, 12, 14, 16, 18, 20, 22, 24, 28, 36]   # A+ / A- steps
 MIN_TEACHING_SIZE = 16      # below this, warn - it will not read from the back
 
 LINE_RATIO = 1.20           # line spacing = 1.20 x size, set in EXACT points
