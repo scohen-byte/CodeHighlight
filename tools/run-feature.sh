@@ -16,6 +16,13 @@ PROC="${1:?usage: run-feature.sh <SelfTestFunction> [sample]}"
 NAME="${2:-lab_snippet}"
 
 source "$REPO/tools/win-lab.sh"
+
+# PowerPoint's COM server is single-instance, so a stranded windowless one from
+# an earlier run is not just wasted memory - New-Object hands this run that same
+# process. Sweep before and after; only windowless ones are touched, so a deck
+# someone has open is never at risk.
+"$REPO/tools/kill-orphans.sh" --quiet
+trap '"$REPO/tools/kill-orphans.sh" --quiet' EXIT
 WIN_STAGE="$WIN_LAB\\feature"
 STAGE="$LAB/feature"
 

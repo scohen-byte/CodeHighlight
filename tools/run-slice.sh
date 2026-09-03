@@ -21,6 +21,17 @@ LANG_ID="${LANG_ID:-python}"
 NAME="${1:-lab_snippet}"
 
 source "$REPO/tools/win-lab.sh"
+
+# PowerPoint's COM server is SINGLE-INSTANCE: New-Object attaches to a running
+# PowerPoint rather than starting one. So a wedged orphan from an earlier run
+# is not merely wasted memory - it is the process this run gets handed, and
+# every Application.Run against it fails with "Sub or function not defined",
+# which reads like the test is missing rather than the instance being sick.
+#
+# Hence BEFORE as well as after. The sweep only touches windowless ones, so a
+# deck someone has open is never at risk.
+"$REPO/tools/kill-orphans.sh" --quiet
+trap '"$REPO/tools/kill-orphans.sh" --quiet' EXIT
 WIN_STAGE="$WIN_LAB\\slice"
 STAGE="$LAB/slice"
 

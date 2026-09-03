@@ -29,6 +29,13 @@ die() { printf 'build-addin: %s\n' "$*" >&2; exit 1; }
 INSTALL=0
 [[ "${1:-}" == "--install" ]] && INSTALL=1
 
+# Clear stranded test-run PowerPoints first. The check below refuses to build
+# while any POWERPNT is running, and after a session of harness runs the one
+# it finds is usually a windowless orphan - something it can only tell you to
+# kill by hand. Sweeping them first means the check is left to report the
+# thing it is actually for: a deck you have open.
+"$REPO/tools/kill-orphans.sh" --quiet
+
 # pgrep cannot see Windows processes from WSL, so ask Windows.
 #
 # It REPORTS what it found rather than just refusing. Most of the time the thing
