@@ -28,7 +28,7 @@ $ppSaveAsOpenXMLPresentationMacroEnabled = 25
 # under test. It needs IRibbonUI, which the Office library provides by default.
 $MODULES = @('modTheme', 'modSpec', 'modLangRegistry', 'modLangPython',
              'modLexer', 'modBlock', 'modRender', 'modGutter', 'modGuides',
-             'modOptions', 'modSwatch', 'modOutput', 'modNote', 'modArrow', 'modRibbon', 'modSelfTest')
+             'modOptions', 'modSwatch', 'modOutput', 'modNote', 'modArrow', 'modRetheme', 'modRibbon', 'modSelfTest')
 
 if (Test-Path $Scratch) { Remove-Item $Scratch -Force }
 New-Item -ItemType Directory -Path (Split-Path $Png -Parent) -Force | Out-Null

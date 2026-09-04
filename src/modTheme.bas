@@ -7,8 +7,14 @@ Attribute VB_Name = "modTheme"
 ' adding a language never touches this module. That is the whole reason the
 ' palette sits behind a function instead of being inlined in the renderer.
 '
-' Colours are VS Code Dark Modern, matching tools/lab.py exactly. lab.py is the
-' spec - when this disagrees with it, this is wrong.
+' There are TWO themes, and which one a block uses is a property of that block.
+' See "The current theme" below for how it is threaded, and modRetheme for how
+' a block is moved from one to the other.
+'
+'   Dark  - VS Code Dark Modern, matching tools/lab.py exactly. lab.py is the
+'           spec for this theme - when this disagrees with it, this is wrong.
+'   Light - GitHub Light Default, from primer/github-vscode-theme, darkened
+'           only where it failed a contrast floor. See ThemeColor.
 '
 ' Always build colours with RGB(). VBA stores a colour as BGR internally, so a
 ' raw &H literal copied from a hex colour comes out with red and blue swapped,
@@ -34,9 +40,74 @@ Public Enum TokenClass
     tkBracket3 = 11
 End Enum
 
+Public Enum ThemeId
+    thDark = 0
+    thLight = 1
+End Enum
+
 Public Const THEME_FONT As String = "Consolas"
 
+'------------------------------------------------------------------------------
+' The current theme
+'------------------------------------------------------------------------------
+' Every colour function below reads this rather than taking a theme argument.
+' The alternative - a parameter on all fourteen of them - would have touched
+' every one of the thirty-odd call sites and every signature, to say the same
+' thing at each: "the theme of the block we are drawing".
+'
+' The cost is module state, and the failure mode it buys is a block rendered in
+' the PREVIOUS block's theme. So there is exactly one writer: modRender.Apply-
+' Highlight sets it from the shape's own tag before it draws anything, and
+' modRetheme sets it around the colours it writes. Nothing else may set it.
+' ThemeTest in modSelfTest renders two differently-themed blocks back to
+' back and asserts the second did not inherit the first, because that is the
+' bug this design can have.
+Private mTheme As ThemeId
+
+Public Function ThemeCurrent() As ThemeId
+    ThemeCurrent = mTheme
+End Function
+
+Public Sub ThemeSetCurrent(ByVal t As ThemeId)
+    If t <> thLight Then t = thDark
+    mTheme = t
+End Sub
+
+Public Function ThemeCount() As Long
+    ThemeCount = 2
+End Function
+
+Public Function ThemeName(ByVal i As Long) As String
+    Select Case i
+        Case thLight: ThemeName = "Light"
+        Case Else:    ThemeName = "Dark"
+    End Select
+End Function
+
+' Round-trips a stored tag. An UNSET tag has to mean Dark: every deck made
+' before this feature existed has no theme tag on any block, and those blocks
+' are dark. That single default is the whole of the backward compatibility
+' story - there is no migration and no repair pass.
+Public Function ThemeFromTag(ByVal v As String) As ThemeId
+    If v = "1" Then ThemeFromTag = thLight Else ThemeFromTag = thDark
+End Function
+
+Public Function ThemeToTag(ByVal t As ThemeId) As String
+    If t = thLight Then ThemeToTag = "1" Else ThemeToTag = "0"
+End Function
+
+'------------------------------------------------------------------------------
+' Token colours
+'------------------------------------------------------------------------------
 Public Function ThemeColor(ByVal kind As TokenClass) As Long
+    If mTheme = thLight Then
+        ThemeColor = LightColor(kind)
+    Else
+        ThemeColor = DarkColor(kind)
+    End If
+End Function
+
+Private Function DarkColor(ByVal kind As TokenClass) As Long
     Select Case kind
         ' Brightened from VS Code's 6A9955 for projection, and the ONE
         ' deliberate divergence from Dark+ in this palette. Measured against the
@@ -47,13 +118,13 @@ Public Function ThemeColor(ByVal kind As TokenClass) As Long
         ' (8EB67C, 7.17:1) drifts toward the number green B5CEA8 - separation
         ' falls from 124 to 64 - and comments start reading as numbers. This
         ' keeps 77.
-        Case tkComment:      ThemeColor = RGB(135, 199, 107)     ' 87C76B
-        Case tkString:       ThemeColor = RGB(206, 145, 120)    ' CE9178
-        Case tkNumber:       ThemeColor = RGB(181, 206, 168)    ' B5CEA8
-        Case tkKeywordCtrl:  ThemeColor = RGB(197, 134, 192)    ' C586C0
-        Case tkKeywordDecl:  ThemeColor = RGB(86, 156, 214)     ' 569CD6
-        Case tkFunction:     ThemeColor = RGB(220, 220, 170)    ' DCDCAA
-        Case tkClass:        ThemeColor = RGB(78, 201, 176)     ' 4EC9B0
+        Case tkComment:      DarkColor = RGB(135, 199, 107)     ' 87C76B
+        Case tkString:       DarkColor = RGB(206, 145, 120)     ' CE9178
+        Case tkNumber:       DarkColor = RGB(181, 206, 168)     ' B5CEA8
+        Case tkKeywordCtrl:  DarkColor = RGB(197, 134, 192)     ' C586C0
+        Case tkKeywordDecl:  DarkColor = RGB(86, 156, 214)      ' 569CD6
+        Case tkFunction:     DarkColor = RGB(220, 220, 170)     ' DCDCAA
+        Case tkClass:        DarkColor = RGB(78, 201, 176)      ' 4EC9B0
         ' Plain identifiers are WHITE, not light blue. Measured: two VS Code
         ' screenshots of real code contained zero 9CDCFE pixels. That colour
         ' comes from Pylance semantic highlighting, which is not in play here -
@@ -63,23 +134,99 @@ Public Function ThemeColor(ByVal kind As TokenClass) As Long
         ' colour. The lexer still knows what is a variable, so a future theme
         ' with semantic colouring is a one-line change here rather than a lexer
         ' change, and the test masks keep telling v apart from punctuation.
-        Case tkVariable:     ThemeColor = RGB(212, 212, 212)    ' D4D4D4
-        Case tkBracket1:     ThemeColor = RGB(255, 215, 0)      ' FFD700 gold
-        Case tkBracket2:     ThemeColor = RGB(218, 112, 214)    ' DA70D6 orchid
-        Case tkBracket3:     ThemeColor = RGB(23, 159, 255)     ' 179FFF blue
-        Case Else:           ThemeColor = RGB(212, 212, 212)    ' D4D4D4 default
+        Case tkVariable:     DarkColor = RGB(212, 212, 212)     ' D4D4D4
+        Case tkBracket1:     DarkColor = RGB(255, 215, 0)       ' FFD700 gold
+        Case tkBracket2:     DarkColor = RGB(218, 112, 214)     ' DA70D6 orchid
+        Case tkBracket3:     DarkColor = RGB(23, 159, 255)      ' 179FFF blue
+        Case Else:           DarkColor = RGB(212, 212, 212)     ' D4D4D4 default
     End Select
 End Function
 
+' GitHub Light Default, from primer/github-vscode-theme.
+'
+' Taken from a published theme rather than invented. An earlier hand-tuned
+' palette scored WORSE than this one on every axis that matters: it was built by
+' darkening each colour to the same contrast target, which put them all at the
+' same lightness and left hue as the only thing telling them apart - and hue is
+' exactly what red-green colour blindness removes. GitHub's palette has a
+' natural lightness spread and was designed for accessibility. Measured, its
+' worst pair under deuteranopia is 8.5 against the dark theme's 5.3.
+'
+' Four colours are exactly as GitHub publishes them. The other seven were too
+' light for a projector - GitHub tunes for a monitor at arm's length - so each
+' lost lightness along its own hue until it cleared 5.5:1 on the block ground.
+' That floor is the dark theme's current worst (5.59:1), so the two themes are
+' at parity in a dim hall and the light one pulls ahead as the lights come up:
+' 4.36:1 against 3.36:1 with the lights on, 1.30x better.
+Private Function LightColor(ByVal kind As TokenClass) As Long
+    Select Case kind
+        Case tkComment:      LightColor = RGB(93, 102, 111)     ' 5D666F darkened
+        Case tkString:       LightColor = RGB(10, 48, 105)      ' 0A3069 as published
+        Case tkNumber:       LightColor = RGB(5, 80, 174)       ' 0550AE as published
+        ' GitHub does not distinguish flow control from declaration - both are
+        ' keywords and both are red. Kept that way rather than inventing a
+        ' second hue it never had.
+        Case tkKeywordCtrl:  LightColor = RGB(199, 22, 41)      ' C71629 darkened
+        Case tkKeywordDecl:  LightColor = RGB(199, 22, 41)      ' C71629 darkened
+        Case tkFunction:     LightColor = RGB(118, 69, 211)     ' 7645D3 darkened
+        Case tkClass:        LightColor = RGB(149, 56, 0)       ' 953800 as published
+        Case tkVariable:     LightColor = RGB(31, 35, 40)       ' 1F2328 as published
+        ' GitHub's own bracket highlight colours, darkened. They only have to be
+        ' told apart from EACH OTHER: a bracket is a punctuation glyph, and
+        ' nobody confuses "(" with an identifier, so a bracket sharing a hue
+        ' with a keyword costs nothing. Measured that way the three levels stay
+        ' 5.6 to 10.2 apart even for a dichromat.
+        Case tkBracket1:     LightColor = RGB(0, 97, 203)       ' 0061CB darkened
+        Case tkBracket2:     LightColor = RGB(4, 117, 46)       ' 04752E darkened
+        Case tkBracket3:     LightColor = RGB(137, 91, 0)       ' 895B00 darkened
+        Case Else:           LightColor = RGB(31, 35, 40)       ' 1F2328 default
+    End Select
+End Function
+
+'------------------------------------------------------------------------------
+' Surfaces
+'------------------------------------------------------------------------------
+' The light ground is GitHub's own canvas.subtle rather than pure white, so the
+' block is a surface rather than a hole in the slide.
 Public Function ThemeBackColor() As Long
-    ThemeBackColor = RGB(31, 31, 31)                            ' 1F1F1F
+    If mTheme = thLight Then
+        ThemeBackColor = RGB(246, 248, 250)                     ' F6F8FA
+    Else
+        ThemeBackColor = RGB(31, 31, 31)                        ' 1F1F1F
+    End If
+End Function
+
+' A dark block on a white slide is its own outline. A light one is not: F6F8FA
+' against white is 1.06:1, which is invisible from the back of a room, so the
+' border is the only thing making the block an object. GitHub's
+' borderColor.default, which is what their own panels use.
+Public Function ThemeBlockHasEdge() As Boolean
+    ThemeBlockHasEdge = (mTheme = thLight)
+End Function
+
+Public Function ThemeBlockEdge() As Long
+    ThemeBlockEdge = RGB(208, 215, 222)                         ' D0D7DE
 End Function
 
 ' The band drawn behind emphasised lines. Light enough to read as deliberate
-' from the back of a room, dark enough that the code on top stays legible -
-' every token colour still clears WCAG AAA against it.
+' from the back of a room, dark enough that the code on top stays legible.
 Public Function ThemeEmphasisColor() As Long
-    ThemeEmphasisColor = RGB(58, 68, 82)                        ' 3A4452
+    If mTheme = thLight Then
+        ThemeEmphasisColor = RGB(233, 235, 238)                 ' E9EBEE
+    Else
+        ThemeEmphasisColor = RGB(58, 68, 82)                    ' 3A4452
+    End If
+End Function
+
+' How much of a colour survives dimming. The dark theme keeps 0.4; the light
+' theme needs more, because a blend toward a light ground loses contrast far
+' faster - at 0.4 the weakest dimmed token measures 1.77:1, which is a texture
+' rather than text. 0.6 brings it to 2.47:1.
+'
+' Dimmed code still has to be READ. It is the code the class has not reached
+' yet, not code that has been deleted.
+Private Function DimKeep() As Single
+    If mTheme = thLight Then DimKeep = 0.6 Else DimKeep = 0.4
 End Function
 
 ' A colour faded towards the block background. Used to push everything except
@@ -87,10 +234,11 @@ End Function
 ' room than brightening the emphasised lines alone: the eye is drawn by
 ' CONTRAST, and dimming the surroundings raises it everywhere at once.
 Public Function ThemeDimmed(ByVal rgbColor As Long) As Long
-    Const KEEP As Single = 0.4          ' how much of the original survives
     Dim r As Long, g As Long, b As Long
     Dim br As Long, bg As Long, bb As Long, back As Long
+    Dim keep As Single
 
+    keep = DimKeep()
     back = ThemeBackColor()
     r = rgbColor And &HFF&
     g = (rgbColor \ &H100&) And &HFF&
@@ -99,24 +247,51 @@ Public Function ThemeDimmed(ByVal rgbColor As Long) As Long
     bg = (back \ &H100&) And &HFF&
     bb = (back \ &H10000) And &HFF&
 
-    ThemeDimmed = RGB(br + (r - br) * KEEP, _
-                      bg + (g - bg) * KEEP, _
-                      bb + (b - bb) * KEEP)
+    ThemeDimmed = RGB(br + (r - br) * keep, _
+                      bg + (g - bg) * keep, _
+                      bb + (b - bb) * keep)
 End Function
 
 ' The panel that hides code awaiting a reveal. Close to the block background so
 ' it reads as absence rather than as a new element, but not identical - a plain
 ' hole looks like a rendering fault, and this should look deliberate.
 Public Function ThemeCoverColor() As Long
-    ThemeCoverColor = RGB(42, 42, 42)                           ' 2A2A2A
+    If mTheme = thLight Then
+        ThemeCoverColor = RGB(239, 241, 243)                    ' EFF1F3
+    Else
+        ThemeCoverColor = RGB(42, 42, 42)                       ' 2A2A2A
+    End If
 End Function
 
-' A note attached to a line. The same slate as the emphasis band, at full
-' opacity: a note is an aside about the code, so it should read as part of the
-' same object rather than as a sticker dropped on the slide. Against it, the
-' note text below clears 9.8:1.
+' The question mark on a cover panel, set bold where it is used: it is the only
+' thing on that part of the slide, and it is the question being put to the room.
+' Whichever end of the range the cover is not.
+Public Function ThemeCoverMarkColor() As Long
+    If mTheme = thLight Then
+        ThemeCoverMarkColor = RGB(31, 35, 40)                   ' 1F2328
+    Else
+        ThemeCoverMarkColor = RGB(255, 255, 255)                ' FFFFFF
+    End If
+End Function
+
+'------------------------------------------------------------------------------
+' Notes
+'------------------------------------------------------------------------------
+' The note PRESETS are deliberately NOT theme-aware, and neither are arrows.
+' Both sit on the SLIDE rather than on the block, so their readability is a
+' property of their own fill and the slide behind them - not of which theme the
+' code is wearing. Making them follow the theme would repaint choices the user
+' made, which is the one thing a theme switch must not do.
+'
+' Only the DEFAULT changes: a brand new note in a light deck starts as Paper
+' rather than Slate, because that is the preset that belongs beside a light
+' block. An existing note keeps whatever it was given.
 Public Function ThemeNoteColor() As Long
-    ThemeNoteColor = RGB(58, 68, 82)                            ' 3A4452
+    If mTheme = thLight Then
+        ThemeNoteColor = ThemeNotePreset(5)                     ' Paper F2F2EF
+    Else
+        ThemeNoteColor = ThemeNotePreset(0)                     ' Slate 3A4452
+    End If
 End Function
 
 ' Brighter than the code default. A note is prose read from the back of a room,
@@ -258,10 +433,6 @@ Public Function ThemeIsLight(ByVal rgbColor As Long) As Boolean
     ThemeIsLight = (ThemeLuminance(rgbColor) > 0.5)
 End Function
 
-' The text colour for a given note fill: whichever of the two reads better on
-' it. Picking by MEASURED contrast rather than by a lightness threshold is what
-' makes a saturated preset safe - amber is light enough to need dark words and
-' crimson is not, and no single cutoff gets both right by luck.
 Public Function ThemeTextOn(ByVal rgbColor As Long) As Long
     Const DARK As Long = 1710618                                ' RGB(26,26,26)
     If ThemeContrast(rgbColor, DARK) >= ThemeContrast(rgbColor, ThemeNoteTextColor()) Then
@@ -271,9 +442,6 @@ Public Function ThemeTextOn(ByVal rgbColor As Long) As Long
     End If
 End Function
 
-' A light note on a white slide has no edge of its own, and reads as text
-' floating in space rather than as a note. Dark fills need no such help, so they
-' get none - a border on them only adds a line to look at.
 Public Function ThemeNeedsEdge(ByVal rgbColor As Long) As Boolean
     ThemeNeedsEdge = ThemeIsLight(rgbColor)
 End Function
@@ -287,44 +455,75 @@ Public Function ThemeEdgeFor(ByVal rgbColor As Long) As Long
     ThemeEdgeFor = RGB(r * DARKEN, g * DARKEN, b * DARKEN)
 End Function
 
+'------------------------------------------------------------------------------
+' Furniture
+'------------------------------------------------------------------------------
 ' The line from a note back to its code. Quiet on purpose: it has to be
 ' followable without competing with either end of it.
 Public Function ThemeLeaderColor() As Long
-    ThemeLeaderColor = RGB(133, 133, 133)                       ' 858585
+    If mTheme = thLight Then
+        ThemeLeaderColor = RGB(140, 149, 159)                   ' 8C959F
+    Else
+        ThemeLeaderColor = RGB(133, 133, 133)                   ' 858585
+    End If
 End Function
 
-' The question mark on a cover panel. Pure white, and set bold where it is used:
-' it is the only thing on that part of the slide, and it is the question being
-' put to the room.
-Public Function ThemeCoverMarkColor() As Long
-    ThemeCoverMarkColor = RGB(255, 255, 255)                    ' FFFFFF
-End Function
-
-' An output note: the terminal, borrowed. Darker than the code block, the way
-' VS Code's panel is darker than its editor, so it reads as a different surface
-' rather than as a second block of code. The arrow that opens it is the comment
-' green, which is the palette's one colour that already means "not the code".
+' An output note: the terminal, borrowed. Set apart from the code block the way
+' VS Code's panel is set apart from its editor, so it reads as a different
+' surface rather than as a second block of code.
 Public Function ThemeOutputFill() As Long
-    ThemeOutputFill = RGB(24, 24, 24)                           ' 181818
+    If mTheme = thLight Then
+        ThemeOutputFill = RGB(237, 239, 241)                    ' EDEFF1
+    Else
+        ThemeOutputFill = RGB(24, 24, 24)                       ' 181818
+    End If
 End Function
 
 Public Function ThemeOutputText() As Long
-    ThemeOutputText = RGB(204, 204, 204)                        ' CCCCCC
+    If mTheme = thLight Then
+        ThemeOutputText = RGB(31, 35, 40)                       ' 1F2328
+    Else
+        ThemeOutputText = RGB(204, 204, 204)                    ' CCCCCC
+    End If
 End Function
 
-' Two dark surfaces on a light slide need an edge, or they merge into one
-' silhouette from the back of a room.
+' Two surfaces of the same weight on one slide need an edge, or they merge into
+' a single silhouette from the back of a room.
 Public Function ThemeOutputEdge() As Long
-    ThemeOutputEdge = RGB(90, 90, 90)                           ' 5A5A5A
+    If mTheme = thLight Then
+        ThemeOutputEdge = RGB(175, 184, 193)                    ' AFB8C1
+    Else
+        ThemeOutputEdge = RGB(90, 90, 90)                       ' 5A5A5A
+    End If
 End Function
 
-' Stated outright rather than read from ThemeColor(tkComment). They happen to
-' be the same green, and retuning comments for a projector should not silently
-' move this.
+' The arrow that opens an output line. In the dark theme this is the comment
+' green, which is the palette's one colour that already means "not the code" -
+' but it is stated outright rather than read from ThemeColor(tkComment), so that
+' retuning comments for a projector does not silently move it.
+'
+' In the light theme the two genuinely part company: GitHub's comment is a grey,
+' which would say nothing at all here, so the mark takes the bracket green
+' instead and keeps meaning what it meant.
 Public Function ThemeOutputMark() As Long
-    ThemeOutputMark = RGB(135, 199, 107)                        ' 87C76B
+    If mTheme = thLight Then
+        ThemeOutputMark = RGB(4, 117, 46)                       ' 04752E
+    Else
+        ThemeOutputMark = RGB(135, 199, 107)                    ' 87C76B
+    End If
 End Function
 
+Public Function ThemeGutterColor() As Long
+    If mTheme = thLight Then
+        ThemeGutterColor = RGB(110, 119, 129)                   ' 6E7781
+    Else
+        ThemeGutterColor = RGB(133, 133, 133)                   ' 858585
+    End If
+End Function
+
+'------------------------------------------------------------------------------
+' Arrows
+'------------------------------------------------------------------------------
 ' The arrow in the left margin, and the colours it can be set to.
 '
 ' These are the SYNTAX HUES, DARKENED. Taking the palette colours as they stand
@@ -339,7 +538,9 @@ End Function
 ' design without pretending the background has not changed.
 '
 ' The list is aimed at a light slide, because that is what PowerPoint gives you
-' and what a code deck almost always uses.
+' and what a code deck almost always uses - which is also why it does NOT vary
+' by theme. An arrow never sits on the block, so the block's ground is not the
+' background it has to survive.
 Public Function ThemeArrowPresetCount() As Long
     ThemeArrowPresetCount = 8
 End Function
@@ -389,10 +590,6 @@ End Function
 
 Public Function ThemeArrowColor() As Long
     ThemeArrowColor = ThemeArrowPreset(0)
-End Function
-
-Public Function ThemeGutterColor() As Long
-    ThemeGutterColor = RGB(133, 133, 133)                       ' 858585
 End Function
 
 ' The mask characters used by tools/lexref.py, so modSelfTest can dump what the

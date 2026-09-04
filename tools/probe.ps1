@@ -20,7 +20,7 @@ if (-not $Scratch) { $Scratch = (Join-Path $env:USERPROFILE "ppt-lab\probe-run-"
 New-Item -ItemType Directory -Path (Split-Path $Scratch -Parent) -Force | Out-Null
 $MODULES = @('modTheme','modSpec','modLangRegistry','modLangPython',
              'modLexer','modBlock','modRender','modGutter','modGuides',
-             'modOptions','modSwatch','modOutput','modNote','modArrow','modRibbon','modSelfTest')
+             'modOptions','modSwatch','modOutput','modNote','modArrow','modRetheme','modRibbon','modSelfTest')
 if (Test-Path $Scratch) { Remove-Item $Scratch -Force }
 $ppt = New-Object -ComObject PowerPoint.Application
 $ppt.Visible = -1

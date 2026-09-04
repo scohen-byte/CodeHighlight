@@ -571,6 +571,93 @@ End Sub
 ' There is no stored list. A line carrying a prompt is one you typed and a bare
 ' one is output, so these edit the TEXT and the text is the record. Editing the
 ' block afterwards cannot desynchronise anything.
+'------------------------------------------------------------------------------
+' Theme
+'------------------------------------------------------------------------------
+' The theme shown in the dropdown. The block you are pointing at, if there is
+' one, otherwise the deck's own setting - so the control reports what you would
+' be changing rather than a deck-wide value that may be true of nothing on the
+' slide in front of you.
+Private Function CurrentTheme() As ThemeId
+    Dim shp As Shape, problem As String
+    Set shp = modBlock.SelectedBlock(problem)
+    If shp Is Nothing Then
+        CurrentTheme = modOptions.DeckTheme()
+    Else
+        CurrentTheme = modBlock.BlockTheme(shp)
+    End If
+End Function
+
+' Picking a theme records it for new blocks AND applies it to the one you are
+' pointing at. Exactly what DoNoteColor does, and for the same reason: choosing
+' a colour while looking at something is a request to colour that thing.
+'
+' What it does NOT do is repaint the deck. That is DoThemeApplyAll, which asks
+' first, because on a large deck it is several seconds of work and a dropdown
+' should not start it by accident.
+Public Sub DoTheme(ByVal themeIndex As Long)
+    modOptions.SetDeckTheme CLng(themeIndex)
+    DoThemeApply
+End Sub
+
+' Applies the chosen theme to the block singled out - by selecting it, or by
+' being on the only block on the slide.
+Public Sub DoThemeApply()
+    On Error GoTo Failed
+    Dim shp As Shape, problem As String
+
+    ' Before the early exit, so the dropdown re-reads even when there was
+    ' nothing to paint.
+    RefreshRibbon
+
+    Set shp = modBlock.SelectedBlock(problem)
+    If shp Is Nothing Then Exit Sub
+
+    ' Colour changes no geometry, so nothing is re-placed and the selection is
+    ' left exactly where it was.
+    modRetheme.RethemeBlock shp, modOptions.DeckTheme()
+    RefreshRibbon
+    Exit Sub
+Failed:
+    Warn "DoTheme failed: " & Err.Description
+End Sub
+
+' Every block in the deck.
+'
+' Asks first, and says how many blocks, because that number is what makes the
+' pause make sense. Measured on a real 84-slide deck: 123 blocks, 2,773 colour
+' writes, 4.4 seconds - so roughly 0.04 s per block, which is what the estimate
+' below is built from rather than guessed.
+Public Sub DoThemeApplyAll()
+    On Error GoTo Failed
+    Dim t As ThemeId, n As Long, changed As Long, writes As Long
+    Dim secs As Long
+
+    t = modOptions.DeckTheme()
+    n = modRetheme.CountBlocksToChange(t)
+    If n = 0 Then
+        Warn "Every code block is already " & LCase$(ThemeName(t)) & "."
+        Exit Sub
+    End If
+
+    ' Rounded up, and never reported as zero: a prompt promising "about 0
+    ' seconds" and then freezing is worse than no estimate at all.
+    secs = Int((n * 0.04) + 1)
+
+    If Not Confirm(n & " code block" & IIf(n = 1, "", "s") & " will be recoloured " & _
+                   LCase$(ThemeName(t)) & "." & vbCrLf & vbCrLf & _
+                   "This takes about " & secs & " second" & IIf(secs = 1, "", "s") & _
+                   ", and PowerPoint will not respond while it runs." & vbCrLf & _
+                   "Sizes, positions and your own note colors are not touched." & _
+                   vbCrLf & vbCrLf & "Continue?") Then Exit Sub
+
+    changed = modRetheme.RethemeAll(t, writes)
+    RefreshRibbon
+    Exit Sub
+Failed:
+    Warn "DoThemeApplyAll failed: " & Err.Description
+End Sub
+
 Public Sub DoOutputLines()
     MarkLines False
 End Sub
@@ -1478,6 +1565,26 @@ End Sub
 
 Public Sub RibbonNoteColorApply(control As IRibbonControl)
     DoNoteColorApply
+End Sub
+
+Public Sub RibbonThemeCount(control As IRibbonControl, ByRef count)
+    count = ThemeCount()
+End Sub
+
+Public Sub RibbonThemeLabel(control As IRibbonControl, index As Integer, ByRef label)
+    label = ThemeName(CLng(index))
+End Sub
+
+Public Sub RibbonThemeSelected(control As IRibbonControl, ByRef index)
+    index = CurrentTheme()
+End Sub
+
+Public Sub RibbonThemeChanged(control As IRibbonControl, id As String, index As Integer)
+    DoTheme CLng(index)
+End Sub
+
+Public Sub RibbonThemeApplyAll(control As IRibbonControl)
+    DoThemeApplyAll
 End Sub
 
 Public Sub RibbonOutputLines(control As IRibbonControl)

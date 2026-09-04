@@ -32,7 +32,21 @@ Public Const TAG_GUIDES_ON As String = "CODEBLOCK_GUIDES_ON"
 Private Const GUIDE_R As Long = 106
 Private Const GUIDE_G As Long = 106
 Private Const GUIDE_B As Long = 106
+' The same argument, run against the light ground. 6A6A6A on F6F8FA is 4.2:1 -
+' fine for text and far too loud for a guide, which would then compete with the
+' code it is meant to sit behind. GitHub's own border grey is the right weight.
+Private Const GUIDE_LIGHT_R As Long = 208
+Private Const GUIDE_LIGHT_G As Long = 215
+Private Const GUIDE_LIGHT_B As Long = 222
 Private Const GUIDE_WEIGHT As Single = 1.25
+
+Private Function GuideColor() As Long
+    If ThemeCurrent() = thLight Then
+        GuideColor = RGB(GUIDE_LIGHT_R, GUIDE_LIGHT_G, GUIDE_LIGHT_B)
+    Else
+        GuideColor = RGB(GUIDE_R, GUIDE_G, GUIDE_B)
+    End If
+End Function
 
 ' ALL module-level declarations must come before ANY procedure. Putting these
 ' two functions above the constants left GUIDE_R and friends stranded after a
@@ -194,7 +208,7 @@ Private Sub AddGuideLine(ByVal sld As Slide, ByVal blockId As String, _
     Dim ln As Shape
     Set ln = sld.Shapes.AddLine(x, y0, x, y1)
     With ln.Line
-        .ForeColor.RGB = RGB(GUIDE_R, GUIDE_G, GUIDE_B)
+        .ForeColor.RGB = GuideColor()
         .Weight = GUIDE_WEIGHT
         ' Stated, not assumed. AddLine takes the deck's default line style, and
         ' in a deck whose default carries an arrowhead every guide grew one -

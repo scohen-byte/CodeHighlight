@@ -38,6 +38,12 @@ Public Const TAG_COVER_OF As String = "CODEBLOCK_COVER_OF"
 ' the thing that built it says so.
 Public Const TAG_FOCUS As String = "CODEBLOCK_FOCUS"
 
+' Which theme this block wears. Absent means Dark - every block made before
+' themes existed has no such tag, and those blocks are dark, so that one default
+' is the whole backward-compatibility story. A deck from an older version needs
+' no migration and no repair pass.
+Public Const TAG_THEME As String = "CODEBLOCK_THEME"
+
 ' Notes live in modNote, which owns their tags. Listed here only because
 ' GroupParts has to know about every kind of part a block can have.
 
@@ -367,6 +373,13 @@ Public Function CreateBlock(ByVal sld As Slide, ByVal code As String, _
     ' itself and cancel its own offset.
     off = CascadeOffset(sld)
 
+    ' Before the fill and the border are read. This block is about to be tagged
+    ' with the deck's theme, and every ThemeXxx call answers for whichever theme
+    ' was last set - so without this a new block takes its surface from whatever
+    ' was drawn last, which on a mixed deck is simply whichever block you happened
+    ' to click before pressing New block.
+    ThemeSetCurrent modOptions.DeckTheme()
+
     code = NormalizeParagraphs(code)
     lineCount = CountLines(code)
     h = modSpec.SpecHeight(size, lineCount)
@@ -384,9 +397,9 @@ Public Function CreateBlock(ByVal sld As Slide, ByVal code As String, _
     With shp
         .Fill.Solid
         .Fill.ForeColor.RGB = ThemeBackColor()
-        .Line.Visible = msoFalse
         .Shadow.Visible = msoFalse
     End With
+    ApplyBlockEdge shp
 
     With shp.TextFrame
         ' WRAP STAYS OFF. That is the property the line-number gutter depends on:
@@ -422,6 +435,9 @@ Public Function CreateBlock(ByVal sld As Slide, ByVal code As String, _
     shp.Tags.Add TAG_BLOCK, "1"
     shp.Tags.Add TAG_ID, NewBlockId()
     shp.Tags.Add TAG_LANG, langId
+    ' A new block is born in the DECK's theme. This is the only place the deck
+    ' default is read - changing it never reaches back to blocks that exist.
+    shp.Tags.Add TAG_THEME, ThemeToTag(modOptions.DeckTheme())
 
     Set CreateBlock = shp
 End Function
@@ -723,6 +739,34 @@ End Function
 
 Public Sub SetBlockLang(ByVal shp As Shape, ByVal langId As String)
     shp.Tags.Add TAG_LANG, langId      ' Add replaces an existing tag
+End Sub
+
+' The theme this block is drawn in. Mirrors BlockLangId: the shape's own tag
+' first, and an absent tag means Dark rather than erroring.
+Public Function BlockTheme(ByVal shp As Shape) As ThemeId
+    BlockTheme = ThemeFromTag(shp.Tags(TAG_THEME))
+End Function
+
+' A dark block on a white slide is its own outline, so it has none. A light one
+' needs one: the ground is 1.06:1 against the slide, which is invisible from the
+' back of a room, and without a border the block stops being an object.
+'
+' Always sets both branches rather than only adding. Switching a block back to
+' dark has to REMOVE the border, or the light theme leaves a ring behind.
+Public Sub ApplyBlockEdge(ByVal shp As Shape)
+    If ThemeBlockHasEdge() Then
+        With shp.Line
+            .Visible = msoTrue
+            .ForeColor.RGB = ThemeBlockEdge()
+            .Weight = 0.75
+        End With
+    Else
+        shp.Line.Visible = msoFalse
+    End If
+End Sub
+
+Public Sub SetBlockTheme(ByVal shp As Shape, ByVal t As ThemeId)
+    shp.Tags.Add TAG_THEME, ThemeToTag(t)   ' Add replaces an existing tag
 End Sub
 
 ' The size the block is currently set in. Reading the first character rather

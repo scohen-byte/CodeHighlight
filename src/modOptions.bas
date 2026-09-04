@@ -24,6 +24,7 @@ Public Const TAG_NOTE_COLOR As String = "CODEBLOCK_NOTE_COLOR"
 Public Const TAG_NOTE_FONT  As String = "CODEBLOCK_NOTE_FONT"
 Public Const TAG_STEP_NOTE  As String = "CODEBLOCK_STEP_NOTE"
 Public Const TAG_ARROW_COLOR As String = "CODEBLOCK_ARROW_COLOR"
+Public Const TAG_THEME       As String = "CODEBLOCK_THEME"
 
 ' Size 0 means "work it out from the block". An explicit size pins it.
 Public Const NOTE_SIZE_AUTO As Long = 0
@@ -119,6 +120,27 @@ End Function
 
 Public Sub SetArrowColor(ByVal rgbColor As Long)
     SetTag TAG_ARROW_COLOR, CStr(rgbColor)
+End Sub
+
+'------------------------------------------------------------------------------
+' Theme
+'------------------------------------------------------------------------------
+' The theme a NEW block is born with, and nothing more. Choosing a theme does
+' not repaint the deck - that is the separate, confirmed "apply to all", which
+' takes a few seconds on a large deck and is not something a dropdown
+' should trigger by accident.
+'
+' This matches how note colour already behaves here, and how PowerPoint's own
+' defaults behave: picking one changes what comes next, not what exists.
+'
+' Unset means Dark, because that is the only theme that existed when every deck
+' made before this feature was written.
+Public Function DeckTheme() As ThemeId
+    DeckTheme = ThemeFromTag(GetTag(TAG_THEME))
+End Function
+
+Public Sub SetDeckTheme(ByVal t As ThemeId)
+    SetTag TAG_THEME, ThemeToTag(t)
 End Sub
 
 '------------------------------------------------------------------------------

@@ -230,6 +230,24 @@
              contents say what they are. Labelling each of them said "Note" three
              times and still needed reading. -->
         <group id="grpLook" label="Appearance">
+          <box id="boxTheme" boxStyle="horizontal">
+            <labelControl id="lblTheme" label="Theme"/>
+            <dropDown id="ddTheme"
+                        label="Theme"
+                        sizeString="Light"
+                        getItemCount="RibbonThemeCount"
+                        getItemLabel="RibbonThemeLabel"
+                        getSelectedItemIndex="RibbonThemeSelected"
+                        showLabel="false" onAction="RibbonThemeChanged"
+                        screentip="Colors for code blocks"
+                        supertip="Dark is VS Code Dark Modern. Light is GitHub Light Default, darkened where it was too faint to project - it holds up better once the lights are on over the audience, and reads better for a color-blind student. Picking one records it for blocks you make afterwards and applies it to the block you are pointing at. It does not repaint the rest of the deck: that is Apply to all, beside this. Only colors change, so sizes, positions and note colors you chose yourself are left alone."/>
+            <button id="btnThemeAll"
+                      label="Apply to all"
+                      imageMso="RecurrenceEdit"
+                      onAction="RibbonThemeApplyAll"
+                      screentip="Recolor every code block in the deck"
+                      supertip="Puts every code block in the presentation into the chosen theme. Says how many blocks and roughly how long before it starts - about four seconds for an eighty-slide deck, during which PowerPoint will not respond. Blocks already in that theme cost nothing, so running it twice is instant the second time. Only colors change: nothing is resized, moved or restyled, and notes you colored yourself keep their colors."/>
+          </box>
           <box id="boxNotes" boxStyle="horizontal">
             <labelControl id="lblNotes" label="Notes"/>
             <dropDown id="ddNoteColor"

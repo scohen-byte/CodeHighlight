@@ -24,7 +24,7 @@ $ErrorActionPreference = 'Stop'
 # them and is included because these tests drive the Do* commands.
 $MODULES = @('modTheme', 'modSpec', 'modLangRegistry', 'modLangPython',
              'modLexer', 'modBlock', 'modRender', 'modGutter', 'modGuides',
-             'modOptions', 'modSwatch', 'modOutput', 'modNote', 'modArrow', 'modRibbon', 'modSelfTest')
+             'modOptions', 'modSwatch', 'modOutput', 'modNote', 'modArrow', 'modRetheme', 'modRibbon', 'modSelfTest')
 
 $Scratch = (Join-Path $env:USERPROFILE "ppt-lab\feature-") +
            [guid]::NewGuid().ToString('N').Substring(0, 8) + '.pptm'

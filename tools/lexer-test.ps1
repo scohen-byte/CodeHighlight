@@ -49,6 +49,7 @@ $ppSaveAsOpenXMLPresentationMacroEnabled = 25
 $MODULES = @('modTheme', 'modSpec', 'modLangRegistry', 'modLangPython',
              'modLexer', 'modBlock', 'modRender', 'modGutter', 'modGuides',
              'modOptions', 'modSwatch', 'modOutput', 'modNote', 'modArrow',
+             'modRetheme',
              'modRibbon', 'modSelfTest')
 
 if (Test-Path $Scratch) { Remove-Item $Scratch -Force }

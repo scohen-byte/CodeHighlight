@@ -26,6 +26,12 @@ Public Function ApplyHighlight(ByVal shp As Shape, ByVal langId As String) As Lo
     Dim lineOf() As Long, emph As String, dimming As Boolean
     Dim c As Long
 
+    ' FIRST, before any colour is read. Every ThemeXxx call below answers for
+    ' whichever theme was last set, so a block drawn without this one renders in
+    ' the previous block's theme - which is the bug modSelfTest.ThemeTest
+    ' exists to catch. This is one of only two writers; the other is modRetheme.
+    ThemeSetCurrent modBlock.BlockTheme(shp)
+
     Set tr = shp.TextFrame.TextRange
     If Len(tr.text) = 0 Then Exit Function
 
@@ -83,6 +89,65 @@ Public Function ApplyHighlight(ByVal shp As Shape, ByVal langId As String) As Lo
     ApplyHighlight = applied
 End Function
 
+' Colour-only re-render, for a theme change.
+'
+' Deliberately NOT ApplyHighlight. That is a re-render: it resets the font name,
+' unbolds, and calls ApplyEmphasis, which rebuilds the band rectangles. All of
+' that is right when the text has changed and wrong when only the palette has -
+' a theme switch that resets font size or unbolds a walkthrough line destroys
+' work the user did by hand, across every block in the deck at once.
+'
+' So this writes Font.Color and nothing else. No font, no weight, no geometry,
+' no shapes created or moved. The rule the whole feature rests on is that the
+' theme owns colour and the user owns everything else.
+'
+' The caller sets the theme; this does not, because it is also the caller that
+' has to decide whether the tag is being changed or merely honoured.
+Public Function RecolorText(ByVal shp As Shape, ByVal langId As String) As Long
+    Dim tr As TextRange
+    Dim spans() As Span, n As Long, i As Long, applied As Long
+    Dim lineOf() As Long, emph As String, dimming As Boolean
+    Dim c As Long
+
+    Set tr = shp.TextFrame.TextRange
+    If Len(tr.text) = 0 Then Exit Function
+
+    emph = modBlock.GetEmphasis(shp)
+    dimming = (Len(emph) > 0)
+    If dimming Then BuildLineIndex tr.text, lineOf
+
+    ' The whole range first, exactly as ApplyHighlight does - it is what makes
+    ' the pass idempotent, and it collapses the default spans into one write
+    ' instead of one per span. On a real deck that is 780 writes down to 123.
+    If dimming Then
+        tr.Font.Color.RGB = ThemeDimmed(ThemeColor(tkDefault))
+    Else
+        tr.Font.Color.RGB = ThemeColor(tkDefault)
+    End If
+    applied = 1
+
+    n = modLexer.Tokenize(tr.text, modLangRegistry.GetLang(langId), spans)
+
+    For i = 0 To n - 1
+        c = ThemeColor(spans(i).Kind)
+        If dimming Then
+            If Not LineIsEmphasised(lineOf, spans(i).Start, emph) Then c = ThemeDimmed(c)
+        End If
+        If spans(i).Kind <> tkDefault Or dimming Then
+            If c <> tr.Characters(spans(i).Start, 1).Font.Color.RGB Then
+                tr.Characters(spans(i).Start, spans(i).Length).Font.Color.RGB = c
+                applied = applied + 1
+            End If
+        End If
+    Next i
+
+    ' Transcript lines override the lexer in both themes, so they are repainted
+    ' here too. PaintTranscript writes colour and the block fill, nothing else.
+    PaintTranscript shp, tr, langId, dimming, emph
+
+    RecolorText = applied
+End Function
+
 ' Repaints the two kinds of transcript line after the spans are on.
 '
 ' Which is which is read from the TEXT, not from a stored list: a line carrying
@@ -103,9 +168,13 @@ Private Sub PaintTranscript(ByVal shp As Shape, ByVal tr As TextRange, _
         ' Back to an editor. A block that is no longer a transcript must not
         ' keep the terminal fill, or turning it off leaves no way back.
         shp.fill.ForeColor.RGB = ThemeBackColor()
+        modBlock.ApplyBlockEdge shp
         Exit Sub
     End If
+    ' A transcript is a different SURFACE, not a different theme, so it takes
+    ' the same border treatment as a code block in whichever theme is current.
     shp.fill.ForeColor.RGB = ThemeOutputFill()
+    modBlock.ApplyBlockEdge shp
 
     lang = modLangRegistry.GetLang(langId)
     lines = modBlock.SplitLines(tr.text)

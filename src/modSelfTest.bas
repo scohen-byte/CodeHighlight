@@ -2445,6 +2445,173 @@ Failed:
     ArrowTest = r & "ERROR " & Err.Number & ": " & Err.Description
 End Function
 
+' Themes.
+'
+' The first half is the bug the whole design can have. modTheme keeps the
+' current theme in a module variable rather than passing it to all fourteen
+' colour functions, which means a block drawn without setting it first renders
+' in the PREVIOUS block's theme. So: two blocks on one slide, different themes,
+' drawn one after the other, and the second must not have inherited the first.
+' Rendered in that order deliberately - dark then light then dark again - since
+' a bleed only shows when the themes actually differ between neighbours.
+'
+' The second half is the promise the feature rests on: a retheme changes colour
+' and NOTHING else. Font size, weight, position and the block's geometry are
+' recorded before and compared after, because "we only touch colour" is exactly
+' the kind of claim that rots the first time somebody adds a line to the pass.
+Public Function ThemeTest(ByVal srcPath As String, ByVal pngPath As String) As String
+    Dim pres As Presentation, sld As Slide, r As String, code As String
+    Dim a As Shape, b As Shape
+    Dim sizeBefore As Single, leftBefore As Single, topBefore As Single
+    Dim wBefore As Single, boldBefore As Long
+    Dim darkDefault As Long, lightDefault As Long
+
+    On Error GoTo Failed
+    modRibbon.SetQuiet True
+    code = ReadTextFile(srcPath)
+
+    Set pres = Application.ActivePresentation
+    pres.PageSetup.SlideWidth = modSpec.SLIDE_W
+    pres.PageSetup.SlideHeight = modSpec.SLIDE_H
+    Set sld = pres.Slides.Add(pres.Slides.count + 1, ppLayoutBlank)
+    sld.Select
+
+    ' --- a deck with no theme tag anywhere is DARK ---------------------------
+    ' The whole backward-compatibility story in one assertion: every block made
+    ' before this feature existed carries no theme tag, and must still be dark.
+    Set a = modBlock.CreateBlock(sld, code, modSpec.BASE_SIZE, "python")
+    a.Tags.Delete modBlock.TAG_THEME
+    r = "untagged_block_is_dark=" & Abs(CLng(modBlock.BlockTheme(a) = thDark)) & vbLf
+
+    ' --- theme bleed ---------------------------------------------------------
+    Set b = modBlock.CreateBlock(sld, code, modSpec.BASE_SIZE, "python")
+    b.Top = a.Top + a.Height + 20
+
+    modBlock.SetBlockTheme a, thDark
+    modBlock.SetBlockTheme b, thLight
+    modRibbon.StyleBlock a, "python"
+    modRibbon.StyleBlock b, "python"
+
+    darkDefault = a.TextFrame.TextRange.Characters(1, 1).Font.Color.RGB
+    lightDefault = b.TextFrame.TextRange.Characters(1, 1).Font.Color.RGB
+    r = r & "two_themes_differ=" & Abs(CLng(darkDefault <> lightDefault)) & vbLf
+
+    ' Draw the dark one again, AFTER the light one. If the theme leaked, this
+    ' comes back light.
+    modRibbon.StyleBlock a, "python"
+    r = r & "no_bleed_back_to_dark=" & _
+            Abs(CLng(a.TextFrame.TextRange.Characters(1, 1).Font.Color.RGB = darkDefault)) & vbLf
+    r = r & "dark_fill_1F1F1F=" & Abs(CLng(a.fill.ForeColor.RGB = RGB(31, 31, 31))) & vbLf
+    r = r & "light_fill_F6F8FA=" & Abs(CLng(b.fill.ForeColor.RGB = RGB(246, 248, 250))) & vbLf
+
+    ' --- a light block has a border, a dark one does not ---------------------
+    ' Near-white on white is 1.06:1. Without the border the block stops being an
+    ' object, which is what the first rendered deck actually looked like.
+    r = r & "light_has_border=" & Abs(CLng(b.Line.Visible = msoTrue)) & vbLf
+    r = r & "dark_has_no_border=" & Abs(CLng(a.Line.Visible = msoFalse)) & vbLf
+
+    ' --- retheme changes colour and nothing else -----------------------------
+    a.TextFrame.TextRange.Font.size = 14           ' a size nobody would derive
+    a.TextFrame.TextRange.Characters(1, 3).Font.Bold = msoTrue
+    sizeBefore = a.TextFrame.TextRange.Characters(1, 1).Font.size
+    boldBefore = a.TextFrame.TextRange.Characters(1, 1).Font.Bold
+    leftBefore = a.Left: topBefore = a.Top: wBefore = a.Width
+
+    modRetheme.RethemeBlock a, thLight
+
+    r = r & "retheme_changed_color=" & _
+            Abs(CLng(a.TextFrame.TextRange.Characters(1, 1).Font.Color.RGB <> darkDefault)) & vbLf
+    r = r & "retheme_kept_size=" & _
+            Abs(CLng(a.TextFrame.TextRange.Characters(1, 1).Font.size = sizeBefore)) & vbLf
+    r = r & "retheme_kept_bold=" & _
+            Abs(CLng(a.TextFrame.TextRange.Characters(1, 1).Font.Bold = boldBefore)) & vbLf
+    r = r & "retheme_kept_geometry=" & _
+            Abs(CLng(a.Left = leftBefore And a.Top = topBefore And a.Width = wBefore)) & vbLf
+    r = r & "retheme_set_tag=" & Abs(CLng(modBlock.BlockTheme(a) = thLight)) & vbLf
+
+    ' Second pass over a block already in the target theme costs nothing, which
+    ' is what makes re-running "apply to all" instant rather than another wait.
+    r = r & "retheme_second_pass_is_noop=" & _
+            Abs(CLng(modRetheme.RethemeBlock(a, thLight) = 0)) & vbLf
+
+    ' --- the light palette actually clears the floor it claims ---------------
+    Dim worst As Double, cc As Double, k As Long
+    ThemeSetCurrent thLight
+    worst = 999
+    For k = 0 To 11
+        cc = ThemeContrast(ThemeColor(k), ThemeBackColor())
+        If cc < worst Then worst = cc
+    Next k
+    r = r & "light_worst_on_ground=" & Format$(worst, "0.00") & vbLf
+    r = r & "light_clears_5_5=" & Abs(CLng(worst >= 5.4)) & vbLf
+    ThemeSetCurrent thDark
+
+    sld.Export pngPath, "PNG", 1920, 1080
+    ThemeTest = r
+    Exit Function
+Failed:
+    ThemeTest = r & "ERROR " & Err.Number & ": " & Err.Description
+End Function
+
+' The whole feature against a REAL deck, which is the only place its cost is
+' honest. srcPath is a .pptx to open rather than a code sample.
+'
+' A synthetic two-block slide says nothing about what "apply to all" feels like
+' on eighty-four slides, and the estimate in the confirm prompt is a promise to
+' the user - so it is measured against a deck somebody actually teaches from.
+Public Function ThemeDeckTest(ByVal srcPath As String, ByVal pngPath As String) As String
+    Dim p As Presentation, r As String
+    Dim t0 As Double, t1 As Double, n As Long, changed As Long, writes As Long
+
+    On Error GoTo Failed
+    modRibbon.SetQuiet True
+
+    Set p = Application.Presentations.Open(srcPath, msoFalse, msoFalse, msoTrue)
+    r = "slides=" & p.Slides.count & vbLf
+
+    modOptions.SetDeckTheme thLight
+    n = modRetheme.CountBlocksToChange(thLight)
+    r = r & "blocks_to_change=" & n & vbLf
+
+    t0 = Timer
+    changed = modRetheme.RethemeAll(thLight, writes)
+    t1 = Timer
+    r = r & "blocks_changed=" & changed & vbLf
+    r = r & "colour_writes=" & writes & vbLf
+    r = r & "seconds=" & Format$(t1 - t0, "0.0") & vbLf
+    r = r & "ms_per_write=" & Format$(((t1 - t0) * 1000) / IIf(writes = 0, 1, writes), "0.00") & vbLf
+    r = r & "none_left=" & Abs(CLng(modRetheme.CountBlocksToChange(thLight) = 0)) & vbLf
+
+    ' Running it again must cost nothing. That is what makes a second press
+    ' instant rather than another wait, and it is the check that the no-op
+    ' short-circuit actually fires on every block rather than most of them.
+    writes = 0
+    t0 = Timer
+    changed = modRetheme.RethemeAll(thLight, writes)
+    t1 = Timer
+    r = r & "second_pass_changed=" & changed & vbLf
+    r = r & "second_pass_seconds=" & Format$(t1 - t0, "0.0") & vbLf
+
+    ' And back again, so the switch is shown to be reversible rather than a
+    ' one-way trip that happens to look right.
+    writes = 0
+    t0 = Timer
+    changed = modRetheme.RethemeAll(thDark, writes)
+    t1 = Timer
+    r = r & "back_to_dark_changed=" & changed & vbLf
+    r = r & "back_to_dark_seconds=" & Format$(t1 - t0, "0.0") & vbLf
+
+    modRetheme.RethemeAll thLight, writes
+    p.Slides(26).Export pngPath, "PNG", 1600, 900
+    p.Saved = msoTrue
+    p.Close
+
+    ThemeDeckTest = r
+    Exit Function
+Failed:
+    ThemeDeckTest = r & "ERROR " & Err.Number & ": " & Err.Description
+End Function
+
 ' A focused probe: does a connector attached to a note follow the note when the
 ' note is moved from code? Everything else in NoteTest was too tangled to give a
 ' clean answer.
