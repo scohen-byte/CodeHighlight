@@ -2553,6 +2553,139 @@ Failed:
     ThemeTest = r & "ERROR " & Err.Number & ": " & Err.Description
 End Function
 
+' What Stylize does to a note the user has adjusted by hand.
+'
+' Not an assertion of good behaviour - a MEASUREMENT of the current one. Every
+' property is recorded before the hand edit, after it, and after a restyle, and
+' reported either way. A test that only asserted what it hoped for would have
+' said nothing about the two properties that turn out to move.
+'
+' Both kinds of note, because they travel different paths through FitNotes:
+' a prose note goes to FitNote, an output note to StyleOutputNote.
+Public Function NotePreserveTest(ByVal srcPath As String, ByVal pngPath As String) As String
+    Dim pres As Presentation, sld As Slide, shp As Shape, r As String
+    Dim code As String, a As Long, b As Long
+    Dim prose As Shape, outp As Shape
+    Dim pl As Single, pt As Single, ol As Single, ot As Single
+
+    On Error GoTo Failed
+    modRibbon.SetQuiet True
+    code = ReadTextFile(srcPath)
+
+    Set pres = Application.ActivePresentation
+    pres.PageSetup.SlideWidth = modSpec.SLIDE_W
+    pres.PageSetup.SlideHeight = modSpec.SLIDE_H
+    Set sld = pres.Slides.Add(pres.Slides.count + 1, ppLayoutBlank)
+    sld.Select
+
+    Set shp = modBlock.CreateBlock(sld, code, modSpec.BASE_SIZE, "python")
+    shp.Select
+    modRibbon.DoStylize
+
+    ' A prose note on line 3 and an output note on line 5.
+    Cursor shp, 3
+    modRibbon.DoNote
+    Cursor shp, 5
+    modRibbon.DoOutputNote
+    shp.Select
+    modRibbon.DoStylize
+
+    Set prose = modNote.FindNote(shp, 3)
+    Set outp = modNote.FindNote(shp, 5)
+    If prose Is Nothing Or outp Is Nothing Then
+        NotePreserveTest = r & "ERROR: notes not found"
+        Exit Function
+    End If
+    r = "prose_is_output=" & Abs(CLng(modNote.IsOutputNote(prose))) & vbLf
+    r = r & "outp_is_output=" & Abs(CLng(modNote.IsOutputNote(outp))) & vbLf
+
+    ' --- the hand edits ------------------------------------------------------
+    ' A size nobody would derive, and a move nobody would compute.
+    prose.TextFrame.TextRange.Font.size = 11
+    outp.TextFrame.TextRange.Font.size = 11
+    prose.Left = prose.Left + 60: prose.Top = prose.Top + 40
+    outp.Left = outp.Left + 60: outp.Top = outp.Top + 40
+
+    pl = prose.Left: pt = prose.Top
+    ol = outp.Left: ot = outp.Top
+    r = r & BlockSnap("edited_block", shp)
+    r = r & Snap("edited_prose", prose)
+    r = r & Snap("edited_outp", outp)
+
+    ' --- restyle -------------------------------------------------------------
+    shp.Select
+    modRibbon.DoStylize
+
+    Set prose = modNote.FindNote(shp, 3)
+    Set outp = modNote.FindNote(shp, 5)
+    r = r & BlockSnap("restyled_block", shp)
+    r = r & Snap("restyled_prose", prose)
+    r = r & Snap("restyled_outp", outp)
+
+    ' --- and a second restyle, to see whether it settles or keeps drifting ---
+    shp.Select
+    modRibbon.DoStylize
+    Set prose = modNote.FindNote(shp, 3)
+    Set outp = modNote.FindNote(shp, 5)
+    r = r & Snap("restyled2_prose", prose)
+    r = r & Snap("restyled2_outp", outp)
+
+    ' A third and fourth pass: a note that is still settling would keep
+    ' creeping, and the module header warns that is exactly how a note walks
+    ' across a slide - half a point at a time, invisibly, until it is wrong.
+    shp.Select
+    modRibbon.DoStylize
+    shp.Select
+    modRibbon.DoStylize
+    Set prose = modNote.FindNote(shp, 3)
+    Set outp = modNote.FindNote(shp, 5)
+    r = r & Snap("restyled4_prose", prose)
+    r = r & Snap("restyled4_outp", outp)
+
+    ' --- the assertions, now that the measurement has been read ------------
+    ' Restyle must change NOTHING the user set by hand. Compared against the
+    ' values recorded straight after the edit, not against anything derived.
+    r = r & "size_kept_prose=" & _
+            Abs(CLng(Abs(prose.TextFrame.TextRange.Font.size - 11) < 0.5)) & vbLf
+    r = r & "size_kept_output=" & _
+            Abs(CLng(Abs(outp.TextFrame.TextRange.Font.size - 11) < 0.5)) & vbLf
+    r = r & "pos_kept_prose=" & _
+            Abs(CLng(Abs(prose.Left - pl) < 2 And Abs(prose.Top - pt) < 2)) & vbLf
+    r = r & "pos_kept_output=" & _
+            Abs(CLng(Abs(outp.Left - ol) < 2 And Abs(outp.Top - ot) < 2)) & vbLf
+
+    sld.Export pngPath, "PNG", 1920, 1080
+    NotePreserveTest = r
+    Exit Function
+Failed:
+    NotePreserveTest = r & "ERROR " & Err.Number & ": " & Err.Description
+End Function
+
+' One line per note, so two snapshots diff by eye.
+Private Function Snap(ByVal label As String, ByVal note As Shape) As String
+    If note Is Nothing Then
+        Snap = label & "=MISSING" & vbLf
+        Exit Function
+    End If
+    Snap = label & "=size:" & Format$(note.TextFrame.TextRange.Font.size, "0.0") & _
+           " left:" & Format$(note.Left, "0") & _
+           " top:" & Format$(note.Top, "0") & _
+           " w:" & Format$(note.Width, "0") & _
+           " h:" & Format$(note.Height, "0") & _
+           " wrap:" & Abs(CLng(note.TextFrame.WordWrap)) & _
+           " off:" & note.Tags(modNote.TAG_NOTE_OFF) & _
+           " seen:" & note.Tags(modNote.TAG_NOTE_SEEN) & vbLf
+End Function
+
+' The block's own geometry, which is what every note base is measured from.
+Private Function BlockSnap(ByVal label As String, ByVal shp As Shape) As String
+    BlockSnap = label & "=left:" & Format$(shp.Left, "0") & _
+                " top:" & Format$(shp.Top, "0") & _
+                " w:" & Format$(shp.Width, "0") & _
+                " h:" & Format$(shp.Height, "0") & _
+                " right:" & Format$(shp.Left + shp.Width, "0") & vbLf
+End Function
+
 ' The whole feature against a REAL deck, which is the only place its cost is
 ' honest. srcPath is a .pptx to open rather than a code sample.
 '

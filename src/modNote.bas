@@ -59,6 +59,19 @@ Public Const NOTE_PLACEHOLDER As String = "What this line does"
 ' An output note is a note with a KIND, not a separate species. Everything that
 ' makes a note work - the anchor, the connector, the placement, the stacking,
 ' Delete note - applies unchanged, and only its dress differs.
+' The font size this module last APPLIED to a note. Exactly the argument
+' TAG_NOTE_SEEN makes for position, made for size: a note that is no longer the
+' size we set is a note the user has resized, and a derived size must not
+' overwrite a chosen one. Without this, an output note snapped back to the block
+' size on every Stylize and the text it had been shrunk to fit then wrapped.
+Public Const TAG_NOTE_SIZE_SEEN As String = "CODEBLOCK_NOTE_SIZE_SEEN"
+' The size the USER chose, once they have chosen one. Sticky: comparing the note
+' against the last-applied size can only detect the MOMENT of the change, and on
+' the pass after that the two agree again - so a choice recorded only as a
+' difference is forgotten on the very next Stylize, which is a subtler version
+' of the bug it was meant to fix.
+Public Const TAG_NOTE_SIZE_OWN  As String = "CODEBLOCK_NOTE_SIZE_OWN"
+
 Public Const TAG_NOTE_KIND As String = "CODEBLOCK_NOTE_KIND"
 Public Const KIND_OUTPUT   As String = "output"
 
@@ -364,7 +377,7 @@ Public Sub CaptureDrags(ByVal shp As Shape)
     n = NoteArray(shp, arr)
     For i = 1 To n
         v = Split(arr(i).Tags(TAG_NOTE_SEEN), ",")
-        If UBound(v) = 5 Then
+        If UBound(v) >= 5 Then
             ' Whatever the block did, the note did too if they moved together.
             ' Subtracting the block's own movement is what separates "the group
             ' was dragged" from "this note was dragged".
@@ -403,6 +416,7 @@ Public Sub PlaceNotes(ByVal shp As Shape)
     Dim baseX As Single, baseY As Single, x As Single, y As Single
     Dim floorY As Single, offX As Single, offY As Single
     Dim free As Boolean, stacked As Boolean
+    Dim sBaseX As Single, sAx As Single
 
     On Error GoTo Done
     ClearLeaders shp
@@ -418,6 +432,8 @@ Public Sub PlaceNotes(ByVal shp As Shape)
     For i = 1 To n
         ln = NoteLine(arr(i))
         If ln < 1 Then ln = 1
+
+        free = Not ParseOffset(arr(i), offX, offY)
 
         ' The anchor is the block's right edge, level with the middle of the
         ' line. Everything else is measured from there.
@@ -440,10 +456,20 @@ Public Sub PlaceNotes(ByVal shp As Shape)
             baseY = shp.Top + shp.Height + GAP_PT
         End If
 
+        ' A note the user has placed keeps the base it was placed against,
+        ' carried along by however far the anchor has moved since. Recomputing
+        ' it would re-derive a right-aligned base from a width that may have
+        ' changed, and walk the note sideways on every Stylize.
+        '
+        ' Y is deliberately left to recompute: it follows the LINE, and a note
+        ' must move when the code it points at does.
+        If Not free Then
+            If SeenAnchor(arr(i), sBaseX, sAx) Then baseX = sBaseX + (ax - sAx)
+        End If
+
         baseX = CSng(CLng(baseX))
         baseY = CSng(CLng(baseY))
 
-        free = Not ParseOffset(arr(i), offX, offY)
         x = baseX + offX
         y = baseY + offY
         stacked = False
@@ -486,7 +512,7 @@ Public Sub PlaceNotes(ByVal shp As Shape)
         arr(i).Tags.Add TAG_NOTE_SEEN, _
                         PtStr(shp.Left) & "," & PtStr(shp.Top) & "," & _
                         PtStr(baseX) & "," & PtStr(baseY) & "," & _
-                        PtStr(x) & "," & PtStr(y)
+                        PtStr(x) & "," & PtStr(y) & "," & PtStr(ax)
 
         AddLeader sld, shp, arr(i), ax, ay
     Next i
@@ -695,10 +721,16 @@ End Function
 Public Sub StyleOutputNote(ByVal note As Shape, ByVal blockSize As Single, _
                            ByVal availableW As Single)
     Dim pad As Single, markW As Single, natural As Single, txt As String
+    Dim useSize As Single
 
     On Error GoTo Done
-    pad = modSpec.SpecPad(blockSize)
-    markW = Len(OutputMark()) * modSpec.SpecCharW(blockSize)
+    ' The block size is what an output note is DERIVED from, not what it must
+    ' be. A size the user set survives - see ChosenNoteSize - and everything
+    ' measured below uses the size actually applied, so a note shrunk to fit is
+    ' not then measured as though it were still full size and wrapped anyway.
+    useSize = ChosenNoteSize(note, blockSize)
+    pad = modSpec.SpecPad(useSize)
+    markW = Len(OutputMark()) * modSpec.SpecCharW(useSize)
 
     EnsureOutputMark note
 
@@ -710,7 +742,7 @@ Public Sub StyleOutputNote(ByVal note As Shape, ByVal blockSize As Single, _
     note.Line.Weight = 1
 
     txt = note.TextFrame.TextRange.text
-    natural = Len(txt) * modSpec.SpecCharW(blockSize) + 2 * pad
+    natural = Len(txt) * modSpec.SpecCharW(useSize) + 2 * pad
 
     With note.TextFrame
         .VerticalAnchor = msoAnchorTop
@@ -729,13 +761,17 @@ Public Sub StyleOutputNote(ByVal note As Shape, ByVal blockSize As Single, _
         .AutoSize = ppAutoSizeShapeToFitText
         With .TextRange
             .Font.Name = THEME_FONT
-            .Font.size = blockSize
+            .Font.size = useSize
             .Font.Color.RGB = ThemeOutputText()
             .ParagraphFormat.Alignment = ppAlignLeft
         End With
     End With
 
     If natural > availableW Then note.Width = availableW
+
+    ' Recorded AFTER it is applied, so the next pass can tell this size from one
+    ' the user chooses in the meantime.
+    RememberNoteSize note, useSize
 
     ' After the wrap decision, because changing the frame resets the ruler.
     On Error Resume Next
@@ -820,15 +856,75 @@ Private Function ShorterSide(ByVal shp As Shape) As Single
 End Function
 
 ' True when the note carries an offset, i.e. the user has moved it.
+' The size a note should be drawn at: the one the user chose if they chose one,
+' otherwise the derived one.
+'
+' A range with mixed sizes reports ppMixed (-2), which is not a size and must
+' not be mistaken for one - so anything that is not a positive number falls back
+' to the derived size rather than being stored as a choice.
+Public Function ChosenNoteSize(ByVal note As Shape, ByVal derived As Single) As Single
+    Dim seen As String, own As String, cur As Single
+
+    ChosenNoteSize = derived
+    On Error Resume Next
+    cur = note.TextFrame.TextRange.Font.size
+    On Error GoTo 0
+    ' A range with mixed sizes reports ppMixed, which is not a size. Anything
+    ' that is not a positive number is left to the derived size rather than
+    ' being stored as though it were a choice.
+    If cur <= 0 Then Exit Function
+
+    ' A size that is not the one we last applied is one the user applied. Noted
+    ' the moment it is seen, because this is the only pass on which it differs.
+    seen = note.Tags(TAG_NOTE_SIZE_SEEN)
+    If Len(seen) > 0 Then
+        If Abs(cur - Val(seen)) >= 0.5 Then
+            note.Tags.Add TAG_NOTE_SIZE_OWN, PtStr(cur)
+            ChosenNoteSize = cur
+            Exit Function
+        End If
+    End If
+
+    own = note.Tags(TAG_NOTE_SIZE_OWN)
+    If Len(own) > 0 Then ChosenNoteSize = CSng(Val(own))
+End Function
+
+' Records what was actually applied, so the next pass can tell a size we set
+' from a size the user set.
+Public Sub RememberNoteSize(ByVal note As Shape, ByVal applied As Single)
+    note.Tags.Add TAG_NOTE_SIZE_SEEN, PtStr(applied)
+End Sub
+
 Private Function ParseOffset(ByVal note As Shape, ByRef dx As Single, ByRef dy As Single) As Boolean
     Dim v() As String
     dx = 0
     dy = 0
     v = Split(note.Tags(TAG_NOTE_OFF), ",")
-    If UBound(v) <> 1 Then Exit Function
+    If UBound(v) < 1 Then Exit Function
     dx = CSng(Val(v(0)))
     dy = CSng(Val(v(1)))
     ParseOffset = True
+End Function
+
+' The base X and the anchor X from the last pass, for a note that has an offset.
+'
+' Two of the three bases are RIGHT-ALIGNED against the block, so they are a
+' function of the note's own width: edit a note's text, or change its size, and
+' its base moves - taking a note the user had placed with it. Measuring instead
+' from the anchor, which is pure block geometry, makes the base stand still
+' while still following the block when it moves or resizes.
+'
+' Six fields is the old record, written before the anchor was kept. It returns
+' False, and PlaceNotes then behaves exactly as it used to - so no note in an
+' existing deck moves on account of this.
+Private Function SeenAnchor(ByVal note As Shape, ByRef baseX As Single, _
+                            ByRef anchorX As Single) As Boolean
+    Dim v() As String
+    v = Split(note.Tags(TAG_NOTE_SEEN), ",")
+    If UBound(v) < 6 Then Exit Function
+    baseX = CSng(Val(v(2)))
+    anchorX = CSng(Val(v(6)))
+    SeenAnchor = True
 End Function
 
 ' Whole points, so the string has no decimal separator to be mangled by a
