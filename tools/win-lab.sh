@@ -46,3 +46,33 @@ _WINLAB_HOME_WSL="$(wslpath -u "$WIN_HOME")"
 [[ -d "$_WINLAB_HOME_WSL" ]] || _winlab_die "the Windows profile $WIN_HOME is not reachable from WSL
      (looked in $_WINLAB_HOME_WSL - is that drive mounted?)"
 unset _WINLAB_HOME_WSL
+
+# Every script here derives its staging directory from $LAB and clears that
+# directory recursively on each run, so $LAB is the one value that must not be
+# allowed to come out wrong. On 2026-09-03 a hand-rolled version of this
+# translation - `echo` on a backslash path, under zsh - produced a string
+# holding a NUL byte. The shell showed a full-length path; execve truncated the
+# argument at the NUL and the delete ran against /mnt/c instead. Nothing in the
+# printed value gave that away, so the check is made here, once, rather than
+# trusted at each call site.
+_winlab_check() {
+    local val="$1" what="$2"
+
+    # What an exec'd program actually receives. A NUL, or anything else that
+    # does not survive the trip through argv, shows up as a shorter string.
+    [[ "$(/usr/bin/env printf '%s' "$val")" == "$val" ]] \
+        || _winlab_die "$what does not survive exec intact - it holds an embedded NUL or similar.
+     Printing it will look right; it will not be what a command receives."
+
+    [[ "$val" == /mnt/* ]]     || _winlab_die "$what is not under /mnt: $val"
+    [[ "$val" != *//* ]]       || _winlab_die "$what has an empty path segment: $val"
+    [[ "$val" == */ppt-lab ]]  || _winlab_die "$what does not end in /ppt-lab: $val"
+
+    # /mnt/c/Users/<name>/ppt-lab is five segments. Anything shallower means a
+    # component came back empty, and a recursive delete there reaches far too
+    # much of the Windows drive.
+    local depth; depth="$(printf '%s' "$val" | tr -cd '/' | wc -c)"
+    [[ "$depth" -ge 4 ]] || _winlab_die "$what is too shallow to clear safely: $val"
+}
+_winlab_check "$LAB" "the scratch root (LAB)"
+unset -f _winlab_check
