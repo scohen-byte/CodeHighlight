@@ -55,14 +55,15 @@ Public Function RunCorpus(ByVal sampleDir As String, ByVal outDir As String) As 
     Dim names() As String, count As Long, i As Long
     Dim fileName As String, src As String, mask As String, report As String
     Dim spans() As Span, n As Long
-    Dim t0 As Single, totalChars As Long
+    Dim t0 As Single, totalChars As Long, lang As LangDef
 
     ReDim names(0 To 255)
     count = 0
 
     ' Collect the names first. Interleaving Dir() with the file reads below
     ' would clobber its iteration state.
-    fileName = Dir(sampleDir & "\*.py")
+    lang = RunLang()
+    fileName = Dir(sampleDir & "\*." & lang.SourceExtension)
     Do While Len(fileName) > 0
         If count > UBound(names) Then ReDim Preserve names(0 To count + 255)
         names(count) = fileName

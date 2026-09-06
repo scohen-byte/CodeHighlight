@@ -18,7 +18,7 @@ $ErrorActionPreference = 'Stop'
 # name per run and the parameter quietly took it away.
 if (-not $Scratch) { $Scratch = (Join-Path $env:USERPROFILE "ppt-lab\probe-run-") + [guid]::NewGuid().ToString('N').Substring(0,8) + '.pptm' }
 New-Item -ItemType Directory -Path (Split-Path $Scratch -Parent) -Force | Out-Null
-$MODULES = @('modTheme','modSpec','modLangRegistry','modLangPython',
+$MODULES = @('modTheme','modSpec','modLangRegistry','modLangPython','modLangJava',
              'modLexer','modBlock','modRender','modGutter','modGuides',
              'modOptions','modSwatch','modOutput','modNote','modArrow','modRetheme','modRibbon','modSelfTest')
 if (Test-Path $Scratch) { Remove-Item $Scratch -Force }

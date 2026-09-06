@@ -27,7 +27,7 @@ $ppSaveAsOpenXMLPresentationMacroEnabled = 25
 # Dependency order: modLexer needs TokenClass from modTheme and LangDef from
 # modLangRegistry, modBlock needs modSpec and modTheme, modRender needs both.
 # modRibbon is excluded - it needs IRibbonUI and plays no part here.
-$MODULES = @('modTheme', 'modSpec', 'modLangRegistry', 'modLangPython',
+$MODULES = @('modTheme', 'modSpec', 'modLangRegistry', 'modLangPython', 'modLangJava',
              'modLexer', 'modBlock', 'modRender', 'modGutter', 'modGuides',
              'modOptions', 'modSwatch', 'modOutput', 'modNote', 'modArrow',
              'modRetheme',

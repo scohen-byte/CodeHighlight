@@ -80,6 +80,12 @@ CONTROL_KW = {
     "and", "or", "not", "in", "is",
 }
 
+JAVA_CONTROL_KW = {
+    "assert", "break", "case", "catch", "continue", "default", "do", "else",
+    "finally", "for", "if", "instanceof", "new", "return", "switch", "throw",
+    "try", "while", "yield",
+}
+
 # Builtin CLASSES, coloured as types even when called - VS Code's Pylance knows
 # list() is a class, pygments does not. Kept in step with L.TypeNames in
 # src/modLangPython.bas; the two are separate files and will not warn you.
@@ -95,6 +101,16 @@ PY_TYPES = {
     "IndentationError", "KeyboardInterrupt", "MemoryError", "OverflowError",
     "RecursionError", "AssertionError", "ArithmeticError", "LookupError",
     "PermissionError", "UnicodeDecodeError", "UnicodeEncodeError",
+}
+
+JAVA_TYPES = {
+    "boolean", "byte", "char", "double", "float", "int", "long", "short",
+    "void", "String", "Object", "Class", "System", "Math", "Number",
+    "Boolean", "Byte", "Character", "Double", "Float", "Integer", "Long",
+    "Short", "Void", "Exception", "RuntimeException", "Throwable", "Error",
+    "Iterable", "Collection", "List", "ArrayList", "LinkedList", "Set",
+    "HashSet", "Map", "HashMap", "Optional", "Stream", "Arrays",
+    "Collections",
 }
 
 # --------------------------------------------------------------------------
@@ -219,7 +235,7 @@ def apply_bracket_depth(runs: list[tuple[str, str]]) -> list[tuple[str, str]]:
     return out
 
 
-def classify(tokens: list[tuple]) -> list[tuple[str, str]]:
+def classify(tokens: list[tuple], language: str = "python") -> list[tuple[str, str]]:
     """Map pygments tokens onto our palette keys, VS Code style."""
     out: list[tuple[str, str]] = []
     # A decorator is only a decorator at the start of a line. Whitespace keeps
@@ -239,7 +255,7 @@ def classify(tokens: list[tuple]) -> list[tuple[str, str]]:
             key = "string"
         elif ttype in Number:
             key = "number"
-        elif ttype in Name and value in ("j", "J") and out and out[-1][0] == "number":
+        elif language == "python" and ttype in Name and value in ("j", "J") and out and out[-1][0] == "number":
             # pygments splits a complex literal: 3j lexes as Number "3" plus
             # Name "j". VS Code colours the whole literal as a number, so glue
             # the suffix back on.
@@ -255,11 +271,16 @@ def classify(tokens: list[tuple]) -> list[tuple[str, str]]:
                 out.append(("func" if nxt.startswith("(") else "var", rest))
             at_line_start = False
             continue
+        elif language == "java" and ttype in Keyword.Type:
+            key = "cls"
         elif ttype in Keyword:
-            key = "kw_ctrl" if value in CONTROL_KW else "kw_decl"
+            control_kw = JAVA_CONTROL_KW if language == "java" else CONTROL_KW
+            key = "kw_ctrl" if value in control_kw else "kw_decl"
         elif ttype in Name.Class:
             key = "cls"
-        elif ttype in Name and value in PY_TYPES:
+        elif language == "python" and ttype in Name and value in PY_TYPES:
+            key = "cls"
+        elif language == "java" and ttype in Name and value in JAVA_TYPES:
             key = "cls"
         elif ttype in Name.Function or ttype in Name.Decorator:
             key = "func"

@@ -46,7 +46,7 @@ $ppSaveAsOpenXMLPresentationMacroEnabled = 25
 # Dependency order. modLexer refers to the TokenClass enum in modTheme and to
 # LangDef in modLangRegistry, so those come first. modRibbon needs IRibbonUI and
 # has nothing to do with the lexer, so it is not in the list at all.
-$MODULES = @('modTheme', 'modSpec', 'modLangRegistry', 'modLangPython',
+$MODULES = @('modTheme', 'modSpec', 'modLangRegistry', 'modLangPython', 'modLangJava',
              'modLexer', 'modBlock', 'modRender', 'modGutter', 'modGuides',
              'modOptions', 'modSwatch', 'modOutput', 'modNote', 'modArrow',
              'modRetheme',

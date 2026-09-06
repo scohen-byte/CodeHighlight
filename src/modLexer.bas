@@ -178,8 +178,9 @@ Private Sub ScanOneToken()
         End If
     End If
 
-    If Len(mLang.DecoratorChar) > 0 And mAtLineStart Then
-        If ch = mLang.DecoratorChar Then
+    If Len(mLang.DecoratorChar) > 0 Then
+        If ch = mLang.DecoratorChar And _
+           (mAtLineStart Or Not mLang.DecoratorLineStartOnly) Then
             ScanDecorator
             Exit Sub
         End If
@@ -637,7 +638,8 @@ Private Function IsIdentStart(ByVal ch As String) As Boolean
     Dim c As Long
     If Len(ch) = 0 Then Exit Function
     c = AscW(ch)
-    IsIdentStart = (c >= 65 And c <= 90) Or (c >= 97 And c <= 122) Or (c = 95)
+    IsIdentStart = (c >= 65 And c <= 90) Or (c >= 97 And c <= 122) Or _
+                   (c = 95) Or InStr(mLang.ExtraIdentChars, ch) > 0
 End Function
 
 Private Function IsIdentChar(ByVal ch As String) As Boolean
@@ -645,7 +647,8 @@ Private Function IsIdentChar(ByVal ch As String) As Boolean
     If Len(ch) = 0 Then Exit Function
     c = AscW(ch)
     IsIdentChar = (c >= 65 And c <= 90) Or (c >= 97 And c <= 122) Or _
-                  (c = 95) Or (c >= 48 And c <= 57)
+                  (c = 95) Or (c >= 48 And c <= 57) Or _
+                  InStr(mLang.ExtraIdentChars, ch) > 0
 End Function
 
 ' CR is PowerPoint's paragraph mark, VT is a soft line break, LF turns up in

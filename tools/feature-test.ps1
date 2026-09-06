@@ -22,7 +22,7 @@ $ErrorActionPreference = 'Stop'
 
 # Dependency order. modNote needs modBlock and modGutter; modRibbon needs all of
 # them and is included because these tests drive the Do* commands.
-$MODULES = @('modTheme', 'modSpec', 'modLangRegistry', 'modLangPython',
+$MODULES = @('modTheme', 'modSpec', 'modLangRegistry', 'modLangPython', 'modLangJava',
              'modLexer', 'modBlock', 'modRender', 'modGutter', 'modGuides',
              'modOptions', 'modSwatch', 'modOutput', 'modNote', 'modArrow', 'modRetheme', 'modRibbon', 'modSelfTest')
 
