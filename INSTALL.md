@@ -1,7 +1,8 @@
 # CodeHighlight — installing it
 
-A PowerPoint add-in that renders source code with VS Code's colours, entirely
-offline. You type code into a block on the slide and press **Stylize**.
+A PowerPoint add-in that renders source code in an editor's colours — dark or
+light — entirely offline. You type code into a block on the slide and press
+**Stylize**.
 
 This file covers getting it onto a machine and set up correctly. **`README.md`
 covers using it.**
