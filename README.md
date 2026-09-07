@@ -1,7 +1,8 @@
 # CodeHighlight
 
-A PowerPoint add-in that renders source code with VS Code's colours, entirely
-offline, with no dependency on anything outside PowerPoint itself.
+A PowerPoint add-in that renders source code in an editor's colours — dark or
+light — entirely offline, with no dependency on anything outside PowerPoint
+itself.
 
 Type code into a block on the slide and press **Stylize**.
 
@@ -52,7 +53,7 @@ The **Code** tab, group by group.
 
 | | |
 |---|---|
-| **New block** | Inserts an empty dark block, placeholder selected so you can start typing. The arrow beside it offers **Code block** or **Transcript** |
+| **New block** | Inserts an empty block in the deck's theme, placeholder selected so you can start typing. The arrow beside it offers **Code block** or **Transcript** |
 | **Stylize** | Colours the block, refits it, and re-syncs everything hanging off it. The button you press constantly |
 | **Strip** | Back to plain uncoloured text. Stylize brings it all back |
 | **Copy code** | The block's source to the clipboard — no prompts, no output |
@@ -263,9 +264,54 @@ dropdowns whose contents say what they are.
 
 | | |
 |---|---|
+| **Theme** | Dark or light colours for code blocks. Stored per block |
+| **Apply to all** | Put every code block in the deck into the chosen theme |
 | **Notes** | Colour, font and size for notes |
 | **Arrow** | Colour for margin arrows |
 | **Language** | Which lexer to use. Stored per block |
+
+**Theme.** Two palettes: **Dark** is VS Code Dark Modern, **Light** is GitHub
+Light Default. Dark is what the code looks like in a student's editor and reads
+well in a dark hall. Light is for the lights being up. A dark ground is the
+fragile side of the contrast formula — ambient light multiplies a `#1F1F1F`
+background by nineteen and the palette caves with it, its worst colour landing
+at 3.36:1 against a projector with the audience able to take notes. Light is
+also the better of the two for a colour-blind student: measured under
+deuteranopia its worst pair of colours is 8.5 against the dark theme's 5.3.
+
+GitHub's palette rather than one of mine, because darkening each colour to a
+single contrast target flattens them all to the same lightness, which leaves hue
+as the only thing telling them apart — and hue is exactly what red-green colour
+blindness removes. GitHub's has a natural lightness spread and was designed for
+accessibility. Four of its colours are used as published; the other seven were
+tuned for a monitor at arm's length, so each lost lightness along its own hue
+until it cleared 5.5:1, the dark theme's own worst. The two are at parity in a
+dim hall and the light one pulls ahead as the lights come up.
+
+A light block also gets a thin border. Its ground is 1.06:1 against a white
+slide, which is invisible from the back of a room, and without an edge the block
+stops being an object. A dark block on a white slide is its own outline, so it
+has none.
+
+**The theme is per block**, so one slide can hold one of each. Picking a theme
+records it for blocks you make afterwards and applies it to the block you are
+pointing at — the same as picking a note colour. It does not repaint the rest of
+the deck.
+
+**Apply to all** does that, and asks first: it says how many blocks and roughly
+how long, about four seconds for an eighty-slide deck, during which PowerPoint
+will not respond. A second press is free, because a block already in the theme
+is skipped.
+
+**The theme owns colour and nothing else** — not a size, a weight, a font, a
+position or any geometry. Switching a block is not a re-render, so anything you
+adjusted by hand survives it, which is what makes a deck-wide press safe.
+Notes keep the colours you gave them, the theme's only say there being which
+preset a new note starts as, and arrows are drawn on the slide rather than on
+the block, so they are left alone too.
+
+A block made before themes existed carries no theme tag, and an absent tag means
+dark — which is what those blocks are. Old decks need no migration.
 
 **Notes.** The three apply to the note you have singled out — the one on your
 cursor's line, or the one you have clicked into — and each changes only what it
