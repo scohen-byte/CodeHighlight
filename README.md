@@ -352,8 +352,8 @@ told to.
 
 ## Adding a language
 
-Python is the only language shipped, but nothing outside `src/modLang*.bas`
-holds a Python-specific literal. The scanner is generic and driven by a
+Python and Java are shipped, but nothing outside `src/modLang*.bas`
+holds a language-specific lexer literal. The scanner is generic and driven by a
 `LangDef` table: comment markers, quote characters, escape and interpolation
 rules, keyword sets, bracket pairs, and the interpreter's prompts. Adding a
 language is a new table file and one `Register` line — the lexer, renderer,

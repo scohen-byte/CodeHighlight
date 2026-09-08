@@ -32,7 +32,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 from lab import classify  # noqa: E402  - same directory, deliberate
 from pygments import lex  # noqa: E402
-from pygments.lexers import PythonLexer  # noqa: E402
+from pygments.lexers import JavaLexer, PythonLexer  # noqa: E402
 
 # Palette key -> mask character. One character per class, so masks line up.
 KEY2CHAR = {
@@ -51,14 +51,14 @@ KEY2CHAR = {
 }
 
 # Languages are looked up by id, so a second language means one more entry.
-LEXERS = {"python": PythonLexer}
+LEXERS = {"python": PythonLexer, "java": JavaLexer}
 
 
 def masks(source: str, language: str = "python") -> list[str]:
     """One mask string per line of source, each as long as its line."""
     lexer_cls = LEXERS[language]
     out: list[str] = [""]
-    for key, value in classify(list(lex(source, lexer_cls()))):
+    for key, value in classify(list(lex(source, lexer_cls())), language=language):
         char = KEY2CHAR[key]
         for n, part in enumerate(value.split("\n")):
             if n:

@@ -26,7 +26,7 @@ $ppSaveAsOpenXMLPresentationMacroEnabled = 25
 
 # modRibbon IS imported here, unlike in the lexer harness - it is the thing
 # under test. It needs IRibbonUI, which the Office library provides by default.
-$MODULES = @('modTheme', 'modSpec', 'modLangRegistry', 'modLangPython',
+$MODULES = @('modTheme', 'modSpec', 'modLangRegistry', 'modLangPython', 'modLangJava',
              'modLexer', 'modBlock', 'modRender', 'modGutter', 'modGuides',
              'modOptions', 'modSwatch', 'modOutput', 'modNote', 'modArrow', 'modRetheme', 'modRibbon', 'modSelfTest')
 

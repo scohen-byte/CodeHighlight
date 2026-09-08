@@ -21,6 +21,7 @@ Option Explicit
 Public Type LangDef
     Id                As String   ' "python" - stable, stored in the shape tag
     DisplayName       As String   ' "Python" - what the ribbon dropdown shows
+    SourceExtension   As String   ' "py" - used by the lexer test corpus
 
     ' --- comments -----------------------------------------------------------
     LineComments      As String   ' space-delimited markers, e.g. "#" or "// #"
@@ -63,6 +64,8 @@ Public Type LangDef
     ' --- identifiers --------------------------------------------------------
     CaseSensitive     As Boolean
     DecoratorChar     As String   ' "@" at line start, "" if the language has none
+    DecoratorLineStartOnly As Boolean
+    ExtraIdentChars   As String   ' identifier chars beyond ASCII letters/digits/_
     OpenBrackets      As String   ' "([{" - empty disables depth colouring
     CloseBrackets     As String   ' ")]}" - must pair positionally with the above
     ControlKeywords   As String   ' purple - flow control
@@ -89,7 +92,7 @@ Private Sub BuildRegistry()
     ReDim mLangs(0 To 7)
 
     Register modLangPython.PythonLang()
-    ' Register modLangJava.JavaLang()
+    Register modLangJava.JavaLang()
     ' Register modLangC.CLang()
 
     mBuilt = True

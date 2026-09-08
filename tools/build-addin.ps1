@@ -24,7 +24,7 @@ $ppSaveAsOpenXMLPresentationMacroEnabled = 25
 # there, and PowerPoint reports "Compile error in hidden module: modRibbon" on
 # the first click. The tests import from src/ directly, so they never see it.
 # tools/check-vba.sh compares this list against the directory for that reason.
-$MODULES = @('modTheme', 'modSpec', 'modLangRegistry', 'modLangPython',
+$MODULES = @('modTheme', 'modSpec', 'modLangRegistry', 'modLangPython', 'modLangJava',
              'modLexer', 'modBlock', 'modRender', 'modGutter', 'modGuides',
              'modOptions', 'modSwatch', 'modOutput', 'modNote', 'modArrow', 'modRetheme', 'modRibbon')
 

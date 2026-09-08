@@ -17,6 +17,12 @@ set -uo pipefail
 REPO="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 LANG_ID="${LANG_ID:-python}"
 
+case "$LANG_ID" in
+    python) EXT=py ;;
+    java) EXT=java ;;
+    *) printf 'run-lexer-tests: no source extension registered for language %s\n' "$LANG_ID" >&2; exit 1 ;;
+esac
+
 source "$REPO/tools/win-lab.sh"
 
 # PowerPoint's COM server is SINGLE-INSTANCE: New-Object attaches to a running
@@ -45,7 +51,7 @@ if [[ $# -gt 0 ]]; then
     NAMES=("$@")
 else
     NAMES=()
-    for f in "$SAMPLES"/*.py; do NAMES+=("$(basename "$f" .py)"); done
+    for f in "$SAMPLES"/*."$EXT"; do NAMES+=("$(basename "$f" ."$EXT")"); done
 fi
 
 rm -rf "$STAGE" "$EXPECTED" "$ACTUAL"
@@ -53,8 +59,8 @@ mkdir -p "$STAGE/src" "$STAGE/samples" "$STAGE/masks" "$EXPECTED" "$ACTUAL"
 
 cp "$REPO"/src/*.bas "$STAGE/src/"
 for n in "${NAMES[@]}"; do
-    [[ -f "$SAMPLES/$n.py" ]] || die "no such sample: $n"
-    cp "$SAMPLES/$n.py" "$STAGE/samples/"
+    [[ -f "$SAMPLES/$n.$EXT" ]] || die "no such sample: $n"
+    cp "$SAMPLES/$n.$EXT" "$STAGE/samples/"
 done
 
 echo "== VBA =="
@@ -69,7 +75,7 @@ echo
 echo "== diff vs tools/lexref.py =="
 fail=0
 for n in "${NAMES[@]}"; do
-    python3 "$REPO/tools/lexref.py" --lang "$LANG_ID" "$SAMPLES/$n.py" > "$EXPECTED/$n.mask" \
+    python3 "$REPO/tools/lexref.py" --lang "$LANG_ID" "$SAMPLES/$n.$EXT" > "$EXPECTED/$n.mask" \
         || die "reference classifier failed on $n"
     # The VBA writes ANSI with LF; strip any stray CR before comparing.
     tr -d '\r' < "$STAGE/masks/$n.mask" > "$ACTUAL/$n.mask" 2>/dev/null \
@@ -82,7 +88,7 @@ for n in "${NAMES[@]}"; do
         printf '  %-14s DIFFERS\n' "$n"
         # Show the first few differing lines with their source, which is the
         # only form of this output anyone can actually act on.
-        awk -v src="$SAMPLES/$n.py" -v want="$EXPECTED/$n.mask" -v got="$ACTUAL/$n.mask" '
+        awk -v src="$SAMPLES/$n.$EXT" -v want="$EXPECTED/$n.mask" -v got="$ACTUAL/$n.mask" '
             BEGIN {
                 while ((getline line < src) > 0) s[++ns] = line
                 while ((getline line < want) > 0) e[++ne] = line

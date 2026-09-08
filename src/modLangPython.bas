@@ -16,6 +16,7 @@ Public Function PythonLang() As LangDef
 
     L.id = "python"
     L.DisplayName = "Python"
+    L.SourceExtension = "py"
     L.PromptText = ">>> "
     L.ContinueText = "... "
 
@@ -41,6 +42,8 @@ Public Function PythonLang() As LangDef
 
     L.CaseSensitive = True
     L.DecoratorChar = "@"
+    L.DecoratorLineStartOnly = True
+    L.ExtraIdentChars = ""
     L.OpenBrackets = "([{"
     L.CloseBrackets = ")]}"
 
