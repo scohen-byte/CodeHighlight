@@ -95,8 +95,11 @@ Public Sub DoStylize()
     End If
 
     langId = modBlock.BlockLangId(shp, CurrentLangId())
-    ' Adopts an untagged block - a block pasted from a colleague's deck starts
-    ' working the first time it is highlighted.
+    ' Adopts an untagged block - one pasted from a colleague's deck, or typed
+    ' into a plain text box in a deck built before the add-in existed, starts
+    ' working the first time it is highlighted. The shape is converted before
+    ' the tags go on, because IsCodeBlock is what tells the two cases apart.
+    If Not modBlock.IsCodeBlock(shp) Then modBlock.AdoptShape shp
     modBlock.EnsureTags shp, langId
 
     StyleBlock shp, langId

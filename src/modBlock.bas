@@ -430,7 +430,7 @@ Public Function CreateBlock(ByVal sld As Slide, ByVal code As String, _
     ' offset set above and dropped every new block in exactly the same place.
     shp.Left = modSpec.CONTENT_L + off
     shp.Top = modSpec.CONTENT_T + off
-    shp.Adjustments(1) = modSpec.SpecCornerAdjust(size, ShorterSide(shp))
+    SetCornerRadius shp, size
 
     shp.Tags.Add TAG_BLOCK, "1"
     shp.Tags.Add TAG_ID, NewBlockId()
@@ -717,6 +717,41 @@ Public Function IsCodeBlock(ByVal shp As Shape) As Boolean
     IsCodeBlock = (shp.Tags(TAG_BLOCK) = "1")
 End Function
 
+' The other half of adopting a block. EnsureTags makes a foreign shape ours to
+' the bookkeeping; this makes it LOOK ours.
+'
+' A deck written before anyone had the add-in holds its code in whatever shape
+' the author reached for - usually a plain text box, sometimes a square
+' rectangle. Stylize colours the code in either, but without this the surface
+' stays exactly as it was, so "use our style" only ever got half applied.
+' Setting AutoShapeType is PowerPoint's own Change Shape, and it keeps the text.
+'
+' The fill has to be made SOLID here: a text box is transparent, and the colour
+' the render assigns to a fill that is not visible changes nothing anyone can
+' see. CreateBlock does the same three things to a new block.
+'
+' The theme is the DECK's, exactly as it is for a block made here. Without this
+' the block has no theme tag, and an absent tag reads as dark - so adopting a
+' block into a deck the user had set to light handed them a dark one, which is
+' the opposite of taking the deck's style.
+'
+' That fallback still has to mean dark, because every block made before themes
+' existed relies on it. What keeps both true is WHEN this runs: only on a shape
+' with no CODEBLOCK tag, so it never reaches a block the add-in already owns,
+' and never overrides a choice made on one.
+'
+' Every step is defended because a shape PowerPoint declines to convert - a
+' layout placeholder, say - should still get its code coloured.
+Public Sub AdoptShape(ByVal shp As Shape)
+    SetBlockTheme shp, modOptions.DeckTheme()
+
+    On Error Resume Next
+    shp.AutoShapeType = msoShapeRoundedRectangle
+    shp.Fill.Solid
+    shp.Shadow.Visible = msoFalse
+    On Error GoTo 0
+End Sub
+
 ' Adds the bookkeeping tags if they are absent, leaving any that are already
 ' there alone. Called on every Stylize, which is what adopts an untagged
 ' block the first time someone highlights it.
@@ -821,6 +856,30 @@ Public Sub ResizeToContent(ByVal shp As Shape)
         If shp.Top < 0 Then shp.Top = 0
         If shp.Top + h > modSpec.SLIDE_H Then shp.Top = modSpec.SLIDE_H - h
     End If
+
+    SetCornerRadius shp, size
+End Sub
+
+' The block's corner radius, on a shape that has a corner to set.
+'
+' A block the add-in made is a rounded rectangle, which always has adjustment 1.
+' An ADOPTED one need not be: code typed into a plain text box, or drawn as a
+' square rectangle in a deck built before anyone had the add-in, has no
+' adjustment handles at all, and Adjustments(1) on such a shape raises
+' "Invalid procedure call or argument". That reached the user as a warning box
+' on a Stylize that had otherwise worked, because this is the LAST step of the
+' resize - everything visible had already been done, and everything after it
+' (gutter, guides, notes, grouping) was silently skipped.
+'
+' Only the count is read defensively. Once a shape is known to have an
+' adjustment, failing to set it is a real fault and should be reported.
+Public Sub SetCornerRadius(ByVal shp As Shape, ByVal size As Single)
+    Dim n As Long
+
+    On Error Resume Next
+    n = shp.Adjustments.count
+    On Error GoTo 0
+    If n < 1 Then Exit Sub
 
     shp.Adjustments(1) = modSpec.SpecCornerAdjust(size, ShorterSide(shp))
 End Sub

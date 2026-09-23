@@ -3500,3 +3500,154 @@ Private Sub WriteTextFile(ByVal path As String, ByVal content As String)
     Print #f, content;
     Close #f
 End Sub
+
+' A deck that already had code in it, written by someone who did not have the
+' add-in. Selecting one of those shapes and pressing Stylize is the whole
+' migration path, and it has to be clean.
+'
+' Reported from a real deck: Stylize coloured the code and then put up
+' "DoStylize failed: Invalid procedure call or argument". The colours were the
+' visible part, so the command looked like it had worked and warned anyway -
+' but ResizeToContent had raised on Adjustments(1), which a text box does not
+' have, and every step after it was skipped.
+'
+' Both shapes people actually use, because they fail the same way and take
+' different paths back: a text box has no fill and no corner, a plain rectangle
+' has a fill and still no corner.
+Public Function AdoptTest(ByVal srcPath As String, ByVal pngPath As String) As String
+    Dim pres As Presentation, sld As Slide, r As String, code As String
+    Dim tb As Shape, rect As Shape, mine As Shape
+
+    On Error GoTo Failed
+    modRibbon.SetQuiet True
+    code = ReadTextFile(srcPath)
+
+    Set pres = Application.ActivePresentation
+    pres.PageSetup.SlideWidth = modSpec.SLIDE_W
+    pres.PageSetup.SlideHeight = modSpec.SLIDE_H
+    Set sld = pres.Slides.Add(pres.Slides.count + 1, ppLayoutBlank)
+    sld.Select
+
+    ' --- what the foreign shapes start as -----------------------------------
+    Set tb = sld.Shapes.AddTextbox(msoTextOrientationHorizontal, 40, 40, 400, 120)
+    tb.TextFrame.TextRange.text = modBlock.NormalizeParagraphs(code)
+    Set rect = sld.Shapes.AddShape(msoShapeRectangle, 500, 40, 400, 120)
+    rect.TextFrame.TextRange.text = modBlock.NormalizeParagraphs(code)
+
+    r = "textbox_starts_without_corner=" & Abs(CLng(AdjustmentCount(tb) = 0)) & vbLf
+    r = r & "rect_starts_without_corner=" & Abs(CLng(AdjustmentCount(rect) = 0)) & vbLf
+
+    ' --- Stylize must not warn ----------------------------------------------
+    r = r & "textbox_stylize_warning=[" & StylizeAndWarn(tb) & "]" & vbLf
+    r = r & "rect_stylize_warning=[" & StylizeAndWarn(rect) & "]" & vbLf
+
+    ' --- and must have adopted them -----------------------------------------
+    ' Tagged, so the next command finds them, and reshaped, so they look like
+    ' the blocks beside them rather than like whatever they used to be.
+    r = r & "textbox_is_block=" & Abs(CLng(modBlock.IsCodeBlock(tb))) & vbLf
+    r = r & "rect_is_block=" & Abs(CLng(modBlock.IsCodeBlock(rect))) & vbLf
+    r = r & "textbox_rounded=" & _
+            Abs(CLng(tb.AutoShapeType = msoShapeRoundedRectangle)) & vbLf
+    r = r & "rect_rounded=" & _
+            Abs(CLng(rect.AutoShapeType = msoShapeRoundedRectangle)) & vbLf
+    r = r & "textbox_fill_visible=" & Abs(CLng(tb.Fill.Visible = msoTrue)) & vbLf
+    r = r & "textbox_fill_is_ground=" & _
+            Abs(CLng(tb.Fill.ForeColor.RGB = ThemeBackColor())) & vbLf
+
+    ' The corner it now has is the one the SPEC asks for, not PowerPoint's
+    ' default round.
+    '
+    ' Measured in points against this block's own size, not against a new
+    ' block's. An adopted block keeps the size the author set - a text box
+    ' defaults to 18pt, and Stylize has no business jumping somebody's existing
+    ' slide to 22 - so its radius is correctly smaller than a new block's. The
+    ' two are recorded side by side to keep that visible.
+    Set mine = modBlock.CreateBlock(sld, code, modSpec.BASE_SIZE, "python")
+    mine.Top = 300
+    modRibbon.StyleBlock mine, "python"
+    r = r & "adopted_keeps_own_size=" & Format$(modBlock.BlockFontSize(tb), "0.0") & vbLf
+    r = r & "new_block_size=" & Format$(modBlock.BlockFontSize(mine), "0.0") & vbLf
+    r = r & "adopted_radius_pt=" & Format$(CornerRadiusPt(tb), "0.00") & vbLf
+    r = r & "new_radius_pt=" & Format$(CornerRadiusPt(mine), "0.00") & vbLf
+    r = r & "adopted_radius_is_spec=" & Abs(CLng( _
+            Abs(CornerRadiusPt(tb) - _
+                modSpec.SpecRadius(modBlock.BlockFontSize(tb))) < 0.01)) & vbLf
+    r = r & "new_radius_is_spec=" & Abs(CLng( _
+            Abs(CornerRadiusPt(mine) - _
+                modSpec.SpecRadius(modBlock.BlockFontSize(mine))) < 0.01)) & vbLf
+
+    ' --- adoption takes the DECK's theme, not a hardcoded dark ---------------
+    ' An absent theme tag reads as dark, which is right for a block made before
+    ' themes existed and wrong for a shape being adopted into a deck the user
+    ' has set to light. Checked on a light deck, because on a dark one the bug
+    ' and the fix give the same answer.
+    Dim wasDeck As ThemeId, lit As Shape
+    wasDeck = modOptions.DeckTheme()
+    modOptions.SetDeckTheme thLight
+
+    Set lit = sld.Shapes.AddTextbox(msoTextOrientationHorizontal, 40, 600, 400, 120)
+    lit.TextFrame.TextRange.text = modBlock.NormalizeParagraphs(code)
+    r = r & "light_deck_stylize_warning=[" & StylizeAndWarn(lit) & "]" & vbLf
+    r = r & "adopted_takes_deck_theme=" & _
+            Abs(CLng(modBlock.BlockTheme(lit) = thLight)) & vbLf
+    ThemeSetCurrent thLight
+    r = r & "adopted_fill_is_light_ground=" & _
+            Abs(CLng(lit.Fill.ForeColor.RGB = ThemeBackColor())) & vbLf
+
+    ' And an old block of OURS, tagged but from before themes existed, must
+    ' still come out dark - adoption must not reach it.
+    Dim old As Shape
+    Set old = modBlock.CreateBlock(sld, code, modSpec.BASE_SIZE, "python")
+    old.Tags.Delete modBlock.TAG_THEME
+    old.Top = 900
+    r = r & "pre_theme_block_warning=[" & StylizeAndWarn(old) & "]" & vbLf
+    r = r & "pre_theme_block_stays_dark=" & _
+            Abs(CLng(modBlock.BlockTheme(old) = thDark)) & vbLf
+
+    modOptions.SetDeckTheme wasDeck
+    ThemeSetCurrent thDark
+
+    ' --- a second Stylize changes nothing ------------------------------------
+    ' Adoption runs off the tag, so once the block is tagged it must stop
+    ' happening. A block the user later squares off by hand should stay squared.
+    rect.AutoShapeType = msoShapeRectangle
+    r = r & "second_stylize_warning=[" & StylizeAndWarn(rect) & "]" & vbLf
+    r = r & "reshape_not_undone=" & _
+            Abs(CLng(rect.AutoShapeType = msoShapeRectangle)) & vbLf
+
+    modRibbon.SetQuiet False
+    sld.Export pngPath, "PNG", 1920, 1080
+    AdoptTest = r
+    Exit Function
+Failed:
+    modRibbon.SetQuiet False
+    AdoptTest = r & "ERROR " & Err.Number & ": " & Err.Description
+End Function
+
+' The corner radius a shape actually shows, in points. SpecCornerAdjust divides
+' by the shorter side; this multiplies it back.
+Private Function CornerRadiusPt(ByVal shp As Shape) As Single
+    Dim shorter As Single
+    shorter = shp.Height
+    If shp.Width < shorter Then shorter = shp.Width
+    CornerRadiusPt = shp.Adjustments(1) * shorter
+End Function
+
+' Zero for a shape with no adjustment handles, which is the case this is for.
+Private Function AdjustmentCount(ByVal shp As Shape) As Long
+    On Error Resume Next
+    AdjustmentCount = shp.Adjustments.count
+    On Error GoTo 0
+End Function
+
+' Stylizes one shape and reports any warning it raised. Compared against the
+' previous warning rather than read outright, because LastWarning is sticky -
+' read outright it would report the last command's failure as this one's.
+Private Function StylizeAndWarn(ByVal shp As Shape) As String
+    Dim prev As String
+    prev = modRibbon.LastWarning()
+    shp.Select
+    modRibbon.DoStylize
+    If modRibbon.LastWarning() = prev Then Exit Function
+    StylizeAndWarn = modRibbon.LastWarning()
+End Function

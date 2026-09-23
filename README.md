@@ -61,6 +61,14 @@ The **Code** tab, group by group.
 | **Line numbers** | Numbers in their own shape, so the code text stays pure source. Off by default |
 | **First line** | The number the first numbered line gets. Per block |
 
+**Code that is already in a deck.** A deck written before you had the add-in
+holds its code in an ordinary text box or rectangle. Select one and press
+Stylize: it is adopted on the spot — coloured, refitted, given the block's
+rounded shape and its ground in whichever theme the deck is set to, and from
+then on every other button works on it. It keeps the font size the author
+chose, so an existing slide does not jump; use **Larger** or **Smaller** if you
+want it to match your new blocks.
+
 **Copy code is load-bearing, not a convenience.** In a transcript the block's
 text contains prompts, which are not code. Copy code strips them and drops the
 output lines, so what you paste is what you would run. That is where the
