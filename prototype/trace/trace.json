@@ -1,0 +1,218 @@
+{
+ "source": "def total(nums):\n    s = 0\n    for n in nums:\n        s = s + n\n    return s\n\nxs = [3, 1, 4]\nt = total(xs)\nprint(t)\n",
+ "names": [
+  "s",
+  "n",
+  "t"
+ ],
+ "steps": [
+  {
+   "line": 1,
+   "func": "<module>",
+   "vars": {
+    "s": null,
+    "n": null,
+    "t": null
+   },
+   "out": ""
+  },
+  {
+   "line": 7,
+   "func": "<module>",
+   "vars": {
+    "s": null,
+    "n": null,
+    "t": null
+   },
+   "out": ""
+  },
+  {
+   "line": 8,
+   "func": "<module>",
+   "vars": {
+    "s": null,
+    "n": null,
+    "t": null
+   },
+   "out": ""
+  },
+  {
+   "line": 2,
+   "func": "total",
+   "vars": {
+    "s": null,
+    "n": null,
+    "t": null
+   },
+   "out": ""
+  },
+  {
+   "line": 3,
+   "func": "total",
+   "vars": {
+    "s": {
+     "repr": "0",
+     "id": 11370064
+    },
+    "n": null,
+    "t": null
+   },
+   "out": ""
+  },
+  {
+   "line": 4,
+   "func": "total",
+   "vars": {
+    "s": {
+     "repr": "0",
+     "id": 11370064
+    },
+    "n": {
+     "repr": "3",
+     "id": 11370160
+    },
+    "t": null
+   },
+   "out": ""
+  },
+  {
+   "line": 3,
+   "func": "total",
+   "vars": {
+    "s": {
+     "repr": "3",
+     "id": 11370160
+    },
+    "n": {
+     "repr": "3",
+     "id": 11370160
+    },
+    "t": null
+   },
+   "out": ""
+  },
+  {
+   "line": 4,
+   "func": "total",
+   "vars": {
+    "s": {
+     "repr": "3",
+     "id": 11370160
+    },
+    "n": {
+     "repr": "1",
+     "id": 11370096
+    },
+    "t": null
+   },
+   "out": ""
+  },
+  {
+   "line": 3,
+   "func": "total",
+   "vars": {
+    "s": {
+     "repr": "4",
+     "id": 11370192
+    },
+    "n": {
+     "repr": "1",
+     "id": 11370096
+    },
+    "t": null
+   },
+   "out": ""
+  },
+  {
+   "line": 4,
+   "func": "total",
+   "vars": {
+    "s": {
+     "repr": "4",
+     "id": 11370192
+    },
+    "n": {
+     "repr": "4",
+     "id": 11370192
+    },
+    "t": null
+   },
+   "out": ""
+  },
+  {
+   "line": 3,
+   "func": "total",
+   "vars": {
+    "s": {
+     "repr": "8",
+     "id": 11370320
+    },
+    "n": {
+     "repr": "4",
+     "id": 11370192
+    },
+    "t": null
+   },
+   "out": ""
+  },
+  {
+   "line": 5,
+   "func": "total",
+   "vars": {
+    "s": {
+     "repr": "8",
+     "id": 11370320
+    },
+    "n": {
+     "repr": "4",
+     "id": 11370192
+    },
+    "t": null
+   },
+   "out": ""
+  },
+  {
+   "line": 8,
+   "func": "total",
+   "ret": "8",
+   "vars": {
+    "s": {
+     "repr": "8",
+     "id": 11370320
+    },
+    "n": {
+     "repr": "4",
+     "id": 11370192
+    },
+    "t": null
+   },
+   "out": ""
+  },
+  {
+   "line": 9,
+   "func": "<module>",
+   "vars": {
+    "s": null,
+    "n": null,
+    "t": {
+     "repr": "8",
+     "id": 11370320
+    }
+   },
+   "out": ""
+  },
+  {
+   "line": 0,
+   "func": "<end>",
+   "vars": {
+    "s": null,
+    "n": null,
+    "t": {
+     "repr": "8",
+     "id": 11370320
+    }
+   },
+   "out": "8\n"
+  }
+ ]
+}

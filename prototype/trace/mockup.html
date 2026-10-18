@@ -1,0 +1,363 @@
+<title>Trace Mockup</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<style>
+/* Layout: a control bar, then one 16:9 slide stage scaled to the width, then the step strip.
+   The stage uses the add-in's own palette (modTheme) and geometry (modSpec), in points. */
+:root {
+  --bg: #f7f7f5; --fg: #1f2328; --muted: #6e7781; --surface: #ffffff; --line: #d0d7de;
+  --accent: #1f6fb2; --accent-fg: #ffffff;
+  --font-ui: "Segoe UI", system-ui, -apple-system, sans-serif;
+  --font-code: Consolas, "Cascadia Mono", "DejaVu Sans Mono", Menlo, monospace;
+  --font-note: Calibri, Carlito, "Segoe UI", sans-serif;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #161719; --fg: #e6e6e3; --muted: #9a9ea5; --surface: #202225; --line: #3a3d42;
+    --accent: #4f9ee0; --accent-fg: #0d0d0d; color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #161719; --fg: #e6e6e3; --muted: #9a9ea5; --surface: #202225; --line: #3a3d42;
+  --accent: #4f9ee0; --accent-fg: #0d0d0d; color-scheme: dark;
+}
+body { background: var(--bg); color: var(--fg); font-family: var(--font-ui); font-size: 14px;
+  padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px));
+  padding-block: 20px 40px; }
+main { max-width: 1100px; margin: 0 auto; display: grid; gap: 16px; }
+h1 { font-size: 20px; font-weight: 600; margin: 0; text-wrap: balance; }
+.lede { color: var(--muted); margin: 4px 0 0; max-width: 65ch; line-height: 1.45; }
+
+.controls { display: flex; flex-wrap: wrap; gap: 10px 22px; align-items: flex-end; }
+.ctl { display: grid; gap: 4px; }
+.ctl > span { font-size: 11px; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); }
+.seg { display: inline-flex; border: 1px solid var(--line); border-radius: 6px; overflow: hidden; background: var(--surface); }
+.seg button { font: inherit; font-size: 13px; padding: 6px 11px; border: 0; background: transparent; color: var(--fg); cursor: pointer; }
+.seg button + button { border-left: 1px solid var(--line); }
+.seg button[aria-pressed="true"] { background: var(--accent); color: var(--accent-fg); }
+.seg button:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
+
+.stagewrap { width: 100%; aspect-ratio: 16 / 9; max-width: 100%; position: relative; overflow: hidden;
+  border: 1px solid var(--line); border-radius: 4px; background: #ffffff; }
+.stage { position: absolute; left: 0; top: 0; width: 960px; height: 540px; transform-origin: 0 0;
+  background: #ffffff; font-family: var(--font-code); }
+.stage * { box-sizing: border-box; }
+.stage.light { --blk: #f6f8fa; --blk-edge: #d0d7de; --txt: #1f2328; --band: #e9ebee; --note: #f2f2ef; --note-fg: #1a1a1a;
+  --out: #edeff1; --out-edge: #afb8c1; --out-fg: #1f2328; --mark: #04752e; --leader: #8c959f; --gutter: #6e7781;
+  --c-comment: #5d666f; --c-string: #0a3069; --c-number: #0550ae; --c-kwc: #c71629; --c-kwd: #c71629;
+  --c-func: #7645d3; --c-class: #953800; --c-var: #1f2328; --c-b1: #0061cb; --c-b2: #04752e; --c-b3: #895b00; }
+.stage.dark { --blk: #1f1f1f; --blk-edge: #1f1f1f; --txt: #d4d4d4; --band: #3a4452; --note: #3a4452; --note-fg: #ebebeb;
+  --out: #181818; --out-edge: #5a5a5a; --out-fg: #cccccc; --mark: #87c76b; --leader: #858585; --gutter: #858585;
+  --c-comment: #87c76b; --c-string: #ce9178; --c-number: #b5cea8; --c-kwc: #c586c0; --c-kwd: #569cd6;
+  --c-func: #dcdcaa; --c-class: #4ec9b0; --c-var: #d4d4d4; --c-b1: #ffd700; --c-b2: #da70d6; --c-b3: #179fff; }
+
+.block { position: absolute; background: var(--blk); border: 1px solid var(--blk-edge); color: var(--txt);
+  font-size: 22px; line-height: 26.4px; white-space: pre; border-radius: 8px; padding: 14px; }
+.ln { position: relative; height: 26.4px; }
+.ln.dim { opacity: .42; }
+.ln.cur { font-weight: 700; }
+.ln.band::before { content: ""; position: absolute; left: -14px; right: -14px; top: 0; bottom: 0; background: var(--band); z-index: 0; }
+.ln > span { position: relative; z-index: 1; }
+.ghost { color: var(--c-comment); font-weight: 400; opacity: .9; }
+.tk-comment { color: var(--c-comment); } .tk-string { color: var(--c-string); } .tk-number { color: var(--c-number); }
+.tk-kwc { color: var(--c-kwc); } .tk-kwd { color: var(--c-kwd); } .tk-func { color: var(--c-func); }
+.tk-class { color: var(--c-class); } .tk-b1 { color: var(--c-b1); } .tk-b2 { color: var(--c-b2); } .tk-b3 { color: var(--c-b3); }
+
+.arrow { position: absolute; height: 0; }
+.arrow svg { display: block; overflow: visible; }
+
+.panel { position: absolute; background: var(--blk); border: 1px solid var(--blk-edge); color: var(--txt); border-radius: 8px;
+  padding: 10px 14px 12px; font-size: 22px; line-height: 30px; min-width: 190px; }
+.panel .hdr { font-family: var(--font-note); font-size: 15px; color: var(--gutter); line-height: 20px; margin-bottom: 4px; }
+.panel .row { display: grid; grid-template-columns: auto 1fr; gap: 0 14px; padding: 0 8px; margin: 0 -8px; border-radius: 4px; white-space: pre; }
+.panel .row.changed { background: var(--band); }
+.panel .row .v.absent { color: var(--gutter); font-style: italic; font-size: 17px; }
+
+.note { position: absolute; background: var(--note); color: var(--note-fg); font-family: var(--font-note); font-size: 24px;
+  line-height: 30px; padding: 12px 18px; border-radius: 8px; white-space: pre; }
+.note .absent { opacity: .55; font-style: italic; font-size: 19px; }
+.leader { position: absolute; height: 0; border-top: 1.5px solid var(--leader); }
+
+.outnote { position: absolute; background: var(--out); border: 1px solid var(--out-edge); color: var(--out-fg); border-radius: 8px;
+  padding: 12px 18px 12px 46px; font-size: 22px; line-height: 26.4px; white-space: pre; min-width: 190px; }
+.outnote::before { content: "\2192"; color: var(--mark); position: absolute; left: 16px; top: 12px; }
+.outnote .empty { color: var(--gutter); font-style: italic; font-size: 17px; }
+
+.nav { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+.nav button { font: inherit; font-size: 13px; padding: 6px 14px; border: 1px solid var(--line); border-radius: 6px;
+  background: var(--surface); color: var(--fg); cursor: pointer; }
+.nav button:focus-visible { outline: 2px solid var(--accent); }
+.count { font-variant-numeric: tabular-nums; }
+.count b { font-weight: 600; }
+.hint { color: var(--muted); font-size: 12px; margin-left: auto; }
+
+.strip { display: flex; flex-wrap: wrap; gap: 4px; }
+.strip button { font: inherit; font-family: var(--font-code); font-size: 12px; min-width: 30px; padding: 4px 6px;
+  border: 1px solid var(--line); border-radius: 4px; background: var(--surface); color: var(--muted); cursor: pointer;
+  font-variant-numeric: tabular-nums; }
+.strip button[aria-current="true"] { background: var(--accent); color: var(--accent-fg); border-color: var(--accent); }
+.strip button:focus-visible { outline: 2px solid var(--accent); }
+.striplabel { font-size: 11px; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); }
+
+.facts { color: var(--muted); font-size: 13px; line-height: 1.5; max-width: 70ch; }
+.facts code { font-family: var(--font-code); font-size: 12px; }
+@media (prefers-reduced-motion: no-preference) { .seg button, .nav button { transition: background .12s; } }
+</style>
+
+<main>
+  <div>
+    <h1>Trace walkthrough mockup</h1>
+    <p class="lede">The program on the slide was run once under a tracer. Every slide below comes from that run. Change a switch and the deck regenerates. Arrow keys move between slides.</p>
+  </div>
+
+  <div class="controls" id="controls">
+    <div class="ctl"><span>Where the values show</span>
+      <div class="seg" data-key="readout">
+        <button aria-pressed="true" value="panel">Fixed panel</button>
+        <button aria-pressed="false" value="note">Note on the line</button>
+        <button aria-pressed="false" value="ghost">Inline, after the line</button>
+      </div></div>
+    <div class="ctl"><span>Which steps get a slide</span>
+      <div class="seg" data-key="stops">
+        <button aria-pressed="true" value="all">Every executed line</button>
+        <button aria-pressed="false" value="selected">Selected lines (3–4)</button>
+        <button aria-pressed="false" value="changes">Only when a value changes</button>
+      </div></div>
+    <div class="ctl"><span>Values shown are</span>
+      <div class="seg" data-key="timing">
+        <button aria-pressed="false" value="before">Before the line runs</button>
+        <button aria-pressed="true" value="after">After the line runs</button>
+      </div></div>
+    <div class="ctl"><span>Marking</span>
+      <div class="seg" data-key="mark">
+        <button aria-pressed="true" value="arrow">Arrow</button>
+        <button aria-pressed="false" value="band">Band</button>
+      </div></div>
+    <div class="ctl"><span>Output so far</span>
+      <div class="seg" data-key="output">
+        <button aria-pressed="true" value="on">Shown</button>
+        <button aria-pressed="false" value="off">Hidden</button>
+      </div></div>
+    <div class="ctl"><span>Theme</span>
+      <div class="seg" data-key="theme">
+        <button aria-pressed="true" value="dark">Dark</button>
+        <button aria-pressed="false" value="light">Light</button>
+      </div></div>
+  </div>
+
+  <div class="stagewrap" id="stagewrap"><div class="stage dark" id="stage"></div></div>
+
+  <div class="nav">
+    <button id="prev" type="button">Previous</button>
+    <button id="next" type="button">Next</button>
+    <span class="count" id="count"></span>
+    <span class="hint" id="hint"></span>
+  </div>
+
+  <div>
+    <div class="striplabel">Line each slide is about, in execution order</div>
+    <div class="strip" id="strip"></div>
+  </div>
+
+  <p class="facts" id="facts"></p>
+</main>
+
+<script>
+// ---- the trace, as the tracer prototype emitted it (line events, before each line runs) ----
+const SOURCE = [
+  "def total(nums):",
+  "    s = 0",
+  "    for n in nums:",
+  "        s = s + n",
+  "    return s",
+  "",
+  "xs = [3, 1, 4]",
+  "t = total(xs)",
+  "print(t)",
+];
+const NAMES = ["s", "n", "t"];
+const N = null;
+const RAW = [
+  {line:1, func:"<module>", vars:{s:N, n:N, t:N}, out:""},
+  {line:7, func:"<module>", vars:{s:N, n:N, t:N}, out:""},
+  {line:8, func:"<module>", vars:{s:N, n:N, t:N}, out:""},
+  {line:2, func:"total",    vars:{s:N, n:N, t:N}, out:""},
+  {line:3, func:"total",    vars:{s:"0", n:N, t:N}, out:""},
+  {line:4, func:"total",    vars:{s:"0", n:"3", t:N}, out:""},
+  {line:3, func:"total",    vars:{s:"3", n:"3", t:N}, out:""},
+  {line:4, func:"total",    vars:{s:"3", n:"1", t:N}, out:""},
+  {line:3, func:"total",    vars:{s:"4", n:"1", t:N}, out:""},
+  {line:4, func:"total",    vars:{s:"4", n:"4", t:N}, out:""},
+  {line:3, func:"total",    vars:{s:"8", n:"4", t:N}, out:""},
+  {line:5, func:"total",    vars:{s:"8", n:"4", t:N}, out:""},
+  {line:8, func:"total",    ret:"8", vars:{s:"8", n:"4", t:N}, out:""},
+  {line:9, func:"<module>", vars:{s:N, n:N, t:"8"}, out:""},
+  {line:0, func:"<end>",    vars:{s:N, n:N, t:"8"}, out:"8\n"},
+];
+
+// ---- geometry from modSpec, at 22pt ----
+const SIZE = 22, LINE = SIZE * 1.2, PAD = SIZE * 0.64, CHARW = SIZE * 0.55, RADIUS = SIZE * 0.36;
+const BLOCK_L = 60, BLOCK_T = 76;
+const maxChars = Math.max(...SOURCE.map(s => s.length));
+const BLOCK_W = PAD * 2 + maxChars * CHARW;
+const BLOCK_H = PAD * 2 + SOURCE.length * LINE;
+
+const state = { readout: "panel", stops: "all", timing: "after", mark: "arrow", output: "on", theme: "dark", k: 0 };
+
+// ---- slides derived from the trace under the current switches ----
+function buildSlides() {
+  let slides = [];
+  for (let i = 0; i < RAW.length; i++) {
+    const r = RAW[i];
+    if (r.line === 0) { slides.push({ line: 0, func: r.func, vars: r.vars, out: r.out }); break; }
+    // The state shown is the one captured at this event, or at the next one
+    // when the values are "after". The scope label follows the state shown.
+    const src = state.timing === "after" ? RAW[i + 1] : r;
+    slides.push({ line: r.line, func: src.func, ret: src.ret, vars: src.vars, out: src.out });
+  }
+  if (state.stops === "selected") {
+    slides = slides.filter(s => s.line === 0 || (s.line >= 3 && s.line <= 4));
+  } else if (state.stops === "changes") {
+    const kept = []; let prev = null;
+    slides.forEach((s, i) => {
+      const changed = !prev || NAMES.some(n => prev.vars[n] !== s.vars[n]) || prev.out !== s.out;
+      if (changed || s.line === 0 || i === 0) { kept.push(s); prev = s; }
+    });
+    slides = kept;
+  }
+  return slides;
+}
+
+// ---- a small tokenizer for the block, enough for this program ----
+const KWC = new Set(["for","in","return","if","else","elif","while","break","continue","pass","import","from","with","as","try","except"]);
+const KWD = new Set(["def","class","lambda","None","True","False","and","or","not","is"]);
+function esc(s) { return s.replace(/&/g,"&amp;").replace(/</g,"&lt;"); }
+function colour(line) {
+  let out = "", depth = 0, i = 0;
+  while (i < line.length) {
+    const ch = line[i];
+    if (ch === "#") { out += `<span class="tk-comment">${esc(line.slice(i))}</span>`; break; }
+    if (ch === "'" || ch === '"') { let j = line.indexOf(ch, i + 1); if (j < 0) j = line.length - 1; out += `<span class="tk-string">${esc(line.slice(i, j + 1))}</span>`; i = j + 1; continue; }
+    if (/[0-9]/.test(ch)) { let j = i; while (j < line.length && /[0-9.]/.test(line[j])) j++; out += `<span class="tk-number">${line.slice(i, j)}</span>`; i = j; continue; }
+    if (/[A-Za-z_]/.test(ch)) {
+      let j = i; while (j < line.length && /[A-Za-z0-9_]/.test(line[j])) j++;
+      const w = line.slice(i, j);
+      let cls = "";
+      if (KWC.has(w)) cls = "tk-kwc"; else if (KWD.has(w)) cls = "tk-kwd"; else if (line[j] === "(") cls = "tk-func";
+      out += cls ? `<span class="${cls}">${w}</span>` : w; i = j; continue;
+    }
+    if ("([{".includes(ch)) { out += `<span class="tk-b${depth % 3 + 1}">${ch}</span>`; depth++; i++; continue; }
+    if (")]}".includes(ch)) { depth = Math.max(0, depth - 1); out += `<span class="tk-b${depth % 3 + 1}">${ch}</span>`; i++; continue; }
+    out += esc(ch); i++;
+  }
+  return out;
+}
+
+function fmt(v) { return v === null ? `<span class="absent">not defined</span>` : esc(v); }
+
+function render() {
+  const slides = buildSlides();
+  if (state.k >= slides.length) state.k = slides.length - 1;
+  const s = slides[state.k];
+  const prev = state.k > 0 ? slides[state.k - 1] : null;
+  const stage = document.getElementById("stage");
+  stage.className = "stage " + state.theme;
+  let html = "";
+
+  // the block
+  const lineY = n => BLOCK_T + PAD + (n - 1) * LINE;
+  html += `<div class="block" style="left:${BLOCK_L}px;top:${BLOCK_T}px;width:${BLOCK_W}px;height:${BLOCK_H}px;border-radius:${RADIUS}px">`;
+  SOURCE.forEach((text, i) => {
+    const n = i + 1, cur = n === s.line;
+    let cls = "ln";
+    if (cur) cls += " cur" + (state.mark === "band" ? " band" : "");
+    else if (state.mark === "band" && s.line !== 0) cls += " dim";
+    let ghost = "";
+    if (cur && state.readout === "ghost") {
+      const shown = NAMES.filter(nm => s.vars[nm] !== null).map(nm => `${nm} = ${s.vars[nm]}`);
+      if (s.ret !== undefined) shown.push(`returned ${s.ret}`);
+      ghost = `<span class="ghost">   # ${shown.length ? esc(shown.join(", ")) : "nothing defined yet"}</span>`;
+    }
+    html += `<div class="${cls}"><span>${colour(text)}</span>${ghost}</div>`;
+  });
+  html += `</div>`;
+
+  // arrow in the left margin, sized from the line
+  if (state.mark === "arrow" && s.line !== 0) {
+    const ah = LINE * 0.7, aw = BLOCK_L - 18, y = lineY(s.line) + LINE / 2;
+    html += `<div class="arrow" style="left:10px;top:${y}px"><svg width="${aw}" height="${ah}" viewBox="0 0 ${aw} ${ah}" style="margin-top:${-ah/2}px">
+      <path d="M0 ${ah*0.28} H${aw*0.6} V0 L${aw} ${ah/2} L${aw*0.6} ${ah} V${ah*0.72} H0 Z" fill="#1f6fb2"/></svg></div>`;
+  }
+
+  // the readout
+  const gap = 30, rightX = BLOCK_L + BLOCK_W + gap;
+  let belowY = BLOCK_T;
+  if (state.readout === "panel") {
+    const scope = s.ret !== undefined ? `${s.func}() returned ${esc(s.ret)}`
+      : s.func === "<end>" ? "program finished" : s.func === "<module>" ? "at top level" : `inside ${s.func}()`;
+    html += `<div class="panel" style="left:${rightX}px;top:${BLOCK_T}px"><div class="hdr">${scope}</div>`;
+    NAMES.forEach(nm => {
+      const changed = prev && prev.vars[nm] !== s.vars[nm];
+      html += `<div class="row${changed ? " changed" : ""}"><span class="n">${nm}</span><span class="v${s.vars[nm] === null ? " absent" : ""}">${fmt(s.vars[nm])}</span></div>`;
+    });
+    html += `</div>`;
+    belowY = BLOCK_T + 20 + 4 + NAMES.length * 30 + 12 + 24;
+  } else if (state.readout === "note" && s.line !== 0) {
+    const y = lineY(s.line);
+    const shown = NAMES.filter(nm => s.vars[nm] !== null).map(nm => `${nm} = ${esc(s.vars[nm])}`);
+    if (s.ret !== undefined) shown.push(`returned ${esc(s.ret)}`);
+    const body = shown.length ? shown.join("   ") : `<span class="absent">nothing defined yet</span>`;
+    html += `<div class="leader" style="left:${BLOCK_L + BLOCK_W}px;top:${y + LINE/2}px;width:${gap}px"></div>`;
+    html += `<div class="note" style="left:${rightX}px;top:${y + LINE/2 - 27}px">${body}</div>`;
+    belowY = Math.max(BLOCK_T, y + LINE/2 + 27 + 24);
+  }
+
+  // output so far, dressed as a terminal
+  if (state.output === "on") {
+    const lines = s.out.replace(/\n$/, "");
+    const body = lines.length ? esc(lines) : `<span class="empty">nothing printed yet</span>`;
+    const y = state.readout === "ghost" ? BLOCK_T : belowY;
+    html += `<div class="outnote" style="left:${rightX}px;top:${y}px">${body}</div>`;
+  }
+
+  stage.innerHTML = html;
+
+  // counter, strip, facts
+  const total = slides.length;
+  document.getElementById("count").innerHTML = `Slide <b>${state.k + 1}</b> of <b>${total}</b>` +
+    (s.line === 0 ? " (closing slide, nothing marked)" : ` (line ${s.line})`);
+  const walk = SOURCE.filter(t => t.trim().length).length;
+  document.getElementById("hint").textContent = `Step through today would make ${walk} slides for this block.`;
+  const strip = document.getElementById("strip");
+  strip.innerHTML = slides.map((sl, i) => `<button type="button" data-i="${i}" aria-current="${i === state.k}">${sl.line === 0 ? "end" : sl.line}</button>`).join("");
+  document.getElementById("prev").disabled = state.k === 0;
+  document.getElementById("next").disabled = state.k === total - 1;
+
+  document.getElementById("facts").innerHTML =
+    `Watched names: <code>s</code>, <code>n</code>, <code>t</code>. The run produced ${RAW.length - 2} line events and one return. ` +
+    `The def line counts as a step, the loop head is visited four times, and the return gets a step of its own, pointing back at the call with the function's locals still alive. ` +
+    `A value that differs from the previous slide gets a band in the panel.`;
+}
+
+function fit() {
+  const wrap = document.getElementById("stagewrap");
+  document.getElementById("stage").style.transform = `scale(${wrap.clientWidth / 960})`;
+}
+
+document.getElementById("controls").addEventListener("click", e => {
+  const b = e.target.closest("button"); if (!b) return;
+  const seg = b.parentElement; const key = seg.dataset.key;
+  seg.querySelectorAll("button").forEach(x => x.setAttribute("aria-pressed", x === b));
+  state[key] = b.value;
+  render();
+});
+document.getElementById("prev").addEventListener("click", () => { state.k = Math.max(0, state.k - 1); render(); });
+document.getElementById("next").addEventListener("click", () => { state.k = Math.min(buildSlides().length - 1, state.k + 1); render(); });
+document.getElementById("strip").addEventListener("click", e => { const b = e.target.closest("button"); if (!b) return; state.k = +b.dataset.i; render(); });
+document.addEventListener("keydown", e => {
+  if (e.target.tagName === "INPUT") return;
+  if (e.key === "ArrowRight" || e.key === " ") { e.preventDefault(); document.getElementById("next").click(); }
+  if (e.key === "ArrowLeft") { e.preventDefault(); document.getElementById("prev").click(); }
+});
+window.addEventListener("resize", fit);
+fit(); render();
+</script>
